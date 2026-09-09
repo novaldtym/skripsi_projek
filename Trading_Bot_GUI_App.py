@@ -324,14 +324,20 @@ class TradingBotGUI:
             return
 
         try:
+            env = os.environ.copy()
+            env["PYTHONIOENCODING"] = "utf-8"
+            env["PYTHONUTF8"] = "1"
             self.proc_m15 = subprocess.Popen(
                 [PYTHON_EXE, "-u", SCRIPT_M15],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 cwd=BASE_DIR,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 bufsize=1,
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0,
+                env=env
             )
             threading.Thread(target=self.reader_thread, args=(self.proc_m15, self.queue_m15), daemon=True).start()
 
@@ -342,19 +348,29 @@ class TradingBotGUI:
         except Exception as e:
             messagebox.showerror("Error", f"Gagal menyalakan Bot M15: {e}")
 
-    def stop_bot_m15(self):
-        if self.proc_m15 is not None and self.proc_m15.poll() is None:
-            try:
-                self.proc_m15.terminate()
-                self.proc_m15.wait(timeout=2)
-            except Exception:
-                self.proc_m15.kill()
+    def stop_bot_m15(self, manual=True):
+        exit_code = None
+        if self.proc_m15 is not None:
+            exit_code = self.proc_m15.poll()
+            if exit_code is None:
+                try:
+                    self.proc_m15.terminate()
+                    self.proc_m15.wait(timeout=2)
+                except Exception:
+                    try:
+                        self.proc_m15.kill()
+                    except Exception:
+                        pass
+                exit_code = self.proc_m15.poll()
 
         self.proc_m15 = None
         self.m15_status_badge.config(text="○ STATUS: NONAKTIF / STANDBY", fg="#ef4444", bg="#223049")
         self.btn_start_m15.config(state="normal", bg="#10b981")
         self.btn_stop_m15.config(state="disabled", bg="#7f1d1d")
-        self.append_log(self.log_text_m15, "\n🛑 [SYSTEM] Bot M15 Telah Dihentikan oleh Pengguna.\n", "red")
+        if manual:
+            self.append_log(self.log_text_m15, "\n🛑 [SYSTEM] Bot M15 Telah Dihentikan oleh Pengguna.\n", "red")
+        else:
+            self.append_log(self.log_text_m15, f"\n⚠️ [SYSTEM] Bot M15 Terhenti Otomatis (Exit Code: {exit_code}).\n", "yellow")
 
     def start_bot_m5(self):
         if self.proc_m5 is not None and self.proc_m5.poll() is None:
@@ -362,14 +378,20 @@ class TradingBotGUI:
             return
 
         try:
+            env = os.environ.copy()
+            env["PYTHONIOENCODING"] = "utf-8"
+            env["PYTHONUTF8"] = "1"
             self.proc_m5 = subprocess.Popen(
                 [PYTHON_EXE, "-u", SCRIPT_M5],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 cwd=BASE_DIR,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 bufsize=1,
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0,
+                env=env
             )
             threading.Thread(target=self.reader_thread, args=(self.proc_m5, self.queue_m5), daemon=True).start()
 
@@ -380,19 +402,29 @@ class TradingBotGUI:
         except Exception as e:
             messagebox.showerror("Error", f"Gagal menyalakan Bot M5: {e}")
 
-    def stop_bot_m5(self):
-        if self.proc_m5 is not None and self.proc_m5.poll() is None:
-            try:
-                self.proc_m5.terminate()
-                self.proc_m5.wait(timeout=2)
-            except Exception:
-                self.proc_m5.kill()
+    def stop_bot_m5(self, manual=True):
+        exit_code = None
+        if self.proc_m5 is not None:
+            exit_code = self.proc_m5.poll()
+            if exit_code is None:
+                try:
+                    self.proc_m5.terminate()
+                    self.proc_m5.wait(timeout=2)
+                except Exception:
+                    try:
+                        self.proc_m5.kill()
+                    except Exception:
+                        pass
+                exit_code = self.proc_m5.poll()
 
         self.proc_m5 = None
         self.m5_status_badge.config(text="○ STATUS: NONAKTIF / STANDBY", fg="#ef4444", bg="#223049")
         self.btn_start_m5.config(state="normal", bg="#10b981")
         self.btn_stop_m5.config(state="disabled", bg="#7f1d1d")
-        self.append_log(self.log_text_m5, "\n🛑 [SYSTEM] Bot M5 Telah Dihentikan oleh Pengguna.\n", "red")
+        if manual:
+            self.append_log(self.log_text_m5, "\n🛑 [SYSTEM] Bot M5 Telah Dihentikan oleh Pengguna.\n", "red")
+        else:
+            self.append_log(self.log_text_m5, f"\n⚠️ [SYSTEM] Bot M5 Terhenti Otomatis (Exit Code: {exit_code}).\n", "yellow")
 
     def reader_thread(self, proc, out_queue):
         try:
@@ -400,10 +432,13 @@ class TradingBotGUI:
                 if not line:
                     break
                 out_queue.put(line)
-        except Exception:
-            pass
+        except Exception as e:
+            out_queue.put(f"⚠️ [SYSTEM LOG ERROR] Reader thread error: {e}\n")
         finally:
-            proc.stdout.close()
+            try:
+                proc.stdout.close()
+            except Exception:
+                pass
 
     def process_log_queues(self):
         # Proses antrian log M15
@@ -413,7 +448,7 @@ class TradingBotGUI:
 
         # Cek jika proses M15 tiba-tiba keluar
         if self.proc_m15 is not None and self.proc_m15.poll() is not None:
-            self.stop_bot_m15()
+            self.stop_bot_m15(manual=False)
 
         # Proses antrian log M5
         while not self.queue_m5.empty():
@@ -422,12 +457,12 @@ class TradingBotGUI:
 
         # Cek jika proses M5 tiba-tiba keluar
         if self.proc_m5 is not None and self.proc_m5.poll() is not None:
-            self.stop_bot_m5()
+            self.stop_bot_m5(manual=False)
 
         self.root.after(100, self.process_log_queues)
 
     def parse_and_insert_log(self, text_widget, raw_line):
-        # Jika carriage return '\r' dari baris countdown timer
+        is_carriage = raw_line.startswith('\r') or raw_line.startswith('⏳ [')
         clean_text = ANSI_PATTERN.sub('', raw_line)
         
         # Deteksi tag warna
@@ -441,7 +476,20 @@ class TradingBotGUI:
         elif "SYNC" in clean_text or "INFO" in clean_text or "AUDIT" in clean_text or "🔄" in clean_text:
             tag = "cyan"
 
-        # Update tampilan
+        if is_carriage:
+            clean_text = clean_text.lstrip('\r').strip() + "\n"
+            try:
+                last_line_idx = text_widget.index("end-1c linestart")
+                last_line_text = text_widget.get(last_line_idx, "end-1c")
+                if "⏳" in last_line_text:
+                    text_widget.delete(last_line_idx, "end")
+            except Exception:
+                pass
+            text_widget.insert(tk.END, clean_text, tag)
+            text_widget.see(tk.END)
+            return
+
+        # Update tampilan normal
         text_widget.insert(tk.END, clean_text, tag)
         text_widget.see(tk.END)
 

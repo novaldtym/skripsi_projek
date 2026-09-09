@@ -14,18 +14,20 @@ from Auto_Logger_Forward_Testing import sync_mt5_trades_to_excel
 # Proteksi Single Instance: Mencegah 2 script berjalan sekaligus
 try:
     _lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    _lock_socket.bind(("127.0.0.1", 54320))
+    _lock_socket.bind(("127.0.0.1", 41230))
 except socket.error:
     print("\n❌ [SINGLE INSTANCE PROTECTION] Bot M15 sudah berjalan di proses lain!")
     print("Mencegah eksekusi ganda yang dapat menyebabkan over-trading.")
     sys.exit(0)
 
 os.system('') # Aktifkan ANSI escape Virtual Terminal di Windows CMD
-if sys.stdout.encoding.lower() != 'utf-8':
-    try:
-        sys.stdout.reconfigure(encoding='utf-8')
-    except Exception:
-        pass
+try:
+    if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
 
 # =========================================================================
 # 🎨 KODE WARNA TERMINAL ANSI (Kuning=Netral, Hijau=Buy, Merah=Sell)

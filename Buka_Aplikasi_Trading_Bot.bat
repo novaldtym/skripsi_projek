@@ -2,6 +2,10 @@
 title AI Trading Bot GUI Launcher
 cd /d "%~dp0"
 
+:: Set encoding lingkungan ke UTF-8
+set PYTHONIOENCODING=utf-8
+set PYTHONUTF8=1
+
 :: Jalankan Aplikasi Desktop GUI menggunakan pythonw (tanpa jendela CMD hitam)
 set PYTHONW_EXE=C:\Users\nouval\AppData\Local\Programs\Python\Python313\pythonw.exe
 if not exist "%PYTHONW_EXE%" set PYTHONW_EXE=pythonw
