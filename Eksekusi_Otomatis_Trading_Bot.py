@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import socket
 import joblib
 import pandas as pd
 import numpy as np
@@ -9,6 +10,15 @@ from datetime import datetime, timedelta
 import MetaTrader5 as mt5
 
 from Auto_Logger_Forward_Testing import sync_mt5_trades_to_excel
+
+# Proteksi Single Instance: Mencegah 2 script berjalan sekaligus
+try:
+    _lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    _lock_socket.bind(("127.0.0.1", 54320))
+except socket.error:
+    print("\n❌ [SINGLE INSTANCE PROTECTION] Bot M15 sudah berjalan di proses lain!")
+    print("Mencegah eksekusi ganda yang dapat menyebabkan over-trading.")
+    sys.exit(0)
 
 os.system('') # Aktifkan ANSI escape Virtual Terminal di Windows CMD
 if sys.stdout.encoding.lower() != 'utf-8':

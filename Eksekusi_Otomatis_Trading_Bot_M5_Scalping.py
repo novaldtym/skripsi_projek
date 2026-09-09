@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import socket
 import joblib
 import pandas as pd
 import numpy as np
@@ -9,6 +10,15 @@ from datetime import datetime, timedelta
 import MetaTrader5 as mt5
 
 from Auto_Logger_Forward_Testing import sync_mt5_trades_to_excel
+
+# Proteksi Single Instance: Mencegah 2 script berjalan sekaligus
+try:
+    _lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    _lock_socket.bind(("127.0.0.1", 54325))
+except socket.error:
+    print("\n❌ [SINGLE INSTANCE PROTECTION] Bot M5 sudah berjalan di proses lain!")
+    print("Mencegah eksekusi ganda yang dapat menyebabkan over-trading/drawdown.")
+    sys.exit(0)
 
 os.system('') # Aktifkan ANSI escape Virtual Terminal di Windows CMD
 if sys.stdout.encoding.lower() != 'utf-8':
@@ -28,26 +38,26 @@ COLOR_RESET  = "\033[0m"
 COLOR_BOLD   = "\033[1m"
 
 # =========================================================================
-# ⚙️ PENGATURAN ROBOT TRADING M5 FULL DYNAMIC SCALPER (AI MANAGED EXIT)
+# ⚙️ PENGATURAN ROBOT TRADING M5 SMC LEVEL BOUNCE SCALPER
 # =========================================================================
 CHOSEN_TF              = "M5"        # Timeframe Utama: M5 (5 Menit)
 FORWARD_CANDLES        = 5           # Horizon Prediksi: 5 Candle (25 menit)
 LOT_SIZE               = 0.01        # Lot Size Eksekusi
-PROB_THRESHOLD         = 58.0        # Ambang Batas Standar (Naik dari 55% ke 58% untuk membuang noise)
-PULLBACK_THRESHOLD     = 70.0        # Ambang Khusus Pullback Counter-Trend (Sinyal Sangat Kuat >= 70%)
+PROB_THRESHOLD         = 58.0        # Ambang Batas Keyakinan Model AI
 MAGIC_NUMBER           = 123235      # Magic ID Unik M5
-MAX_STACKED_POSITIONS  = 3           # Batas Maksimal Layer Posisi
+MAX_STACKED_POSITIONS  = 2           # Batas Maksimal Layer Posisi
 AUTO_EXECUTE           = True        # Eksekusi Otomatis ke MT5
 
-# --- PROXIMITY GUARD (ANTI-SELL DI DEMAND / ANTI-BUY DI RESISTANCE) ---
-PROXIMITY_GUARD        = True        # Aktifkan proteksi jarak Support / Resistance
-PROXIMITY_MIN_DIST     = 0.0020      # Minimum jarak 0.20% (~$8-$10 pada emas) dari swing low/high
+# --- SMC KEY-LEVEL & WICK REJECTION BOUNCE ENGINE ---
+ZONE_THRESHOLD         = 0.0018      # Jarak maksimal 0.18% (~$7-$8) dari Level Demand / Supply M15
+WICK_MIN_RATIO         = 0.35        # Minimal 35% ekor penolakan (Rejection Wick / Pinbar)
 
-# --- TARGET DYNAMIC REAL-TIME EXIT (BOT-MANAGED) ---
-QUICK_TP_USD           = 1.50        # Target Profit Cepat Scalping (+ $1.50 USD per posisi)
-TRAILING_TRIGGER_USD   = 1.00        # Aktifkan Trailing Lock saat profit mencapai >= +$1.00 USD
-TRAILING_LOCK_USD      = 0.60        # Kunci profit minimal +$0.60 USD jika harga berbalik retrace
-EMERGENCY_SL_USD       = 4.00        # Hard SL Pengaman Darurat di Broker (Jaring pengaman jika internet mati)
+# --- TARGET DYNAMIC REAL-TIME EXIT (SEIMBANG RRR 1:1) ---
+QUICK_TP_USD           = 2.00        # Target Profit Scalping Cepat (+ $2.00 USD per posisi)
+MAX_CUTLOSS_USD        = 1.80        # Hard Scalp Cut-Loss Otomatis (- $1.80 USD per posisi)
+TRAILING_TRIGGER_USD   = 1.20        # Aktifkan Trailing Lock saat profit mencapai >= +$1.20 USD
+TRAILING_LOCK_USD      = 0.80        # Kunci profit minimal +$0.80 USD jika harga berbalik retrace
+EMERGENCY_SL_USD       = 2.50        # Hard SL Pengaman Darurat di Broker (Jaring pengaman broker)
 
 MT5_PATH               = r"C:\Program Files\MetaTrader 5 EXNESS\terminal64.exe"
 MODEL_FILE_PATH        = r"d:\SKRIPSI INFORMATIKA\model_lightgbm_xauusd_m5.pkl"
@@ -55,8 +65,8 @@ EXCEL_M5_PATH          = r"d:\SKRIPSI INFORMATIKA\Laporan_Forward_Testing_Model_
 ORDER_COMMENT          = "LightGBM M5 Scalping"
 
 print("="*85)
-print("⚡ ROBOT TRADING M5 FULL DYNAMIC SCALPER (AI REAL-TIME EXIT & M30 MTF)")
-print("Fitur: Target Quick TP $1.50 | Smart AI Cut-Loss | Filter M30 | Magic: 123235")
+print("⚡ ROBOT TRADING M5 SMC LEVEL BOUNCE SCALPER (WICK REJECTION & DYNAMIC EXIT)")
+print(f"Fitur: Target Quick TP ${QUICK_TP_USD:.2f} | Hard Cut-Loss -${MAX_CUTLOSS_USD:.2f} | Magic: {MAGIC_NUMBER}")
 print(f"Log Excel: {EXCEL_M5_PATH}")
 print("="*85)
 
@@ -134,7 +144,8 @@ def close_position_market(pos, comment_reason="Bot Scalp Close"):
                 comment_filter=None,
                 model_label="LightGBM M5 Dynamic Scalper",
                 sheet_title="Trade Log M5 Scalping",
-                threshold_label=">= 58.0% + Dynamic AI Exit ($1.50 TP / AI Cut-Loss)"
+                threshold_label="SMC Level Bounce (TP $2.00 / Cut-Loss $1.80)",
+                silent=True
             )
         except Exception:
             pass
@@ -149,9 +160,10 @@ peak_profits = {}
 def manage_open_positions(latest_prob_up=50.0, latest_prob_down=50.0):
     """
     Pemantauan Real-Time Setiap Detik:
-    1. Quick Scalp TP (Amankan profit saat floating >= +$1.50 USD)
-    2. Trailing Profit Lock (Jika sempat >= $1.00 lalu retrace ke $0.60, kunci untung)
-    3. Smart AI Cut-Loss (Tutup dini jika prediksi candle M5 berbalik arah >= 58%)
+    1. Quick Scalp TP (Amankan profit saat floating >= +$2.00 USD)
+    2. Trailing Profit Lock (Jika sempat >= $1.20 lalu retrace turun <= $0.80)
+    3. Hard Cut-Loss Terukur (-$1.80 USD) -> Menjaga RRR 1:1 Sehat
+    4. Smart AI Cut-Loss (Jika arah prediksi berbalik tajam >= 60%)
     """
     all_positions = mt5.positions_get(symbol=symbol)
     if not all_positions:
@@ -183,42 +195,50 @@ def manage_open_positions(latest_prob_up=50.0, latest_prob_down=50.0):
             if profit_usd > peak_profits[pos.ticket]:
                 peak_profits[pos.ticket] = profit_usd
 
-        # 1. KONDISI A: Quick Scalp TP Tercapai (>= +$1.50 USD)
+        # 1. KONDISI A: Quick Scalp TP Tercapai (>= +$2.00 USD)
         if profit_usd >= QUICK_TP_USD:
             if close_position_market(pos, f"Scalp TP (+${profit_usd:.2f})"):
                 peak_profits.pop(pos.ticket, None)
                 continue
 
-        # 2. KONDISI B: Trailing Profit Lock (Pernah >= $1.00, kini retrace turun <= $0.60)
+        # 2. KONDISI B: Trailing Profit Lock (Pernah >= $1.20, kini retrace turun <= $0.80)
         if peak_profits.get(pos.ticket, 0.0) >= TRAILING_TRIGGER_USD and profit_usd <= TRAILING_LOCK_USD:
             if close_position_market(pos, f"Trailing Lock (+${profit_usd:.2f})"):
                 peak_profits.pop(pos.ticket, None)
                 continue
 
-        # 3. KONDISI C: Smart AI Early Cut-Loss (Sinyal Model M5 Berbalik Arah)
-        if pos_type == mt5.ORDER_TYPE_BUY and latest_prob_down >= PROB_THRESHOLD:
+        # 3. KONDISI C: Hard Scalp Cut-Loss Terukur (-$1.80 USD) -> Menjaga RRR 1:1 Sehat
+        if profit_usd <= -MAX_CUTLOSS_USD:
+            if close_position_market(pos, f"Scalp Cut-Loss (-${abs(profit_usd):.2f})"):
+                peak_profits.pop(pos.ticket, None)
+                continue
+
+        # 4. KONDISI D: Smart AI Early Cut-Loss (Sinyal Model M5 Berbalik Arah >= 60%)
+        if pos_type == mt5.ORDER_TYPE_BUY and latest_prob_down >= 60.0:
             if close_position_market(pos, f"AI Cut-Loss (Reversal SELL {latest_prob_down:.1f}%)"):
                 peak_profits.pop(pos.ticket, None)
                 continue
-        elif pos_type == mt5.ORDER_TYPE_SELL and latest_prob_up >= PROB_THRESHOLD:
+        elif pos_type == mt5.ORDER_TYPE_SELL and latest_prob_up >= 60.0:
             if close_position_market(pos, f"AI Cut-Loss (Reversal BUY {latest_prob_up:.1f}%)"):
                 peak_profits.pop(pos.ticket, None)
                 continue
 
 def analyze_market_and_predict():
     rates_m5  = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M5, 0, 1000)
+    rates_m15 = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M15, 0, 500)
     rates_m30 = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M30, 0, 500)
     rates_h1  = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_H1, 0, 500)
     
-    if rates_m5 is None or len(rates_m5) == 0 or rates_m30 is None or len(rates_m30) == 0 or rates_h1 is None or len(rates_h1) == 0:
+    if rates_m5 is None or len(rates_m5) == 0 or rates_h1 is None or len(rates_h1) == 0:
         print("\n⚠️ Koneksi data MT5 terputus sesaat. Mencoba Re-initialize MT5...")
         mt5.initialize(path=MT5_PATH)
         rates_m5  = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M5, 0, 1000)
+        rates_m15 = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M15, 0, 500)
         rates_m30 = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M30, 0, 500)
         rates_h1  = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_H1, 0, 500)
         if rates_m5 is None or len(rates_m5) == 0:
             print("❌ Gagal menarik data M5 dari MT5. Melewati candle ini...")
-            return 50.0, 50.0, False, False, 5.0, 0.0, 0.0, 0.01, 0.01
+            return 50.0, 50.0, False, False, 5.0, 0.0, 0.0, 0.01, 0.01, 0.0, 0.0, False, False, 0.0, 0.0
 
     df_m5 = pd.DataFrame(rates_m5)
     df_m5['time'] = pd.to_datetime(df_m5['time'], unit='s')
@@ -232,11 +252,25 @@ def analyze_market_and_predict():
     df_h1['time'] = pd.to_datetime(df_h1['time'], unit='s')
     df_h1.set_index('time', inplace=True)
 
-    # Tren M30 (Responsif)
+    # Level Struktural Multi-Day dari M15 (Lookback 40 candle = 10 jam)
+    if rates_m15 is not None and len(rates_m15) > 0:
+        df_m15 = pd.DataFrame(rates_m15)
+        df_m15['time'] = pd.to_datetime(df_m15['time'], unit='s')
+        df_m15.set_index('time', inplace=True)
+        df_m15['M15_Resistance'] = df_m15['high'].shift(1).rolling(40).max()
+        df_m15['M15_Support']    = df_m15['low'].shift(1).rolling(40).min()
+        df_m5['M15_Resistance'] = df_m15['M15_Resistance'].reindex(df_m5.index, method='ffill')
+        df_m5['M15_Support']    = df_m15['M15_Support'].reindex(df_m5.index, method='ffill')
+        m15_sup = float(df_m5['M15_Support'].dropna().iloc[-1]) if not df_m5['M15_Support'].dropna().empty else float(df_m5['low'].min())
+        m15_res = float(df_m5['M15_Resistance'].dropna().iloc[-1]) if not df_m5['M15_Resistance'].dropna().empty else float(df_m5['high'].max())
+    else:
+        m15_sup = float(df_m5['low'].rolling(60).min().iloc[-1])
+        m15_res = float(df_m5['high'].rolling(60).max().iloc[-1])
+
+    # Tren M30 & H1
     df_m30['EMA_50_M30'] = df_m30['close'].ewm(span=50, adjust=False).mean()
     m30_bull = df_m30['close'].iloc[-1] > df_m30['EMA_50_M30'].iloc[-1]
 
-    # Tren H1 (Makro)
     df_h1['EMA_50_H1'] = df_h1['close'].ewm(span=50, adjust=False).mean()
     df_h1['EMA_200_H1'] = df_h1['close'].ewm(span=200, adjust=False).mean()
     df_h1['Trend_H1_Bull'] = (df_h1['close'] > df_h1['EMA_50_H1']).astype(int)
@@ -245,7 +279,7 @@ def analyze_market_and_predict():
     df_m5['Trend_H1_Bull'] = df_h1['Trend_H1_Bull'].reindex(df_m5.index, method='ffill').fillna(0)
     df_m5['Trend_H1_Strong'] = df_h1['Trend_H1_Strong'].reindex(df_m5.index, method='ffill').fillna(0)
 
-    # DXY 0-Delay dari MT5
+    # DXY MT5
     mt5.symbol_select('DXY', True)
     rates_dxy = mt5.copy_rates_from_pos('DXY', mt5.TIMEFRAME_M5, 0, 1000)
     if rates_dxy is not None and len(rates_dxy) > 0:
@@ -338,7 +372,7 @@ def analyze_market_and_predict():
 
     df_clean = df_m5.dropna().copy()
     if len(df_clean) == 0:
-        return 50.0, 50.0, False, False, 5.0, 0.0, 0.0, 0.01, 0.01
+        return 50.0, 50.0, False, False, 5.0, 0.0, 0.0, 0.01, 0.01, 0.0, 0.0, False, False, 0.0, 0.0
 
     latest_row = df_clean[features].iloc[[-1]].astype(float)
     probs = model.predict_proba(latest_row)[0]
@@ -351,14 +385,22 @@ def analyze_market_and_predict():
 
     h1_bull = df_clean['Trend_H1_Bull'].iloc[-1] == 1
     
-    dist_support = float(df_clean['Dist_Support'].iloc[-1])
-    dist_resistance = float(df_clean['Dist_Resistance'].iloc[-1])
+    cur_close = float(df_clean['close'].iloc[-1])
+    cur_open  = float(df_clean['open'].iloc[-1])
+    
+    dist_m15_sup = float((cur_close - m15_sup) / cur_close)
+    dist_m15_res = float((m15_res - cur_close) / cur_close)
+    
+    lower_wick = float(df_clean['Lower_Wick_M15'].iloc[-1])
+    upper_wick = float(df_clean['Upper_Wick_M15'].iloc[-1])
+    is_bull_candle = cur_close > cur_open
+    is_bear_candle = cur_close < cur_open
     
     tick = mt5.symbol_info_tick(symbol)
-    live_ask = tick.ask if tick else df_clean['close'].iloc[-1]
-    live_bid = tick.bid if tick else df_clean['close'].iloc[-1]
+    live_ask = tick.ask if tick else cur_close
+    live_bid = tick.bid if tick else cur_close
     
-    return prob_up, prob_down, m30_bull, h1_bull, latest_atr, live_ask, live_bid, dist_support, dist_resistance
+    return prob_up, prob_down, m30_bull, h1_bull, latest_atr, live_ask, live_bid, dist_m15_sup, dist_m15_res, lower_wick, upper_wick, is_bull_candle, is_bear_candle, m15_sup, m15_res
 
 def execute_auto_trade(signal_type, entry_price):
     all_positions = mt5.positions_get(symbol=symbol)
@@ -382,8 +424,8 @@ def execute_auto_trade(signal_type, entry_price):
         pos_recent = my_positions[-1]
         cur_price = tick.bid if pos_recent.type == 0 else tick.ask
         pnl_recent = (cur_price - pos_recent.price_open) * pos_recent.volume * 100.0 if pos_recent.type == 0 else (pos_recent.price_open - cur_price) * pos_recent.volume * 100.0
-        if pnl_recent <= 0.20:
-            print(f"⚠️ STACKING DITAHAN: Posisi sebelumnya (#{pos_recent.ticket}) belum profit (Floating: ${pnl_recent:+.2f}). Dilarang Averaging Down!")
+        if pnl_recent <= 0.40:
+            print(f"⚠️ STACKING DITAHAN: Posisi sebelumnya (#{pos_recent.ticket}) belum profit aman (Floating: ${pnl_recent:+.2f}). Dilarang Averaging Down!")
             return
 
     layer_num = len(my_positions) + 1
@@ -393,10 +435,10 @@ def execute_auto_trade(signal_type, entry_price):
     order_type = mt5.ORDER_TYPE_BUY if signal_type == "BUY" else mt5.ORDER_TYPE_SELL
     price = mt5.symbol_info_tick(symbol).ask if signal_type == "BUY" else mt5.symbol_info_tick(symbol).bid
     
-    # Emergency Disaster Stop Loss (-$4.00 USD / 40 pips di broker)
+    # Emergency Broker Disaster Stop Loss (-$2.50 USD / 25 pips di broker)
     emergency_dist = EMERGENCY_SL_USD / (LOT_SIZE * 100.0)
     sl = price - emergency_dist if signal_type == "BUY" else price + emergency_dist
-    tp = price + 15.0 if signal_type == "BUY" else price - 15.0 # TP broker diset jauh (150 pips) karena bot yang kelola TP $1.50
+    tp = price + 10.0 if signal_type == "BUY" else price - 10.0 # Bot yang secara dinamis mengelola Quick TP $2.00
         
     filling_mode = get_best_filling_mode(symbol)
         
@@ -416,7 +458,7 @@ def execute_auto_trade(signal_type, entry_price):
     }
     
     color_order = COLOR_GREEN if signal_type == "BUY" else COLOR_RED
-    print(f"{color_order}{COLOR_BOLD}🚀 [OPEN {signal_type}] MENGIRIM ORDER SCALPING M5: {signal_type} {LOT_SIZE} Lot XAUUSD @ ${price:.2f} (Emergency SL: ${sl:.2f}, Target Bot TP: +${QUICK_TP_USD:.2f}){COLOR_RESET}")
+    print(f"{color_order}{COLOR_BOLD}🚀 [OPEN {signal_type}] MENGIRIM ORDER BOUNCE SCALPING M5: {signal_type} {LOT_SIZE} Lot XAUUSD @ ${price:.2f} (Cut-Loss: -${MAX_CUTLOSS_USD:.2f}, Target Bot TP: +${QUICK_TP_USD:.2f}){COLOR_RESET}")
     result = mt5.order_send(request)
     if result.retcode == mt5.TRADE_RETCODE_DONE:
         print(f"{color_order}{COLOR_BOLD}🎉 ORDER M5 SCALPING {signal_type} BERHASIL DIEKSEKUSI! (Layer {layer_num}/{MAX_STACKED_POSITIONS}){COLOR_RESET}")
@@ -425,8 +467,8 @@ def execute_auto_trade(signal_type, entry_price):
 
 def main():
     print("\n" + "="*85)
-    print("🤖 ROBOT TRADING M5 DYNAMIC SCALPER BERJALAN OTOMATIS (AI REAL-TIME EXIT)")
-    print("Target TP: +$1.50 USD | Smart AI Cut-Loss | Filter M30 | Emergency SL: -$4.00")
+    print("🤖 ROBOT TRADING M5 SMC LEVEL BOUNCE SCALPER BERJALAN OTOMATIS")
+    print(f"Target TP: +${QUICK_TP_USD:.2f} | Hard Cut-Loss: -${MAX_CUTLOSS_USD:.2f} | Filter Rejection Wick >= {WICK_MIN_RATIO*100:.0f}%")
     print("Tekan Ctrl+C untuk menghentikan Robot.")
     print("="*85)
 
@@ -440,46 +482,35 @@ def main():
             comment_filter=None,
             model_label="LightGBM M5 Dynamic Scalper",
             sheet_title="Trade Log M5 Scalping",
-            threshold_label=">= 58.0% + Dynamic AI Exit ($1.50 TP / AI Cut-Loss)"
+            threshold_label="SMC Level Bounce (TP $2.00 / Cut-Loss $1.80)"
         )
     except Exception as e:
         print(f"⚠️ Gagal sinkronisasi awal Excel M5: {e}")
 
     # Audit awal kondisi pasar & prediksi model M5 saat pertama kali dibuka
-    print(f"\n{COLOR_CYAN}🔍 MELAKUKAN AUDIT AWAL KONDISI PASAR & PREDIKSI MODEL M5 SCALPER...{COLOR_RESET}")
-    latest_prob_up, latest_prob_down, m30_bull, h1_bull, atr_val, ask_p, bid_p, dist_sup, dist_res = analyze_market_and_predict()
+    print(f"\n{COLOR_CYAN}🔍 MELAKUKAN AUDIT AWAL STRUKTUR SMC & PREDIKSI MODEL M5 SCALPER...{COLOR_RESET}")
+    res_audit = analyze_market_and_predict()
+    latest_prob_up, latest_prob_down, m30_bull, h1_bull, atr_val, ask_p, bid_p, dist_sup, dist_res, lower_w, upper_w, is_bull_c, is_bear_c, m15_sup, m15_res = res_audit
+    
     print("="*85)
-    print(f"📊 HASIL AUDIT MODEL M5 DYNAMIC SCALPER (REAL-TIME LIVE):")
-    print(f"• Probabilitas AI M5       : BUY = {latest_prob_up:.1f}%  |  SELL = {latest_prob_down:.1f}%")
-    print(f"• Ambang Batas Valid       : Standar >= {PROB_THRESHOLD:.1f}%  |  Pullback Scalp >= {PULLBACK_THRESHOLD:.1f}%")
-    print(f"• Konfirmasi Tren M30      : {'BULLISH (Up)' if m30_bull else 'BEARISH (Down)'}  |  H1 Makro: {'BULLISH' if h1_bull else 'BEARISH'}")
-    print(f"• Jarak Lantai Demand/Sup  : {dist_sup*100:.2f}% (Batas Aman Anti-Sell: >= {PROXIMITY_MIN_DIST*100:.2f}%)")
-    print(f"• Jarak Atap Resistance    : {dist_res*100:.2f}% (Batas Aman Anti-Buy:  >= {PROXIMITY_MIN_DIST*100:.2f}%)")
+    print(f"📊 HASIL AUDIT STRUKTUR PASAR M5 (SMC LEVEL BOUNCE):")
+    print(f"• Probabilitas AI M5       : BUY = {latest_prob_up:.1f}%  |  SELL = {latest_prob_down:.1f}% (Threshold: >= {PROB_THRESHOLD:.1f}%)")
+    print(f"• Struktur Lantai Demand   : ${m15_sup:.2f} (Jarak: {dist_sup*100:.2f}%, Batas Zona <= {ZONE_THRESHOLD*100:.2f}%)")
+    print(f"• Struktur Atap Supply     : ${m15_res:.2f} (Jarak: {dist_res*100:.2f}%, Batas Zona <= {ZONE_THRESHOLD*100:.2f}%)")
+    print(f"• Karakteristik Candle M5  : Ekor Bawah = {lower_w*100:.1f}% | Ekor Atas = {upper_w*100:.1f}% (Min Wick: {WICK_MIN_RATIO*100:.0f}%)")
 
-    if latest_prob_up >= PROB_THRESHOLD and m30_bull:
-        if PROXIMITY_GUARD and dist_res < PROXIMITY_MIN_DIST:
-            m5_audit_note = f"{COLOR_YELLOW}🟡 TERTAHAN: BUY {latest_prob_up:.1f}% dekat Resistance ({dist_res*100:.2f}%). Anti-Buy Pucuk!{COLOR_RESET}"
+    if dist_sup <= ZONE_THRESHOLD:
+        if lower_w >= WICK_MIN_RATIO and is_bull_c:
+            m5_audit_note = f"{COLOR_GREEN}{COLOR_BOLD}🟢 AREA DEMAND + REJECTION WICK BAWAH ({lower_w*100:.1f}%). SIAP BUY PANTULAN!{COLOR_RESET}"
         else:
-            m5_audit_note = f"{COLOR_GREEN}{COLOR_BOLD}🟢 SINYAL BUY VALID ({latest_prob_up:.1f}% searah Tren M30 Bullish){COLOR_RESET}"
-    elif latest_prob_up >= PULLBACK_THRESHOLD:
-        if PROXIMITY_GUARD and dist_res < PROXIMITY_MIN_DIST:
-            m5_audit_note = f"{COLOR_YELLOW}🟡 TERTAHAN: PULLBACK BUY {latest_prob_up:.1f}% dekat Resistance ({dist_res*100:.2f}%). Anti-Buy Pucuk!{COLOR_RESET}"
+            m5_audit_note = f"{COLOR_YELLOW}🟡 DI AREA DEMAND: Menunggu Ekor Rejection Bawah ({lower_w*100:.1f}% < {WICK_MIN_RATIO*100:.0f}%){COLOR_RESET}"
+    elif dist_res <= ZONE_THRESHOLD:
+        if upper_w >= WICK_MIN_RATIO and is_bear_c:
+            m5_audit_note = f"{COLOR_RED}{COLOR_BOLD}🔴 AREA SUPPLY + REJECTION WICK ATAS ({upper_w*100:.1f}%). SIAP SELL PANTULAN!{COLOR_RESET}"
         else:
-            m5_audit_note = f"{COLOR_GREEN}{COLOR_BOLD}⚡ PULLBACK SCALP BUY ({latest_prob_up:.1f}% >= {PULLBACK_THRESHOLD}% Melawan M30){COLOR_RESET}"
-    elif latest_prob_down >= PROB_THRESHOLD and not m30_bull:
-        if PROXIMITY_GUARD and dist_sup < PROXIMITY_MIN_DIST:
-            m5_audit_note = f"{COLOR_YELLOW}🟡 TERTAHAN: SELL {latest_prob_down:.1f}% dekat Demand/Support ({dist_sup*100:.2f}%). Anti-Sell Lembah!{COLOR_RESET}"
-        else:
-            m5_audit_note = f"{COLOR_RED}{COLOR_BOLD}🔴 SINYAL SELL VALID ({latest_prob_down:.1f}% searah Tren M30 Bearish){COLOR_RESET}"
-    elif latest_prob_down >= PULLBACK_THRESHOLD:
-        if PROXIMITY_GUARD and dist_sup < PROXIMITY_MIN_DIST:
-            m5_audit_note = f"{COLOR_YELLOW}🟡 TERTAHAN: PULLBACK SELL {latest_prob_down:.1f}% dekat Demand/Support ({dist_sup*100:.2f}%). Anti-Sell Lembah!{COLOR_RESET}"
-        else:
-            m5_audit_note = f"{COLOR_RED}{COLOR_BOLD}⚡ PULLBACK SCALP SELL ({latest_prob_down:.1f}% >= {PULLBACK_THRESHOLD}% Melawan M30){COLOR_RESET}"
-    elif (latest_prob_up >= PROB_THRESHOLD and not m30_bull) or (latest_prob_down >= PROB_THRESHOLD and m30_bull):
-        m5_audit_note = f"{COLOR_YELLOW}🟡 TERFILTER: Sinyal ditahan filter M30 (Butuh >= {PULLBACK_THRESHOLD}% untuk Pullback){COLOR_RESET}"
+            m5_audit_note = f"{COLOR_YELLOW}🟡 DI AREA SUPPLY: Menunggu Ekor Rejection Atas ({upper_w*100:.1f}% < {WICK_MIN_RATIO*100:.0f}%){COLOR_RESET}"
     else:
-        m5_audit_note = f"{COLOR_YELLOW}🟡 NETRAL: Keyakinan Model ({max(latest_prob_up, latest_prob_down):.1f}%) belum mencapai {PROB_THRESHOLD}%{COLOR_RESET}"
+        m5_audit_note = f"{COLOR_YELLOW}🟡 AREA TENGAH (MID-TREND): Harga di antara Demand & Supply. Dilarang masuk di tengah jalan.{COLOR_RESET}"
 
     print(f"• Status Evaluasi Pasar     : {m5_audit_note}")
     print(f"• Waktu Eksekusi Order      : Menunggu 5 detik sebelum tutup candle ({CHOSEN_TF})")
@@ -511,7 +542,7 @@ def main():
                         comment_filter=None,
                         model_label="LightGBM M5 Dynamic Scalper",
                         sheet_title="Trade Log M5 Scalping",
-                        threshold_label=">= 58.0% + Dynamic AI Exit ($1.50 TP / AI Cut-Loss)"
+                        threshold_label="SMC Level Bounce (TP $2.00 / Cut-Loss $1.80)"
                     )
                 except Exception as sync_err:
                     print(f"⚠️ Gagal sinkronisasi Excel M5: {sync_err}")
@@ -529,7 +560,7 @@ def main():
                         comment_filter=None,
                         model_label="LightGBM M5 Dynamic Scalper",
                         sheet_title="Trade Log M5 Scalping",
-                        threshold_label=">= 58.0% + Dynamic AI Exit ($1.50 TP / AI Cut-Loss)",
+                        threshold_label="SMC Level Bounce (TP $2.00 / Cut-Loss $1.80)",
                         silent=True
                     )
                 except Exception:
@@ -539,7 +570,8 @@ def main():
             if time.time() - last_prob_refresh >= 15:
                 last_prob_refresh = time.time()
                 try:
-                    latest_prob_up, latest_prob_down, m30_bull, h1_bull, atr_val, ask_p, bid_p, dist_sup, dist_res = analyze_market_and_predict()
+                    res_audit = analyze_market_and_predict()
+                    latest_prob_up, latest_prob_down, m30_bull, h1_bull, atr_val, ask_p, bid_p, dist_sup, dist_res, lower_w, upper_w, is_bull_c, is_bear_c, m15_sup, m15_res = res_audit
                 except Exception:
                     pass
             
@@ -561,9 +593,8 @@ def main():
             # Format probabilitas live berwarna
             prob_color = COLOR_GREEN if latest_prob_up >= PROB_THRESHOLD else (COLOR_RED if latest_prob_down >= PROB_THRESHOLD else COLOR_YELLOW)
             prob_display = f"{prob_color}BUY:{latest_prob_up:.1f}% | SELL:{latest_prob_down:.1f}%{COLOR_RESET}"
-            m30_display = "M30:Bull" if m30_bull else "M30:Bear"
 
-            # Status tampilan di console (Kuning untuk Netral, Hijau untuk Buy, Merah untuk Sell)
+            # Status tampilan di console
             if active_m5_count > 0:
                 pos_dir = "BUY" if my_pos[0].type == 0 else "SELL"
                 if pos_dir == "BUY":
@@ -571,74 +602,64 @@ def main():
                 else:
                     status_str = f"{COLOR_RED}{COLOR_BOLD}ACTIVE SELL ({active_m5_count}/{MAX_STACKED_POSITIONS}){COLOR_RESET}{pnl_str}"
             else:
-                if latest_prob_up >= PROB_THRESHOLD and m30_bull:
-                    if PROXIMITY_GUARD and dist_res < PROXIMITY_MIN_DIST:
-                        status_str = f"{COLOR_YELLOW}TERTAHAN RESIST{COLOR_RESET}"
+                if dist_sup <= ZONE_THRESHOLD:
+                    if lower_w >= WICK_MIN_RATIO and is_bull_c and latest_prob_up >= PROB_THRESHOLD:
+                        status_str = f"{COLOR_GREEN}{COLOR_BOLD}SIAP BUY DEMAND{COLOR_RESET}"
                     else:
-                        status_str = f"{COLOR_GREEN}{COLOR_BOLD}SIAP BUY{COLOR_RESET}"
-                elif latest_prob_up >= PULLBACK_THRESHOLD:
-                    if PROXIMITY_GUARD and dist_res < PROXIMITY_MIN_DIST:
-                        status_str = f"{COLOR_YELLOW}TERTAHAN RESIST{COLOR_RESET}"
+                        status_str = f"{COLOR_YELLOW}AREA DEMAND (TUNGGU WICK){COLOR_RESET}"
+                elif dist_res <= ZONE_THRESHOLD:
+                    if upper_w >= WICK_MIN_RATIO and is_bear_c and latest_prob_down >= PROB_THRESHOLD:
+                        status_str = f"{COLOR_RED}{COLOR_BOLD}SIAP SELL SUPPLY{COLOR_RESET}"
                     else:
-                        status_str = f"{COLOR_GREEN}{COLOR_BOLD}SIAP PULLBACK BUY{COLOR_RESET}"
-                elif latest_prob_down >= PROB_THRESHOLD and not m30_bull:
-                    if PROXIMITY_GUARD and dist_sup < PROXIMITY_MIN_DIST:
-                        status_str = f"{COLOR_YELLOW}TERTAHAN SUPPORT{COLOR_RESET}"
-                    else:
-                        status_str = f"{COLOR_RED}{COLOR_BOLD}SIAP SELL{COLOR_RESET}"
-                elif latest_prob_down >= PULLBACK_THRESHOLD:
-                    if PROXIMITY_GUARD and dist_sup < PROXIMITY_MIN_DIST:
-                        status_str = f"{COLOR_YELLOW}TERTAHAN SUPPORT{COLOR_RESET}"
-                    else:
-                        status_str = f"{COLOR_RED}{COLOR_BOLD}SIAP PULLBACK SELL{COLOR_RESET}"
-                elif (latest_prob_up >= PROB_THRESHOLD and not m30_bull) or (latest_prob_down >= PROB_THRESHOLD and m30_bull):
-                    status_str = f"{COLOR_YELLOW}TERFILTER M30{COLOR_RESET}"
+                        status_str = f"{COLOR_YELLOW}AREA SUPPLY (TUNGGU WICK){COLOR_RESET}"
                 else:
-                    status_str = f"{COLOR_YELLOW}NETRAL/WAIT{COLOR_RESET}"
+                    status_str = f"{COLOR_YELLOW}TERTAHAN MID-TREND{COLOR_RESET}"
 
-            sys.stdout.write(f"\r⏳ [{CHOSEN_TF}]: {mins:02d}m {secs:02d}s | {prob_display} ({m30_display}) | Status: {status_str}   ")
+            sys.stdout.write(f"\r⏳ [{CHOSEN_TF}]: {mins:02d}m {secs:02d}s | {prob_display} | Status: {status_str}   ")
             sys.stdout.flush()
             
             # 2. TRIGGER CANDLE: Tepat 5 detik sebelum tutup candle M5 (0-delay)
             if seconds_left <= 5 and last_analyzed_candle != current_candle_time:
                 last_analyzed_candle = current_candle_time
                 print("\n" + "="*85)
-                print(f"⚡ CANDLE M5 TUTUP ({now.strftime('%H:%M:%S')})! KEPUTUSAN EKSEKUSI MODEL:")
+                print(f"⚡ CANDLE M5 TUTUP ({now.strftime('%H:%M:%S')})! KEPUTUSAN EKSEKUSI SMC LEVEL BOUNCE:")
                 
-                latest_prob_up, latest_prob_down, m30_bull, h1_bull, atr_val, ask_p, bid_p, dist_sup, dist_res = analyze_market_and_predict()
+                res_audit = analyze_market_and_predict()
+                latest_prob_up, latest_prob_down, m30_bull, h1_bull, atr_val, ask_p, bid_p, dist_sup, dist_res, lower_w, upper_w, is_bull_c, is_bear_c, m15_sup, m15_res = res_audit
                 
-                print(f"📊 Probabilitas Final : BUY = {latest_prob_up:.1f}%  |  SELL = {latest_prob_down:.1f}% (Threshold: >={PROB_THRESHOLD}%, Pullback: >={PULLBACK_THRESHOLD}%)")
-                print(f"🛡️ Konfirmasi Tren    : M30 = {'BULLISH (Up)' if m30_bull else 'BEARISH (Down)'}  |  H1 = {'BULLISH' if h1_bull else 'BEARISH'}")
-                print(f"📐 Struktur Level SNR  : Lantai Demand = {dist_sup*100:.2f}% | Atap Resist = {dist_res*100:.2f}%")
+                print(f"📊 Probabilitas Model : BUY = {latest_prob_up:.1f}%  |  SELL = {latest_prob_down:.1f}% (Threshold: >={PROB_THRESHOLD}%)")
+                print(f"📐 Struktur Level SNR : Lantai Demand = ${m15_sup:.2f} ({dist_sup*100:.2f}%) | Atap Supply = ${m15_res:.2f} ({dist_res*100:.2f}%)")
+                print(f"🕯️ Karakter Candlestick: Ekor Bawah = {lower_w*100:.1f}% | Ekor Atas = {upper_w*100:.1f}% (Batas Rejection >= {WICK_MIN_RATIO*100:.0f}%)")
                 
                 final_signal = "WAIT"
                 
-                if latest_prob_up >= PROB_THRESHOLD:
-                    if not m30_bull and latest_prob_up < PULLBACK_THRESHOLD:
-                        print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN (FILTER M30): Sinyal BUY ({latest_prob_up:.1f}%) tertahan tren M30 Bearish (Butuh >= {PULLBACK_THRESHOLD}% untuk Pullback).{COLOR_RESET}")
-                    elif PROXIMITY_GUARD and dist_res < PROXIMITY_MIN_DIST:
-                        print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN (PROXIMITY GUARD): Sinyal BUY ({latest_prob_up:.1f}%) dibatalkan karena harga terlalu dekat Atap Resistance ({dist_res*100:.2f}% < {PROXIMITY_MIN_DIST*100:.2f}%). Hindari Buy di Pucuk!{COLOR_RESET}")
-                    elif latest_prob_up >= PULLBACK_THRESHOLD and not m30_bull:
-                        final_signal = "BUY"
-                        print(f"{COLOR_GREEN}{COLOR_BOLD}⚡ KEPUTUSAN PULLBACK SCALP BUY: Momentum Sangat Kuat ({latest_prob_up:.1f}% >= {PULLBACK_THRESHOLD}%) Melawan M30! Ruang naik aman.{COLOR_RESET}")
+                # 1. EVALUASI ZONA LANTAI DEMAND (POTENSI BUY PANTULAN)
+                if dist_sup <= ZONE_THRESHOLD:
+                    if latest_prob_up >= PROB_THRESHOLD:
+                        if lower_w >= WICK_MIN_RATIO and is_bull_c:
+                            final_signal = "BUY"
+                            print(f"{COLOR_GREEN}{COLOR_BOLD}🟢 KEPUTUSAN BUY M5: Rejection Terkonfirmasi di Lantai Demand (${m15_sup:.2f})! Ekor Bawah {lower_w*100:.1f}% >= {WICK_MIN_RATIO*100:.0f}%, Probabilitas BUY {latest_prob_up:.1f}%. Membuka order BUY...{COLOR_RESET}")
+                        else:
+                            print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN (DEMAND): Harga di Lantai Demand (${m15_sup:.2f}), namun belum ada Ekor Bawah Rejection Valid ({lower_w*100:.1f}% < {WICK_MIN_RATIO*100:.0f}%). Menghindari false bounce.{COLOR_RESET}")
                     else:
-                        final_signal = "BUY"
-                        print(f"{COLOR_GREEN}{COLOR_BOLD}🟢 KEPUTUSAN BUY M5: Probabilitas ({latest_prob_up:.1f}%) >= {PROB_THRESHOLD}% searah Tren M30 Bullish & Ruang Naik Aman. Membuka order BUY...{COLOR_RESET}")
-                        
-                elif latest_prob_down >= PROB_THRESHOLD:
-                    if m30_bull and latest_prob_down < PULLBACK_THRESHOLD:
-                        print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN (FILTER M30): Sinyal SELL ({latest_prob_down:.1f}%) tertahan tren M30 Bullish (Butuh >= {PULLBACK_THRESHOLD}% untuk Pullback).{COLOR_RESET}")
-                    elif PROXIMITY_GUARD and dist_sup < PROXIMITY_MIN_DIST:
-                        print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN (PROXIMITY GUARD): Sinyal SELL ({latest_prob_down:.1f}%) dibatalkan karena harga terlalu dekat Lantai Demand/Support ({dist_sup*100:.2f}% < {PROXIMITY_MIN_DIST*100:.2f}%). Hindari Sell di Lembah!{COLOR_RESET}")
-                    elif latest_prob_down >= PULLBACK_THRESHOLD and m30_bull:
-                        final_signal = "SELL"
-                        print(f"{COLOR_RED}{COLOR_BOLD}⚡ KEPUTUSAN PULLBACK SCALP SELL: Momentum Sangat Kuat ({latest_prob_down:.1f}% >= {PULLBACK_THRESHOLD}%) Melawan M30! Ruang turun aman.{COLOR_RESET}")
+                        print(f"{COLOR_YELLOW}🟡 KEPUTUSAN DITAHAN: Harga di Lantai Demand (${m15_sup:.2f}) tapi keyakinan AI BUY ({latest_prob_up:.1f}%) belum mencapai {PROB_THRESHOLD}%.{COLOR_RESET}")
+
+                # 2. EVALUASI ZONA ATAP SUPPLY (POTENSI SELL PANTULAN)
+                elif dist_res <= ZONE_THRESHOLD:
+                    if latest_prob_down >= PROB_THRESHOLD:
+                        if upper_w >= WICK_MIN_RATIO and is_bear_c:
+                            final_signal = "SELL"
+                            print(f"{COLOR_RED}{COLOR_BOLD}🔴 KEPUTUSAN SELL M5: Rejection Terkonfirmasi di Atap Supply (${m15_res:.2f})! Ekor Atas {upper_w*100:.1f}% >= {WICK_MIN_RATIO*100:.0f}%, Probabilitas SELL {latest_prob_down:.1f}%. Membuka order SELL...{COLOR_RESET}")
+                        else:
+                            print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN (SUPPLY): Harga di Atap Supply (${m15_res:.2f}), namun belum ada Ekor Atas Rejection Valid ({upper_w*100:.1f}% < {WICK_MIN_RATIO*100:.0f}%). Menghindari false rejection.{COLOR_RESET}")
                     else:
-                        final_signal = "SELL"
-                        print(f"{COLOR_RED}{COLOR_BOLD}🔴 KEPUTUSAN SELL M5: Probabilitas ({latest_prob_down:.1f}%) >= {PROB_THRESHOLD}% searah Tren M30 Bearish & Ruang Turun Aman. Membuka order SELL...{COLOR_RESET}")
+                        print(f"{COLOR_YELLOW}🟡 KEPUTUSAN DITAHAN: Harga di Atap Supply (${m15_res:.2f}) tapi keyakinan AI SELL ({latest_prob_down:.1f}%) belum mencapai {PROB_THRESHOLD}%.{COLOR_RESET}")
+
+                # 3. EVALUASI AREA TENGAH (MID-TREND / NO-MAN'S LAND)
                 else:
-                    print(f"{COLOR_YELLOW}🟡 KEPUTUSAN NETRAL M5: Keyakinan ({max(latest_prob_up, latest_prob_down):.1f}%) < Ambang Batas {PROB_THRESHOLD}%. Belum ada sinyal valid.{COLOR_RESET}")
-                    
+                    cur_p = (ask_p + bid_p) / 2.0
+                    print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN (TERTAHAN MID-TREND): Harga (${cur_p:.2f}) berada di tengah-tengah rentang (Demand: ${m15_sup:.2f}, Supply: ${m15_res:.2f}). Dilarang membuka posisi di tengah jalan! Menunggu harga menjemput batas level.{COLOR_RESET}")
+
                 if final_signal in ["BUY", "SELL"]:
                     entry_p = ask_p if final_signal == "BUY" else bid_p
                     if AUTO_EXECUTE:
@@ -653,7 +674,7 @@ def main():
                         comment_filter=None,
                         model_label="LightGBM M5 Dynamic Scalper",
                         sheet_title="Trade Log M5 Scalping",
-                        threshold_label=">= 58.0% + Dynamic AI Exit ($1.50 TP / AI Cut-Loss)"
+                        threshold_label="SMC Level Bounce (TP $2.00 / Cut-Loss $1.80)"
                     )
                 except Exception as sync_err:
                     print(f"⚠️ Gagal sinkronisasi Excel M5: {sync_err}")
