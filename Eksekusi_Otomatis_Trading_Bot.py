@@ -385,11 +385,11 @@ def main():
             sys.stdout.write(f"\r⏳ [BOT M15 MONITORING]: Sisa Waktu Candle ({CHOSEN_TF}): {mins:02d}m {secs:02d}s | Status: {status_str}   ")
             sys.stdout.flush()
             
-            # Trigger tepat 5 detik sebelum tutup candle, ATAU jika candle baru masuk dan candle sebelumnya belum dianalisis
-            if (seconds_left <= 5 or last_analyzed_candle != current_candle_time) and last_analyzed_candle != current_candle_time:
+            # Trigger tepat 5 detik sebelum tutup candle M15 (0-delay sebelum pembentukan candle baru)
+            if seconds_left <= 5 and last_analyzed_candle != current_candle_time:
                 last_analyzed_candle = current_candle_time
                 print("\n" + "-"*75)
-                print("⚡ MENJELANG TUTUP CANDLE! MELAKUKAN ANALISIS MATRIKS SMC/ICT & TREND GUARD...")
+                print(f"⚡ MENJELANG TUTUP CANDLE M15 ({now.strftime('%H:%M:%S')})! MELAKUKAN ANALISIS SMC/ICT & TREND GUARD...")
                 
                 prob_up, prob_down, h1_bull, h1_strong_bull, atr_val, ask_p, bid_p = analyze_market_and_predict()
                 

@@ -516,8 +516,8 @@ def main():
             sys.stdout.write(f"\r⏳ [BOT M5 DYNAMIC SCALPER]: Sisa Candle: {mins:02d}m {secs:02d}s | Status: {status_str}   ")
             sys.stdout.flush()
             
-            # 2. TRIGGER CANDLE: 5 detik sebelum tutup candle M5
-            if (seconds_left <= 5 or last_analyzed_candle != current_candle_time) and last_analyzed_candle != current_candle_time:
+            # 2. TRIGGER CANDLE: Tepat 5 detik sebelum tutup candle M5 (0-delay)
+            if seconds_left <= 5 and last_analyzed_candle != current_candle_time:
                 last_analyzed_candle = current_candle_time
                 print("\n" + "-"*85)
                 print(f"⚡ TUTUP CANDLE M5 ({now.strftime('%H:%M:%S')})! ANALISIS MODEL M5 & FILTER ADAPTIF M30...")
