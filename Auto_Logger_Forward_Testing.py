@@ -23,7 +23,7 @@ def sync_mt5_trades_to_excel(
     excel_path=EXCEL_PATH_NEW_MODEL, 
     filter_new_model_only=True,
     magic_number=123230,
-    comment_filter="Auto-Bot",
+    comment_filter=None,
     model_label="LightGBM SMC/ICT",
     sheet_title="Trade Log Model Terbaru",
     threshold_label=">= 60.0% + Trend Guard H1"
@@ -70,7 +70,9 @@ def sync_mt5_trades_to_excel(
         if deal_in is not None and deal_out is not None:
             # Filter khusus model jika diminta
             if filter_new_model_only:
-                if deal_in.magic != magic_number or comment_filter.lower() not in (deal_in.comment or '').lower():
+                if deal_in.magic != magic_number:
+                    continue
+                if comment_filter is not None and comment_filter.lower() not in (deal_in.comment or '').lower():
                     continue
 
             open_time_dt = datetime.fromtimestamp(deal_in.time)

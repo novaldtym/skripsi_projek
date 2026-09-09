@@ -10,8 +10,22 @@ import MetaTrader5 as mt5
 
 from Auto_Logger_Forward_Testing import sync_mt5_trades_to_excel
 
+os.system('') # Aktifkan ANSI escape Virtual Terminal di Windows CMD
 if sys.stdout.encoding.lower() != 'utf-8':
-    sys.stdout.reconfigure(encoding='utf-8')
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
+# =========================================================================
+# 🎨 KODE WARNA TERMINAL ANSI (Kuning=Netral, Hijau=Buy, Merah=Sell)
+# =========================================================================
+COLOR_YELLOW = "\033[93m"  # Kuning untuk Sinyal Netral / WAIT
+COLOR_GREEN  = "\033[92m"  # Hijau untuk Open Posisi BUY
+COLOR_RED    = "\033[91m"  # Merah untuk Open Posisi SELL
+COLOR_CYAN   = "\033[96m"  # Cyan untuk Notifikasi Info
+COLOR_RESET  = "\033[0m"
+COLOR_BOLD   = "\033[1m"
 
 # =========================================================================
 # ⚙️ PENGATURAN ROBOT TRADING OTOMATIS & MANAJEMEN RISIKO (SMC/ICT ENHANCED)
@@ -295,10 +309,11 @@ def execute_auto_trade(signal_type, entry_price, sl_pips, tp_pips):
         "type_filling": filling_mode,
     }
     
-    print(f"🚀 MENGIRIM ORDER OTOMATIS KE MT5: {signal_type} {LOT_SIZE} Lot XAUUSD @ ${price:.2f} (SL: ${sl:.2f}, TP: ${tp:.2f})")
+    color_order = COLOR_GREEN if signal_type == "BUY" else COLOR_RED
+    print(f"{color_order}{COLOR_BOLD}🚀 [OPEN {signal_type}] MENGIRIM ORDER OTOMATIS KE MT5: {signal_type} {LOT_SIZE} Lot XAUUSD @ ${price:.2f} (SL: ${sl:.2f}, TP: ${tp:.2f}){COLOR_RESET}")
     result = mt5.order_send(request)
     if result.retcode == mt5.TRADE_RETCODE_DONE:
-        print("🎉 ORDER BERHASIL DIEKSEKUSI OTOMATIS DENGAN PRESISI 0-DELAY!")
+        print(f"{color_order}{COLOR_BOLD}🎉 ORDER {signal_type} BERHASIL DIEKSEKUSI OTOMATIS DENGAN PRESISI 0-DELAY!{COLOR_RESET}")
     else:
         print(f"❌ Gagal Eksekusi Order. Retcode Error: {result.retcode} (Comment: {result.comment})")
 
@@ -308,12 +323,43 @@ def main():
     print("Tekan Ctrl+C untuk menghentikan Robot.")
     print("="*75)
 
+    # Sinkronisasi awal saat bot pertama kali dinyalakan
+    print(f"{COLOR_CYAN}🔄 Memeriksa & menyinkronkan seluruh riwayat trade M15 ke Excel...{COLOR_RESET}")
+    try:
+        sync_mt5_trades_to_excel()
+    except Exception as e:
+        print(f"⚠️ Gagal sinkronisasi awal Excel: {e}")
+
     tf_min = 15
     last_analyzed_candle = None
+    prev_positions_count = 0
+    last_periodic_sync = time.time()
 
     try:
         while True:
             manage_open_positions()
+
+            # Deteksi apakah ada posisi M15 yang baru saja tertutup (Hit SL/TP/BE)
+            all_pos = mt5.positions_get(symbol=symbol)
+            cur_positions = [p for p in (all_pos or []) if p.magic == MAGIC_NUMBER]
+            cur_count = len(cur_positions)
+
+            if prev_positions_count > 0 and cur_count == 0:
+                print(f"\n{COLOR_CYAN}🔔 [DETEKSI EXIT]: Posisi M15 baru saja ditutup. Menyinkronkan update Win/Loss ke Excel...{COLOR_RESET}")
+                try:
+                    sync_mt5_trades_to_excel()
+                except Exception as sync_err:
+                    print(f"⚠️ Gagal sinkronisasi Excel: {sync_err}")
+
+            prev_positions_count = cur_count
+
+            # Sinkronisasi berkala ke Excel setiap 60 detik (Real-time safety)
+            if time.time() - last_periodic_sync >= 60:
+                last_periodic_sync = time.time()
+                try:
+                    sync_mt5_trades_to_excel()
+                except Exception:
+                    pass
             
             now = datetime.now()
             minutes_past = now.minute % tf_min
@@ -326,7 +372,17 @@ def main():
             mins = seconds_left // 60
             secs = seconds_left % 60
             
-            sys.stdout.write(f"\r⏳ [BOT MONITORING]: Sisa Waktu Candle ({CHOSEN_TF}): {mins:02d}m {secs:02d}s | Status Guard: AKTIFF...   ")
+            # Status tampilan di console (Kuning untuk Netral, Hijau untuk Buy, Merah untuk Sell)
+            if cur_count > 0:
+                p_type = cur_positions[0].type
+                if p_type == mt5.ORDER_TYPE_BUY:
+                    status_str = f"{COLOR_GREEN}{COLOR_BOLD}HOLDING BUY #{cur_positions[0].ticket}{COLOR_RESET}"
+                else:
+                    status_str = f"{COLOR_RED}{COLOR_BOLD}HOLDING SELL #{cur_positions[0].ticket}{COLOR_RESET}"
+            else:
+                status_str = f"{COLOR_YELLOW}NETRAL/WAIT{COLOR_RESET}"
+
+            sys.stdout.write(f"\r⏳ [BOT M15 MONITORING]: Sisa Waktu Candle ({CHOSEN_TF}): {mins:02d}m {secs:02d}s | Status: {status_str}   ")
             sys.stdout.flush()
             
             # Trigger tepat 5 detik sebelum tutup candle, ATAU jika candle baru masuk dan candle sebelumnya belum dianalisis
@@ -348,15 +404,17 @@ def main():
                 if prob_up >= PROB_THRESHOLD:
                     if h1_bull:
                         final_signal = "BUY"
+                        print(f"{COLOR_GREEN}{COLOR_BOLD}🟢 SINYAL BUY VALID: Keyakinan {prob_up:.1f}% >= {PROB_THRESHOLD}% (Searah Tren H1 Bullish){COLOR_RESET}")
                     else:
-                        print("⚠️ TREND GUARD FILTER: Sinyal BUY Dibatalkan karena Tren H1 Bearish (Hindari Trapping).")
+                        print(f"{COLOR_YELLOW}⚠️ TREND GUARD FILTER: Sinyal BUY ({prob_up:.1f}%) Dibatalkan karena Tren H1 Bearish (Hindari Trapping).{COLOR_RESET}")
                 elif prob_down >= PROB_THRESHOLD:
                     if not h1_bull:
                         final_signal = "SELL"
+                        print(f"{COLOR_RED}{COLOR_BOLD}🔴 SINYAL SELL VALID: Keyakinan {prob_down:.1f}% >= {PROB_THRESHOLD}% (Searah Tren H1 Bearish){COLOR_RESET}")
                     else:
-                        print("⚠️ TREND GUARD FILTER: Sinyal SELL Dibatalkan karena Tren H1 Bullish Kuat (Hindari Trapping).")
+                        print(f"{COLOR_YELLOW}⚠️ TREND GUARD FILTER: Sinyal SELL ({prob_down:.1f}%) Dibatalkan karena Tren H1 Bullish Kuat (Hindari Trapping).{COLOR_RESET}")
                 else:
-                    print(f"🟡 SINYAL NETRAL: Kepastian ({max(prob_up, prob_down):.1f}%) < Ambang Batas {PROB_THRESHOLD}%.")
+                    print(f"{COLOR_YELLOW}🟡 SINYAL NETRAL: Kepastian ({max(prob_up, prob_down):.1f}%) < Ambang Batas {PROB_THRESHOLD}%.{COLOR_RESET}")
                     
                 if final_signal in ["BUY", "SELL"]:
                     entry_p = ask_p if final_signal == "BUY" else bid_p

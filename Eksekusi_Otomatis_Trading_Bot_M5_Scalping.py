@@ -10,8 +10,22 @@ import MetaTrader5 as mt5
 
 from Auto_Logger_Forward_Testing import sync_mt5_trades_to_excel
 
+os.system('') # Aktifkan ANSI escape Virtual Terminal di Windows CMD
 if sys.stdout.encoding.lower() != 'utf-8':
-    sys.stdout.reconfigure(encoding='utf-8')
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
+# =========================================================================
+# 🎨 KODE WARNA TERMINAL ANSI (Kuning=Netral, Hijau=Buy, Merah=Sell)
+# =========================================================================
+COLOR_YELLOW = "\033[93m"  # Kuning untuk Sinyal Netral / WAIT
+COLOR_GREEN  = "\033[92m"  # Hijau untuk Open Posisi BUY
+COLOR_RED    = "\033[91m"  # Merah untuk Open Posisi SELL
+COLOR_CYAN   = "\033[96m"  # Cyan untuk Notifikasi Info
+COLOR_RESET  = "\033[0m"
+COLOR_BOLD   = "\033[1m"
 
 # =========================================================================
 # ⚙️ PENGATURAN ROBOT TRADING M5 FULL DYNAMIC SCALPER (AI MANAGED EXIT)
@@ -106,7 +120,20 @@ def close_position_market(pos, comment_reason="Bot Scalp Close"):
     res = mt5.order_send(request)
     if res.retcode == mt5.TRADE_RETCODE_DONE:
         profit_final = (price - pos.price_open) * pos.volume * 100.0 if pos.type == 0 else (pos.price_open - price) * pos.volume * 100.0
-        print(f"🎯 DYNAMIC EXIT SUKSES (#{pos.ticket}): {comment_reason} | Hasil: ${profit_final:+.2f} USD @ ${price:.2f}")
+        color_res = COLOR_GREEN if profit_final > 0 else COLOR_RED
+        print(f"{color_res}{COLOR_BOLD}🎯 DYNAMIC EXIT SUKSES (#{pos.ticket}): {comment_reason} | Hasil: ${profit_final:+.2f} USD @ ${price:.2f}{COLOR_RESET}")
+        try:
+            sync_mt5_trades_to_excel(
+                excel_path=EXCEL_M5_PATH,
+                filter_new_model_only=True,
+                magic_number=MAGIC_NUMBER,
+                comment_filter=None,
+                model_label="LightGBM M5 Dynamic Scalper",
+                sheet_title="Trade Log M5 Scalping",
+                threshold_label=">= 58.0% + Dynamic AI Exit ($1.50 TP / AI Cut-Loss)"
+            )
+        except Exception:
+            pass
         return True
     else:
         print(f"⚠️ Gagal Market Close #{pos.ticket}. Code: {res.retcode} ({res.comment})")
@@ -381,10 +408,11 @@ def execute_auto_trade(signal_type, entry_price):
         "type_filling": filling_mode,
     }
     
-    print(f"🚀 MENGIRIM ORDER SCALPING M5: {signal_type} {LOT_SIZE} Lot XAUUSD @ ${price:.2f} (Emergency SL: ${sl:.2f}, Target Bot TP: +${QUICK_TP_USD:.2f})")
+    color_order = COLOR_GREEN if signal_type == "BUY" else COLOR_RED
+    print(f"{color_order}{COLOR_BOLD}🚀 [OPEN {signal_type}] MENGIRIM ORDER SCALPING M5: {signal_type} {LOT_SIZE} Lot XAUUSD @ ${price:.2f} (Emergency SL: ${sl:.2f}, Target Bot TP: +${QUICK_TP_USD:.2f}){COLOR_RESET}")
     result = mt5.order_send(request)
     if result.retcode == mt5.TRADE_RETCODE_DONE:
-        print(f"🎉 ORDER M5 SCALPING BERHASIL DIEKSEKUSI! (Layer {layer_num}/{MAX_STACKED_POSITIONS})")
+        print(f"{color_order}{COLOR_BOLD}🎉 ORDER M5 SCALPING {signal_type} BERHASIL DIEKSEKUSI! (Layer {layer_num}/{MAX_STACKED_POSITIONS}){COLOR_RESET}")
     else:
         print(f"❌ Gagal Eksekusi Order M5. Retcode: {result.retcode} ({result.comment})")
 
@@ -395,15 +423,70 @@ def main():
     print("Tekan Ctrl+C untuk menghentikan Robot.")
     print("="*85)
 
+    # Sinkronisasi awal saat bot pertama kali dinyalakan
+    print(f"{COLOR_CYAN}🔄 Memeriksa & menyinkronkan seluruh riwayat trade M5 ke Excel...{COLOR_RESET}")
+    try:
+        sync_mt5_trades_to_excel(
+            excel_path=EXCEL_M5_PATH,
+            filter_new_model_only=True,
+            magic_number=MAGIC_NUMBER,
+            comment_filter=None,
+            model_label="LightGBM M5 Dynamic Scalper",
+            sheet_title="Trade Log M5 Scalping",
+            threshold_label=">= 58.0% + Dynamic AI Exit ($1.50 TP / AI Cut-Loss)"
+        )
+    except Exception as e:
+        print(f"⚠️ Gagal sinkronisasi awal Excel M5: {e}")
+
     tf_min = 5
     last_analyzed_candle = None
     latest_prob_up = 50.0
     latest_prob_down = 50.0
+    prev_m5_count = 0
+    last_periodic_sync = time.time()
 
     try:
         while True:
             # 1. LOOP REAL-TIME: Pantau exit dinamis setiap detik
             manage_open_positions(latest_prob_up, latest_prob_down)
+
+            all_pos = mt5.positions_get(symbol=symbol)
+            my_pos = [p for p in (all_pos or []) if p.magic == MAGIC_NUMBER]
+            active_m5_count = len(my_pos)
+
+            # Deteksi jika ada layer/posisi M5 yang baru saja tertutup
+            if prev_m5_count > active_m5_count:
+                print(f"\n{COLOR_CYAN}🔔 [DETEKSI EXIT M5]: Posisi tertutup terdeteksi. Menyinkronkan update ke Excel M5...{COLOR_RESET}")
+                try:
+                    sync_mt5_trades_to_excel(
+                        excel_path=EXCEL_M5_PATH,
+                        filter_new_model_only=True,
+                        magic_number=MAGIC_NUMBER,
+                        comment_filter=None,
+                        model_label="LightGBM M5 Dynamic Scalper",
+                        sheet_title="Trade Log M5 Scalping",
+                        threshold_label=">= 58.0% + Dynamic AI Exit ($1.50 TP / AI Cut-Loss)"
+                    )
+                except Exception as sync_err:
+                    print(f"⚠️ Gagal sinkronisasi Excel M5: {sync_err}")
+
+            prev_m5_count = active_m5_count
+
+            # Sinkronisasi berkala ke Excel setiap 60 detik (Real-time safety)
+            if time.time() - last_periodic_sync >= 60:
+                last_periodic_sync = time.time()
+                try:
+                    sync_mt5_trades_to_excel(
+                        excel_path=EXCEL_M5_PATH,
+                        filter_new_model_only=True,
+                        magic_number=MAGIC_NUMBER,
+                        comment_filter=None,
+                        model_label="LightGBM M5 Dynamic Scalper",
+                        sheet_title="Trade Log M5 Scalping",
+                        threshold_label=">= 58.0% + Dynamic AI Exit ($1.50 TP / AI Cut-Loss)"
+                    )
+                except Exception:
+                    pass
             
             now = datetime.now()
             minutes_past = now.minute % tf_min
@@ -416,15 +499,21 @@ def main():
             mins = seconds_left // 60
             secs = seconds_left % 60
             
-            all_pos = mt5.positions_get(symbol=symbol)
-            my_pos = [p for p in (all_pos or []) if p.magic == MAGIC_NUMBER]
-            active_m5_count = len(my_pos)
-            
             # Hitung total floating PnL M5 saat ini
             live_pnl = sum([p.profit for p in my_pos])
             pnl_str = f" | Floating: ${live_pnl:+.2f}" if active_m5_count > 0 else ""
             
-            sys.stdout.write(f"\r⏳ [M5 DYNAMIC SCALPER]: Sisa Candle: {mins:02d}m {secs:02d}s | Posisi Aktif: {active_m5_count}/{MAX_STACKED_POSITIONS}{pnl_str}   ")
+            # Status tampilan di console (Kuning untuk Netral, Hijau untuk Buy, Merah untuk Sell)
+            if active_m5_count > 0:
+                pos_dir = "BUY" if my_pos[0].type == 0 else "SELL"
+                if pos_dir == "BUY":
+                    status_str = f"{COLOR_GREEN}{COLOR_BOLD}ACTIVE BUY ({active_m5_count}/{MAX_STACKED_POSITIONS}){COLOR_RESET}{pnl_str}"
+                else:
+                    status_str = f"{COLOR_RED}{COLOR_BOLD}ACTIVE SELL ({active_m5_count}/{MAX_STACKED_POSITIONS}){COLOR_RESET}{pnl_str}"
+            else:
+                status_str = f"{COLOR_YELLOW}NETRAL/WAIT{COLOR_RESET}"
+
+            sys.stdout.write(f"\r⏳ [BOT M5 DYNAMIC SCALPER]: Sisa Candle: {mins:02d}m {secs:02d}s | Status: {status_str}   ")
             sys.stdout.flush()
             
             # 2. TRIGGER CANDLE: 5 detik sebelum tutup candle M5
@@ -443,24 +532,24 @@ def main():
                 if latest_prob_up >= PROB_THRESHOLD:
                     if m30_bull:
                         final_signal = "BUY"
-                        print(f"🚀 SINYAL BUY M5 VALID: Searah Tren M30 Bullish ({latest_prob_up:.1f}%)")
+                        print(f"{COLOR_GREEN}{COLOR_BOLD}🟢 SINYAL BUY M5 VALID: Searah Tren M30 Bullish ({latest_prob_up:.1f}%){COLOR_RESET}")
                     elif latest_prob_up >= PULLBACK_THRESHOLD:
                         final_signal = "BUY"
-                        print(f"⚡ SINYAL BUY M5 PULLBACK SCALP: Momentum Sangat Kuat ({latest_prob_up:.1f}% >= {PULLBACK_THRESHOLD}%) Melawan M30!")
+                        print(f"{COLOR_GREEN}{COLOR_BOLD}⚡ SINYAL BUY M5 PULLBACK SCALP: Momentum Sangat Kuat ({latest_prob_up:.1f}% >= {PULLBACK_THRESHOLD}%) Melawan M30!{COLOR_RESET}")
                     else:
-                        print(f"⚠️ FILTER M30: Sinyal BUY ({latest_prob_up:.1f}%) tertahan tren M30 Bearish (Butuh >= {PULLBACK_THRESHOLD}% untuk Pullback Scalp).")
+                        print(f"{COLOR_YELLOW}⚠️ FILTER M30: Sinyal BUY ({latest_prob_up:.1f}%) tertahan tren M30 Bearish (Butuh >= {PULLBACK_THRESHOLD}% untuk Pullback Scalp).{COLOR_RESET}")
                         
                 elif latest_prob_down >= PROB_THRESHOLD:
                     if not m30_bull:
                         final_signal = "SELL"
-                        print(f"🚀 SINYAL SELL M5 VALID: Searah Tren M30 Bearish ({latest_prob_down:.1f}%)")
+                        print(f"{COLOR_RED}{COLOR_BOLD}🔴 SINYAL SELL M5 VALID: Searah Tren M30 Bearish ({latest_prob_down:.1f}%){COLOR_RESET}")
                     elif latest_prob_down >= PULLBACK_THRESHOLD:
                         final_signal = "SELL"
-                        print(f"⚡ SINYAL SELL M5 PULLBACK SCALP: Momentum Sangat Kuat ({latest_prob_down:.1f}% >= {PULLBACK_THRESHOLD}%) Melawan M30!")
+                        print(f"{COLOR_RED}{COLOR_BOLD}⚡ SINYAL SELL M5 PULLBACK SCALP: Momentum Sangat Kuat ({latest_prob_down:.1f}% >= {PULLBACK_THRESHOLD}%) Melawan M30!{COLOR_RESET}")
                     else:
-                        print(f"⚠️ FILTER M30: Sinyal SELL ({latest_prob_down:.1f}%) tertahan tren M30 Bullish (Butuh >= {PULLBACK_THRESHOLD}% untuk Pullback Scalp).")
+                        print(f"{COLOR_YELLOW}⚠️ FILTER M30: Sinyal SELL ({latest_prob_down:.1f}%) tertahan tren M30 Bullish (Butuh >= {PULLBACK_THRESHOLD}% untuk Pullback Scalp).{COLOR_RESET}")
                 else:
-                    print(f"🟡 SINYAL NETRAL M5: Keyakinan ({max(latest_prob_up, latest_prob_down):.1f}%) < Ambang Batas {PROB_THRESHOLD}%.")
+                    print(f"{COLOR_YELLOW}🟡 SINYAL NETRAL M5: Keyakinan ({max(latest_prob_up, latest_prob_down):.1f}%) < Ambang Batas {PROB_THRESHOLD}%.{COLOR_RESET}")
                     
                 if final_signal in ["BUY", "SELL"]:
                     entry_p = ask_p if final_signal == "BUY" else bid_p
@@ -473,7 +562,7 @@ def main():
                         excel_path=EXCEL_M5_PATH,
                         filter_new_model_only=True,
                         magic_number=MAGIC_NUMBER,
-                        comment_filter="M5 Scalping",
+                        comment_filter=None,
                         model_label="LightGBM M5 Dynamic Scalper",
                         sheet_title="Trade Log M5 Scalping",
                         threshold_label=">= 58.0% + Dynamic AI Exit ($1.50 TP / AI Cut-Loss)"
