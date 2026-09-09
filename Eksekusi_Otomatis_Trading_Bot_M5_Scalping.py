@@ -438,12 +438,37 @@ def main():
     except Exception as e:
         print(f"⚠️ Gagal sinkronisasi awal Excel M5: {e}")
 
+    # Audit awal kondisi pasar & prediksi model M5 saat pertama kali dibuka
+    print(f"\n{COLOR_CYAN}🔍 MELAKUKAN AUDIT AWAL KONDISI PASAR & PREDIKSI MODEL M5 SCALPER...{COLOR_RESET}")
+    latest_prob_up, latest_prob_down, m30_bull, h1_bull, atr_val, ask_p, bid_p = analyze_market_and_predict()
+    print("="*85)
+    print(f"📊 HASIL AUDIT MODEL M5 DYNAMIC SCALPER (REAL-TIME LIVE):")
+    print(f"• Probabilitas AI M5   : BUY = {latest_prob_up:.1f}%  |  SELL = {latest_prob_down:.1f}%")
+    print(f"• Ambang Batas Valid   : Standar >= {PROB_THRESHOLD:.1f}%  |  Pullback Scalp >= {PULLBACK_THRESHOLD:.1f}%")
+    print(f"• Konfirmasi Tren M30  : {'BULLISH (Up)' if m30_bull else 'BEARISH (Down)'}  |  H1 Makro: {'BULLISH' if h1_bull else 'BEARISH'}")
+
+    if latest_prob_up >= PROB_THRESHOLD and m30_bull:
+        m5_audit_note = f"{COLOR_GREEN}{COLOR_BOLD}🟢 SINYAL BUY VALID ({latest_prob_up:.1f}% searah Tren M30 Bullish){COLOR_RESET}"
+    elif latest_prob_up >= PULLBACK_THRESHOLD:
+        m5_audit_note = f"{COLOR_GREEN}{COLOR_BOLD}⚡ PULLBACK SCALP BUY ({latest_prob_up:.1f}% >= {PULLBACK_THRESHOLD}% Melawan M30){COLOR_RESET}"
+    elif latest_prob_down >= PROB_THRESHOLD and not m30_bull:
+        m5_audit_note = f"{COLOR_RED}{COLOR_BOLD}🔴 SINYAL SELL VALID ({latest_prob_down:.1f}% searah Tren M30 Bearish){COLOR_RESET}"
+    elif latest_prob_down >= PULLBACK_THRESHOLD:
+        m5_audit_note = f"{COLOR_RED}{COLOR_BOLD}⚡ PULLBACK SCALP SELL ({latest_prob_down:.1f}% >= {PULLBACK_THRESHOLD}% Melawan M30){COLOR_RESET}"
+    elif (latest_prob_up >= PROB_THRESHOLD and not m30_bull) or (latest_prob_down >= PROB_THRESHOLD and m30_bull):
+        m5_audit_note = f"{COLOR_YELLOW}🟡 TERTILTER: Sinyal ditahan filter M30 (Butuh >= {PULLBACK_THRESHOLD}% untuk Pullback){COLOR_RESET}"
+    else:
+        m5_audit_note = f"{COLOR_YELLOW}🟡 NETRAL: Keyakinan Model ({max(latest_prob_up, latest_prob_down):.1f}%) belum mencapai {PROB_THRESHOLD}%{COLOR_RESET}"
+
+    print(f"• Status Evaluasi Pasar : {m5_audit_note}")
+    print(f"• Waktu Eksekusi Order  : Menunggu 5 detik sebelum tutup candle ({CHOSEN_TF})")
+    print("="*85 + "\n")
+
     tf_min = 5
     last_analyzed_candle = None
-    latest_prob_up = 50.0
-    latest_prob_down = 50.0
     prev_m5_count = 0
     last_periodic_sync = time.time()
+    last_prob_refresh = time.time()
 
     try:
         while True:
@@ -472,7 +497,7 @@ def main():
 
             prev_m5_count = active_m5_count
 
-            # Sinkronisasi berkala ke Excel setiap 60 detik (Real-time safety)
+            # Sinkronisasi berkala ke Excel setiap 60 detik (Real-time safety, mode silent)
             if time.time() - last_periodic_sync >= 60:
                 last_periodic_sync = time.time()
                 try:
@@ -483,8 +508,17 @@ def main():
                         comment_filter=None,
                         model_label="LightGBM M5 Dynamic Scalper",
                         sheet_title="Trade Log M5 Scalping",
-                        threshold_label=">= 58.0% + Dynamic AI Exit ($1.50 TP / AI Cut-Loss)"
+                        threshold_label=">= 58.0% + Dynamic AI Exit ($1.50 TP / AI Cut-Loss)",
+                        silent=True
                     )
+                except Exception:
+                    pass
+
+            # Perbarui probabilitas live setiap 15 detik untuk audit transparan
+            if time.time() - last_prob_refresh >= 15:
+                last_prob_refresh = time.time()
+                try:
+                    latest_prob_up, latest_prob_down, m30_bull, h1_bull, atr_val, ask_p, bid_p = analyze_market_and_predict()
                 except Exception:
                     pass
             
@@ -503,6 +537,11 @@ def main():
             live_pnl = sum([p.profit for p in my_pos])
             pnl_str = f" | Floating: ${live_pnl:+.2f}" if active_m5_count > 0 else ""
             
+            # Format probabilitas live berwarna
+            prob_color = COLOR_GREEN if latest_prob_up >= PROB_THRESHOLD else (COLOR_RED if latest_prob_down >= PROB_THRESHOLD else COLOR_YELLOW)
+            prob_display = f"{prob_color}BUY:{latest_prob_up:.1f}% | SELL:{latest_prob_down:.1f}%{COLOR_RESET}"
+            m30_display = "M30:Bull" if m30_bull else "M30:Bear"
+
             # Status tampilan di console (Kuning untuk Netral, Hijau untuk Buy, Merah untuk Sell)
             if active_m5_count > 0:
                 pos_dir = "BUY" if my_pos[0].type == 0 else "SELL"
@@ -511,45 +550,56 @@ def main():
                 else:
                     status_str = f"{COLOR_RED}{COLOR_BOLD}ACTIVE SELL ({active_m5_count}/{MAX_STACKED_POSITIONS}){COLOR_RESET}{pnl_str}"
             else:
-                status_str = f"{COLOR_YELLOW}NETRAL/WAIT{COLOR_RESET}"
+                if latest_prob_up >= PROB_THRESHOLD and m30_bull:
+                    status_str = f"{COLOR_GREEN}{COLOR_BOLD}SIAP BUY{COLOR_RESET}"
+                elif latest_prob_up >= PULLBACK_THRESHOLD:
+                    status_str = f"{COLOR_GREEN}{COLOR_BOLD}SIAP PULLBACK BUY{COLOR_RESET}"
+                elif latest_prob_down >= PROB_THRESHOLD and not m30_bull:
+                    status_str = f"{COLOR_RED}{COLOR_BOLD}SIAP SELL{COLOR_RESET}"
+                elif latest_prob_down >= PULLBACK_THRESHOLD:
+                    status_str = f"{COLOR_RED}{COLOR_BOLD}SIAP PULLBACK SELL{COLOR_RESET}"
+                elif (latest_prob_up >= PROB_THRESHOLD and not m30_bull) or (latest_prob_down >= PROB_THRESHOLD and m30_bull):
+                    status_str = f"{COLOR_YELLOW}TERFILTER M30{COLOR_RESET}"
+                else:
+                    status_str = f"{COLOR_YELLOW}NETRAL/WAIT{COLOR_RESET}"
 
-            sys.stdout.write(f"\r⏳ [BOT M5 DYNAMIC SCALPER]: Sisa Candle: {mins:02d}m {secs:02d}s | Status: {status_str}   ")
+            sys.stdout.write(f"\r⏳ [{CHOSEN_TF}]: {mins:02d}m {secs:02d}s | {prob_display} ({m30_display}) | Status: {status_str}   ")
             sys.stdout.flush()
             
             # 2. TRIGGER CANDLE: Tepat 5 detik sebelum tutup candle M5 (0-delay)
             if seconds_left <= 5 and last_analyzed_candle != current_candle_time:
                 last_analyzed_candle = current_candle_time
-                print("\n" + "-"*85)
-                print(f"⚡ TUTUP CANDLE M5 ({now.strftime('%H:%M:%S')})! ANALISIS MODEL M5 & FILTER ADAPTIF M30...")
+                print("\n" + "="*85)
+                print(f"⚡ CANDLE M5 TUTUP ({now.strftime('%H:%M:%S')})! KEPUTUSAN EKSEKUSI MODEL:")
                 
                 latest_prob_up, latest_prob_down, m30_bull, h1_bull, atr_val, ask_p, bid_p = analyze_market_and_predict()
                 
-                print(f"📊 Probabilitas M5 : BUY={latest_prob_up:.1f}% | SELL={latest_prob_down:.1f}% (Standar: >={PROB_THRESHOLD}%, Pullback: >={PULLBACK_THRESHOLD}%)")
-                print(f"🛡️ Konfirmasi Tren : M30={'BULLISH (Up)' if m30_bull else 'BEARISH (Down)'} | H1 Makro={'BULLISH' if h1_bull else 'BEARISH'}")
+                print(f"📊 Probabilitas Final : BUY = {latest_prob_up:.1f}%  |  SELL = {latest_prob_down:.1f}% (Threshold: >={PROB_THRESHOLD}%, Pullback: >={PULLBACK_THRESHOLD}%)")
+                print(f"🛡️ Konfirmasi Tren    : M30 = {'BULLISH (Up)' if m30_bull else 'BEARISH (Down)'}  |  H1 = {'BULLISH' if h1_bull else 'BEARISH'}")
                 
                 final_signal = "WAIT"
                 
                 if latest_prob_up >= PROB_THRESHOLD:
                     if m30_bull:
                         final_signal = "BUY"
-                        print(f"{COLOR_GREEN}{COLOR_BOLD}🟢 SINYAL BUY M5 VALID: Searah Tren M30 Bullish ({latest_prob_up:.1f}%){COLOR_RESET}")
+                        print(f"{COLOR_GREEN}{COLOR_BOLD}🟢 KEPUTUSAN BUY M5: Probabilitas ({latest_prob_up:.1f}%) >= {PROB_THRESHOLD}% searah Tren M30 Bullish. Membuka order BUY...{COLOR_RESET}")
                     elif latest_prob_up >= PULLBACK_THRESHOLD:
                         final_signal = "BUY"
-                        print(f"{COLOR_GREEN}{COLOR_BOLD}⚡ SINYAL BUY M5 PULLBACK SCALP: Momentum Sangat Kuat ({latest_prob_up:.1f}% >= {PULLBACK_THRESHOLD}%) Melawan M30!{COLOR_RESET}")
+                        print(f"{COLOR_GREEN}{COLOR_BOLD}⚡ KEPUTUSAN PULLBACK SCALP BUY: Momentum Sangat Kuat ({latest_prob_up:.1f}% >= {PULLBACK_THRESHOLD}%) Melawan M30!{COLOR_RESET}")
                     else:
-                        print(f"{COLOR_YELLOW}⚠️ FILTER M30: Sinyal BUY ({latest_prob_up:.1f}%) tertahan tren M30 Bearish (Butuh >= {PULLBACK_THRESHOLD}% untuk Pullback Scalp).{COLOR_RESET}")
+                        print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN (FILTER M30): Sinyal BUY ({latest_prob_up:.1f}%) tertahan tren M30 Bearish (Butuh >= {PULLBACK_THRESHOLD}% untuk Pullback).{COLOR_RESET}")
                         
                 elif latest_prob_down >= PROB_THRESHOLD:
                     if not m30_bull:
                         final_signal = "SELL"
-                        print(f"{COLOR_RED}{COLOR_BOLD}🔴 SINYAL SELL M5 VALID: Searah Tren M30 Bearish ({latest_prob_down:.1f}%){COLOR_RESET}")
+                        print(f"{COLOR_RED}{COLOR_BOLD}🔴 KEPUTUSAN SELL M5: Probabilitas ({latest_prob_down:.1f}%) >= {PROB_THRESHOLD}% searah Tren M30 Bearish. Membuka order SELL...{COLOR_RESET}")
                     elif latest_prob_down >= PULLBACK_THRESHOLD:
                         final_signal = "SELL"
-                        print(f"{COLOR_RED}{COLOR_BOLD}⚡ SINYAL SELL M5 PULLBACK SCALP: Momentum Sangat Kuat ({latest_prob_down:.1f}% >= {PULLBACK_THRESHOLD}%) Melawan M30!{COLOR_RESET}")
+                        print(f"{COLOR_RED}{COLOR_BOLD}⚡ KEPUTUSAN PULLBACK SCALP SELL: Momentum Sangat Kuat ({latest_prob_down:.1f}% >= {PULLBACK_THRESHOLD}%) Melawan M30!{COLOR_RESET}")
                     else:
-                        print(f"{COLOR_YELLOW}⚠️ FILTER M30: Sinyal SELL ({latest_prob_down:.1f}%) tertahan tren M30 Bullish (Butuh >= {PULLBACK_THRESHOLD}% untuk Pullback Scalp).{COLOR_RESET}")
+                        print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN (FILTER M30): Sinyal SELL ({latest_prob_down:.1f}%) tertahan tren M30 Bullish (Butuh >= {PULLBACK_THRESHOLD}% untuk Pullback).{COLOR_RESET}")
                 else:
-                    print(f"{COLOR_YELLOW}🟡 SINYAL NETRAL M5: Keyakinan ({max(latest_prob_up, latest_prob_down):.1f}%) < Ambang Batas {PROB_THRESHOLD}%.{COLOR_RESET}")
+                    print(f"{COLOR_YELLOW}🟡 KEPUTUSAN NETRAL M5: Keyakinan ({max(latest_prob_up, latest_prob_down):.1f}%) < Ambang Batas {PROB_THRESHOLD}%. Belum ada sinyal valid.{COLOR_RESET}")
                     
                 if final_signal in ["BUY", "SELL"]:
                     entry_p = ask_p if final_signal == "BUY" else bid_p
@@ -569,7 +619,7 @@ def main():
                     )
                 except Exception as sync_err:
                     print(f"⚠️ Gagal sinkronisasi Excel M5: {sync_err}")
-                print("-"*85)
+                print("="*85)
                 
             time.sleep(1)
 

@@ -26,7 +26,8 @@ def sync_mt5_trades_to_excel(
     comment_filter=None,
     model_label="LightGBM SMC/ICT",
     sheet_title="Trade Log Model Terbaru",
-    threshold_label=">= 60.0% + Trend Guard H1"
+    threshold_label=">= 60.0% + Trend Guard H1",
+    silent=False
 ):
     """
     Menyinkronkan data trade MT5 ke Excel secara otomatis.
@@ -254,10 +255,12 @@ def sync_mt5_trades_to_excel(
             ws2.column_dimensions[col_letter].width = max(max_len + 4, 25)
 
         wb.save(excel_path)
-        print(f"✅ Rekap Forward Testing Berhasil Disinkronkan ke:")
-        print(f"   📁 {excel_path}")
+        if not silent:
+            print(f"✅ Rekap Forward Testing Berhasil Disinkronkan ke:")
+            print(f"   📁 {excel_path}")
     except Exception as e:
-        print(f"⚠️ Catatan Sync Excel ({os.path.basename(excel_path)}): {e}. Sinkronisasi akan diulang di candle berikutnya.")
+        if not silent:
+            print(f"⚠️ Catatan Sync Excel ({os.path.basename(excel_path)}): {e}. Sinkronisasi akan diulang di candle berikutnya.")
     return summary_df, df_trades
 
 if __name__ == "__main__":

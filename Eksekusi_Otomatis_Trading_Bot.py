@@ -324,16 +324,41 @@ def main():
     print("="*75)
 
     # Sinkronisasi awal saat bot pertama kali dinyalakan
-    print(f"{COLOR_CYAN}🔄 Memeriksa & menyinkronkan seluruh riwayat trade M15 ke Excel...{COLOR_RESET}")
+    print(f"{COLOR_CYAN}🔄 Memeriksa & menyinkronkan riwayat trade M15 ke Excel...{COLOR_RESET}")
     try:
         sync_mt5_trades_to_excel()
     except Exception as e:
         print(f"⚠️ Gagal sinkronisasi awal Excel: {e}")
 
+    # Audit awal kondisi pasar & prediksi model saat pertama kali dibuka
+    print(f"\n{COLOR_CYAN}🔍 MELAKUKAN AUDIT AWAL KONDISI PASAR & PREDIKSI MODEL SAAT INI...{COLOR_RESET}")
+    prob_up, prob_down, h1_bull, h1_strong_bull, atr_val, ask_p, bid_p = analyze_market_and_predict()
+    print("="*75)
+    print(f"📊 HASIL AUDIT MODEL M15 (REAL-TIME LIVE):")
+    print(f"• Probabilitas AI      : BUY = {prob_up:.1f}%  |  SELL = {prob_down:.1f}%")
+    print(f"• Ambang Batas Valid   : Min >= {PROB_THRESHOLD:.1f}%")
+    print(f"• Arah Tren Makro H1   : {'BULLISH (Up)' if h1_bull else 'BEARISH (Down)'}")
+    
+    if prob_up >= PROB_THRESHOLD and h1_bull:
+        audit_note = f"{COLOR_GREEN}{COLOR_BOLD}🟢 SINYAL BUY AKTIF ({prob_up:.1f}% >= {PROB_THRESHOLD}% & H1 Bullish){COLOR_RESET}"
+    elif prob_down >= PROB_THRESHOLD and not h1_bull:
+        audit_note = f"{COLOR_RED}{COLOR_BOLD}🔴 SINYAL SELL AKTIF ({prob_down:.1f}% >= {PROB_THRESHOLD}% & H1 Bearish){COLOR_RESET}"
+    elif prob_up >= PROB_THRESHOLD and not h1_bull:
+        audit_note = f"{COLOR_YELLOW}🟡 TERTILTER: BUY {prob_up:.1f}% ditahan karena Tren H1 Bearish (Hindari Trapping){COLOR_RESET}"
+    elif prob_down >= PROB_THRESHOLD and h1_bull:
+        audit_note = f"{COLOR_YELLOW}🟡 TERTILTER: SELL {prob_down:.1f}% ditahan karena Tren H1 Bullish (Hindari Trapping){COLOR_RESET}"
+    else:
+        audit_note = f"{COLOR_YELLOW}🟡 NETRAL: Keyakinan Model ({max(prob_up, prob_down):.1f}%) belum mencapai {PROB_THRESHOLD}%{COLOR_RESET}"
+        
+    print(f"• Status Evaluasi Pasar : {audit_note}")
+    print(f"• Waktu Eksekusi Order  : Menunggu 5 detik sebelum tutup candle ({CHOSEN_TF})")
+    print("="*75 + "\n")
+
     tf_min = 15
     last_analyzed_candle = None
     prev_positions_count = 0
     last_periodic_sync = time.time()
+    last_prob_refresh = time.time()
 
     try:
         while True:
@@ -353,11 +378,19 @@ def main():
 
             prev_positions_count = cur_count
 
-            # Sinkronisasi berkala ke Excel setiap 60 detik (Real-time safety)
+            # Sinkronisasi berkala ke Excel setiap 60 detik (Real-time safety, mode silent agar tidak merusak tampilan)
             if time.time() - last_periodic_sync >= 60:
                 last_periodic_sync = time.time()
                 try:
-                    sync_mt5_trades_to_excel()
+                    sync_mt5_trades_to_excel(silent=True)
+                except Exception:
+                    pass
+
+            # Perbarui probabilitas live setiap 30 detik agar audit persentase selalu aktual
+            if time.time() - last_prob_refresh >= 30:
+                last_prob_refresh = time.time()
+                try:
+                    prob_up, prob_down, h1_bull, h1_strong_bull, atr_val, ask_p, bid_p = analyze_market_and_predict()
                 except Exception:
                     pass
             
@@ -372,6 +405,11 @@ def main():
             mins = seconds_left // 60
             secs = seconds_left % 60
             
+            # Format probabilitas live berwarna
+            prob_color = COLOR_GREEN if prob_up >= PROB_THRESHOLD else (COLOR_RED if prob_down >= PROB_THRESHOLD else COLOR_YELLOW)
+            prob_display = f"{prob_color}BUY:{prob_up:.1f}% | SELL:{prob_down:.1f}%{COLOR_RESET}"
+            h1_display = "H1:Bull" if h1_bull else "H1:Bear"
+
             # Status tampilan di console (Kuning untuk Netral, Hijau untuk Buy, Merah untuk Sell)
             if cur_count > 0:
                 p_type = cur_positions[0].type
@@ -380,41 +418,48 @@ def main():
                 else:
                     status_str = f"{COLOR_RED}{COLOR_BOLD}HOLDING SELL #{cur_positions[0].ticket}{COLOR_RESET}"
             else:
-                status_str = f"{COLOR_YELLOW}NETRAL/WAIT{COLOR_RESET}"
+                if prob_up >= PROB_THRESHOLD and h1_bull:
+                    status_str = f"{COLOR_GREEN}{COLOR_BOLD}SIAP BUY{COLOR_RESET}"
+                elif prob_down >= PROB_THRESHOLD and not h1_bull:
+                    status_str = f"{COLOR_RED}{COLOR_BOLD}SIAP SELL{COLOR_RESET}"
+                elif (prob_up >= PROB_THRESHOLD and not h1_bull) or (prob_down >= PROB_THRESHOLD and h1_bull):
+                    status_str = f"{COLOR_YELLOW}TERFILTER H1{COLOR_RESET}"
+                else:
+                    status_str = f"{COLOR_YELLOW}NETRAL/WAIT{COLOR_RESET}"
 
-            sys.stdout.write(f"\r⏳ [BOT M15 MONITORING]: Sisa Waktu Candle ({CHOSEN_TF}): {mins:02d}m {secs:02d}s | Status: {status_str}   ")
+            sys.stdout.write(f"\r⏳ [{CHOSEN_TF}]: {mins:02d}m {secs:02d}s | {prob_display} ({h1_display}) | Status: {status_str}   ")
             sys.stdout.flush()
             
             # Trigger tepat 5 detik sebelum tutup candle M15 (0-delay sebelum pembentukan candle baru)
             if seconds_left <= 5 and last_analyzed_candle != current_candle_time:
                 last_analyzed_candle = current_candle_time
-                print("\n" + "-"*75)
-                print(f"⚡ MENJELANG TUTUP CANDLE M15 ({now.strftime('%H:%M:%S')})! MELAKUKAN ANALISIS SMC/ICT & TREND GUARD...")
+                print("\n" + "="*75)
+                print(f"⚡ CANDLE M15 MENJELANG TUTUP ({now.strftime('%H:%M:%S')})! KEPUTUSAN EKSEKUSI MODEL:")
                 
                 prob_up, prob_down, h1_bull, h1_strong_bull, atr_val, ask_p, bid_p = analyze_market_and_predict()
                 
                 sl_pips = max(40.0, round(atr_val * 10.0 * 0.6, 0))
                 tp_pips = round(sl_pips * RRR_RATIO, 0)
                 
-                print(f"📊 Probabilitas Model: BUY={prob_up:.1f}% | SELL={prob_down:.1f}%")
-                print(f"🛡️ Tren H1: {'BULLISH (Up)' if h1_bull else 'BEARISH (Down)'}")
+                print(f"📊 Probabilitas Final : BUY = {prob_up:.1f}%  |  SELL = {prob_down:.1f}% (Threshold: >={PROB_THRESHOLD}%)")
+                print(f"🛡️ Tren Makro H1       : {'BULLISH (Up)' if h1_bull else 'BEARISH (Down)'}")
                 
                 final_signal = "WAIT"
                 
                 if prob_up >= PROB_THRESHOLD:
                     if h1_bull:
                         final_signal = "BUY"
-                        print(f"{COLOR_GREEN}{COLOR_BOLD}🟢 SINYAL BUY VALID: Keyakinan {prob_up:.1f}% >= {PROB_THRESHOLD}% (Searah Tren H1 Bullish){COLOR_RESET}")
+                        print(f"{COLOR_GREEN}{COLOR_BOLD}🟢 KEPUTUSAN BUY: Probabilitas BUY ({prob_up:.1f}%) >= {PROB_THRESHOLD}% dan searah Tren H1 Bullish. Membuka posisi BUY...{COLOR_RESET}")
                     else:
-                        print(f"{COLOR_YELLOW}⚠️ TREND GUARD FILTER: Sinyal BUY ({prob_up:.1f}%) Dibatalkan karena Tren H1 Bearish (Hindari Trapping).{COLOR_RESET}")
+                        print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN (FILTER): Sinyal BUY ({prob_up:.1f}%) dibatalkan karena Tren H1 Bearish (Hindari False Breakout).{COLOR_RESET}")
                 elif prob_down >= PROB_THRESHOLD:
                     if not h1_bull:
                         final_signal = "SELL"
-                        print(f"{COLOR_RED}{COLOR_BOLD}🔴 SINYAL SELL VALID: Keyakinan {prob_down:.1f}% >= {PROB_THRESHOLD}% (Searah Tren H1 Bearish){COLOR_RESET}")
+                        print(f"{COLOR_RED}{COLOR_BOLD}🔴 KEPUTUSAN SELL: Probabilitas SELL ({prob_down:.1f}%) >= {PROB_THRESHOLD}% dan searah Tren H1 Bearish. Membuka posisi SELL...{COLOR_RESET}")
                     else:
-                        print(f"{COLOR_YELLOW}⚠️ TREND GUARD FILTER: Sinyal SELL ({prob_down:.1f}%) Dibatalkan karena Tren H1 Bullish Kuat (Hindari Trapping).{COLOR_RESET}")
+                        print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN (FILTER): Sinyal SELL ({prob_down:.1f}%) dibatalkan karena Tren H1 Bullish (Hindari False Breakout).{COLOR_RESET}")
                 else:
-                    print(f"{COLOR_YELLOW}🟡 SINYAL NETRAL: Kepastian ({max(prob_up, prob_down):.1f}%) < Ambang Batas {PROB_THRESHOLD}%.{COLOR_RESET}")
+                    print(f"{COLOR_YELLOW}🟡 KEPUTUSAN NETRAL: Keyakinan Model ({max(prob_up, prob_down):.1f}%) < Ambang Batas {PROB_THRESHOLD}%. Belum ada peluang dengan kepastian tinggi.{COLOR_RESET}")
                     
                 if final_signal in ["BUY", "SELL"]:
                     entry_p = ask_p if final_signal == "BUY" else bid_p
@@ -425,7 +470,7 @@ def main():
                     sync_mt5_trades_to_excel()
                 except Exception as sync_err:
                     print(f"⚠️ Gagal sinkronisasi Excel: {sync_err}")
-                print("-"*75)
+                print("="*75)
                 
             time.sleep(1)
 
