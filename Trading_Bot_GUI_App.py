@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import math
 import subprocess
 import threading
 import queue
@@ -24,6 +25,21 @@ MT5_PATH   = r"C:\Program Files\MetaTrader 5 EXNESS\terminal64.exe"
 # ANSI regex untuk konversi warna terminal ke teks GUI
 ANSI_PATTERN = re.compile(r'\033\[(?P<code>\d+(?:;\d+)*)m')
 
+# Regex untuk parsing output bot
+RE_PROB_LIVE = re.compile(r'BUY[:\s=]+(\d+\.?\d*)%\s*\|\s*SELL[:\s=]+(\d+\.?\d*)%', re.IGNORECASE)
+RE_DECISION_BUY = re.compile(r'KEPUTUSAN BUY', re.IGNORECASE)
+RE_DECISION_SELL = re.compile(r'KEPUTUSAN SELL', re.IGNORECASE)
+RE_DECISION_NETRAL = re.compile(r'KEPUTUSAN NETRAL', re.IGNORECASE)
+RE_DECISION_DITAHAN = re.compile(r'KEPUTUSAN DITAHAN', re.IGNORECASE)
+RE_TIMER_LINE = re.compile(r'^[\r\s]*⏳\s*\[')
+RE_ORDER_OPEN = re.compile(r'OPEN (BUY|SELL)', re.IGNORECASE)
+RE_ORDER_SUCCESS = re.compile(r'ORDER.+BERHASIL', re.IGNORECASE)
+RE_BREAK_EVEN = re.compile(r'BREAK-EVEN', re.IGNORECASE)
+RE_DETEKSI_EXIT = re.compile(r'DETEKSI EXIT', re.IGNORECASE)
+RE_DYNAMIC_EXIT = re.compile(r'DYNAMIC EXIT', re.IGNORECASE)
+
+MAX_HISTORY_ROWS = 200
+
 class TradingBotGUI:
     def __init__(self, root):
         self.root = root
@@ -37,6 +53,20 @@ class TradingBotGUI:
         self.proc_m5  = None
         self.queue_m15 = queue.Queue()
         self.queue_m5  = queue.Queue()
+
+        # Stopwatch state
+        self.m15_start_time = None
+        self.m5_start_time = None
+
+        # Donut chart state
+        self.m15_prob_buy = 50.0
+        self.m15_prob_sell = 50.0
+        self.m5_prob_buy = 50.0
+        self.m5_prob_sell = 50.0
+
+        # Last decision state
+        self.m15_last_decision = "STANDBY"
+        self.m5_last_decision = "STANDBY"
 
         # Data & Mode Rekap Excel In-App
         self.current_rekap_mode = "m15"
@@ -52,6 +82,7 @@ class TradingBotGUI:
         # Mulai loop background polling
         self.root.after(100, self.process_log_queues)
         self.root.after(1000, self.update_live_market_ticker)
+        self.root.after(500, self.update_stopwatches)
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def setup_styles(self):
@@ -135,6 +166,214 @@ class TradingBotGUI:
         self.setup_rekap_tab()
 
     # =========================================================================
+    # DONUT CHART HELPER (Canvas-based ring chart)
+    # =========================================================================
+    def draw_donut_chart(self, canvas, prob_buy, prob_sell, size=160):
+        """Draw a donut/ring chart on the given canvas showing BUY vs SELL probability."""
+        canvas.delete("all")
+        
+        cx, cy = size / 2, size / 2
+        outer_r = size / 2 - 8
+        inner_r = outer_r * 0.55
+        
+        # Background circle (dark ring)
+        canvas.create_oval(cx - outer_r, cy - outer_r, cx + outer_r, cy + outer_r, fill="#1e293b", outline="#334155", width=2)
+        
+        # Draw arcs for BUY (green) and SELL (red)
+        total = prob_buy + prob_sell
+        if total <= 0:
+            total = 100.0
+        
+        buy_extent = (prob_buy / total) * 360.0
+        sell_extent = 360.0 - buy_extent
+        
+        # Determine dominant color
+        if prob_buy >= prob_sell:
+            dominant_color = "#10b981"
+            secondary_color = "#ef4444"
+            dominant_label = "BUY"
+            dominant_pct = prob_buy
+        else:
+            dominant_color = "#ef4444"
+            secondary_color = "#10b981"
+            dominant_label = "SELL"
+            dominant_pct = prob_sell
+        
+        # Draw SELL arc first (starts at top, goes clockwise)
+        if sell_extent > 0.5:
+            canvas.create_arc(
+                cx - outer_r, cy - outer_r, cx + outer_r, cy + outer_r,
+                start=90, extent=-sell_extent, fill=secondary_color, outline=""
+            )
+        
+        # Draw BUY arc on top
+        if buy_extent > 0.5:
+            canvas.create_arc(
+                cx - outer_r, cy - outer_r, cx + outer_r, cy + outer_r,
+                start=90, extent=buy_extent, fill=dominant_color, outline=""
+            )
+        
+        # Inner circle (hole) to create donut effect
+        canvas.create_oval(cx - inner_r, cy - inner_r, cx + inner_r, cy + inner_r, fill="#0b0f19", outline="#0b0f19")
+        
+        # Center text: dominant percentage
+        canvas.create_text(cx, cy - 8, text=f"{dominant_pct:.1f}%", font=("Segoe UI", 16, "bold"), fill=dominant_color)
+        canvas.create_text(cx, cy + 14, text=dominant_label, font=("Segoe UI", 9, "bold"), fill="#94a3b8")
+
+    # =========================================================================
+    # DASHBOARD PANEL BUILDER (used by both M15 and M5 tabs)
+    # =========================================================================
+    def build_dashboard_panel(self, parent, bot_key, accent_color="#38bdf8"):
+        """Build the right-side dashboard panel with Timer, Donut, and History Treeview.
+        bot_key is 'm15' or 'm5'. Returns dict of widget references."""
+        
+        right_panel = tk.Frame(parent, bg="#0b0f19", relief="solid", bd=1)
+        
+        widgets = {}
+        
+        # ── ZONA 1: STATUS PANEL ATAS (Timer + Status + Last Decision) ──
+        status_frame = tk.Frame(right_panel, bg="#111827", relief="solid", bd=1)
+        status_frame.pack(fill="x", padx=8, pady=(8, 4))
+        
+        # Row 1: Title + Stopwatch
+        row1 = tk.Frame(status_frame, bg="#111827")
+        row1.pack(fill="x", padx=12, pady=(10, 4))
+        
+        tf_label = "M15 KONSERVATIF" if bot_key == "m15" else "M5 SCALPER"
+        tk.Label(row1, text=f"⏱️ MONITORING LIVE {tf_label}", font=("Segoe UI", 10, "bold"), fg=accent_color, bg="#111827").pack(side="left")
+        
+        timer_lbl = tk.Label(row1, text="00:00:00", font=("Consolas", 18, "bold"), fg="#f8fafc", bg="#111827")
+        timer_lbl.pack(side="right", padx=(10, 0))
+        widgets["timer"] = timer_lbl
+        
+        # Row 2: Status badge + Last decision
+        row2 = tk.Frame(status_frame, bg="#111827")
+        row2.pack(fill="x", padx=12, pady=(0, 10))
+        
+        status_lbl = tk.Label(row2, text="○ STANDBY", font=("Segoe UI", 9, "bold"), fg="#ef4444", bg="#1e293b", padx=10, pady=3)
+        status_lbl.pack(side="left")
+        widgets["status_lbl"] = status_lbl
+        
+        decision_lbl = tk.Label(row2, text="Keputusan Terakhir: —", font=("Segoe UI", 9), fg="#94a3b8", bg="#111827")
+        decision_lbl.pack(side="right")
+        widgets["decision_lbl"] = decision_lbl
+        
+        # ── ZONA 2: DONUT CHART + PROBABILITAS ──
+        chart_frame = tk.Frame(right_panel, bg="#0b0f19")
+        chart_frame.pack(fill="x", padx=8, pady=4)
+        
+        # Left: Donut Canvas
+        donut_size = 160
+        donut_canvas = tk.Canvas(chart_frame, width=donut_size, height=donut_size, bg="#0b0f19", highlightthickness=0)
+        donut_canvas.pack(side="left", padx=(20, 10), pady=8)
+        widgets["donut_canvas"] = donut_canvas
+        
+        # Right: Probability details
+        prob_detail = tk.Frame(chart_frame, bg="#0b0f19")
+        prob_detail.pack(side="left", fill="both", expand=True, padx=(10, 20), pady=12)
+        
+        tk.Label(prob_detail, text="PROBABILITAS AI MODEL", font=("Segoe UI", 10, "bold"), fg="#94a3b8", bg="#0b0f19").pack(anchor="w", pady=(0, 8))
+        
+        # BUY bar
+        buy_bar_frame = tk.Frame(prob_detail, bg="#0b0f19")
+        buy_bar_frame.pack(fill="x", pady=(0, 4))
+        tk.Label(buy_bar_frame, text="🟢 BUY", font=("Segoe UI", 9, "bold"), fg="#10b981", bg="#0b0f19", width=8, anchor="w").pack(side="left")
+        
+        buy_bar_bg = tk.Frame(buy_bar_frame, bg="#1e293b", height=18)
+        buy_bar_bg.pack(side="left", fill="x", expand=True, padx=(4, 0))
+        buy_bar_bg.pack_propagate(False)
+        buy_bar_fill = tk.Frame(buy_bar_bg, bg="#10b981", height=18)
+        buy_bar_fill.place(relx=0, rely=0, relwidth=0.5, relheight=1.0)
+        widgets["buy_bar_fill"] = buy_bar_fill
+        
+        buy_pct_lbl = tk.Label(buy_bar_frame, text="50.0%", font=("Consolas", 9, "bold"), fg="#10b981", bg="#0b0f19", width=7, anchor="e")
+        buy_pct_lbl.pack(side="right", padx=(6, 0))
+        widgets["buy_pct_lbl"] = buy_pct_lbl
+        
+        # SELL bar
+        sell_bar_frame = tk.Frame(prob_detail, bg="#0b0f19")
+        sell_bar_frame.pack(fill="x", pady=(0, 8))
+        tk.Label(sell_bar_frame, text="🔴 SELL", font=("Segoe UI", 9, "bold"), fg="#ef4444", bg="#0b0f19", width=8, anchor="w").pack(side="left")
+        
+        sell_bar_bg = tk.Frame(sell_bar_frame, bg="#1e293b", height=18)
+        sell_bar_bg.pack(side="left", fill="x", expand=True, padx=(4, 0))
+        sell_bar_bg.pack_propagate(False)
+        sell_bar_fill = tk.Frame(sell_bar_bg, bg="#ef4444", height=18)
+        sell_bar_fill.place(relx=0, rely=0, relwidth=0.5, relheight=1.0)
+        widgets["sell_bar_fill"] = sell_bar_fill
+        
+        sell_pct_lbl = tk.Label(sell_bar_frame, text="50.0%", font=("Consolas", 9, "bold"), fg="#ef4444", bg="#0b0f19", width=7, anchor="e")
+        sell_pct_lbl.pack(side="right", padx=(6, 0))
+        widgets["sell_pct_lbl"] = sell_pct_lbl
+        
+        # Trend info label
+        trend_lbl = tk.Label(prob_detail, text="Tren H1: Memuat... | SNR: —", font=("Segoe UI", 8), fg="#64748b", bg="#0b0f19")
+        trend_lbl.pack(anchor="w")
+        widgets["trend_lbl"] = trend_lbl
+        
+        # Draw initial donut
+        self.draw_donut_chart(donut_canvas, 50.0, 50.0, donut_size)
+        
+        # ── ZONA 3: RIWAYAT KEPUTUSAN (Treeview) ──
+        history_frame = tk.Frame(right_panel, bg="#111827", relief="solid", bd=1)
+        history_frame.pack(fill="both", expand=True, padx=8, pady=(4, 8))
+        
+        hist_header = tk.Frame(history_frame, bg="#111827")
+        hist_header.pack(fill="x", padx=10, pady=(8, 4))
+        
+        tk.Label(hist_header, text="📋 RIWAYAT KEPUTUSAN BOT", font=("Segoe UI", 9, "bold"), fg="#94a3b8", bg="#111827").pack(side="left")
+        
+        hist_count_lbl = tk.Label(hist_header, text="0 entri", font=("Segoe UI", 8), fg="#64748b", bg="#111827")
+        hist_count_lbl.pack(side="right", padx=(0, 4))
+        widgets["hist_count_lbl"] = hist_count_lbl
+        
+        btn_clear = tk.Button(hist_header, text="🗑️ Bersihkan", font=("Segoe UI", 8), fg="#94a3b8", bg="#1e293b", relief="flat", cursor="hand2", padx=6, pady=2)
+        btn_clear.pack(side="right", padx=4)
+        
+        # Treeview for history
+        tree_box = tk.Frame(history_frame, bg="#111827")
+        tree_box.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        
+        hist_scroll = ttk.Scrollbar(tree_box, orient="vertical")
+        hist_scroll.pack(side="right", fill="y")
+        
+        hist_cols = ("waktu", "aksi", "buy_pct", "sell_pct", "detail")
+        hist_tree = ttk.Treeview(tree_box, columns=hist_cols, show="headings", yscrollcommand=hist_scroll.set, height=8)
+        hist_tree.pack(fill="both", expand=True)
+        hist_scroll.config(command=hist_tree.yview)
+        
+        hist_tree.heading("waktu", text="Waktu")
+        hist_tree.heading("aksi", text="Aksi")
+        hist_tree.heading("buy_pct", text="BUY %")
+        hist_tree.heading("sell_pct", text="SELL %")
+        hist_tree.heading("detail", text="Detail / Alasan")
+        
+        hist_tree.column("waktu", width=75, anchor="center")
+        hist_tree.column("aksi", width=75, anchor="center")
+        hist_tree.column("buy_pct", width=60, anchor="center")
+        hist_tree.column("sell_pct", width=60, anchor="center")
+        hist_tree.column("detail", width=300, anchor="w", stretch=True)
+        
+        hist_tree.tag_configure("buy", foreground="#10b981", font=("Segoe UI", 9, "bold"))
+        hist_tree.tag_configure("sell", foreground="#ef4444", font=("Segoe UI", 9, "bold"))
+        hist_tree.tag_configure("netral", foreground="#f59e0b", font=("Segoe UI", 9))
+        hist_tree.tag_configure("ditahan", foreground="#f59e0b", font=("Segoe UI", 9))
+        hist_tree.tag_configure("info", foreground="#38bdf8", font=("Segoe UI", 9))
+        hist_tree.tag_configure("system", foreground="#94a3b8", font=("Segoe UI", 8))
+        
+        widgets["hist_tree"] = hist_tree
+        
+        # Wire clear button
+        btn_clear.config(command=lambda: self._clear_history(hist_tree, hist_count_lbl))
+        
+        return right_panel, widgets
+
+    def _clear_history(self, tree, count_lbl):
+        for item in tree.get_children():
+            tree.delete(item)
+        count_lbl.config(text="0 entri")
+
+    # =========================================================================
     # TAB 1: BOT M15
     # =========================================================================
     def setup_m15_tab(self):
@@ -188,23 +427,9 @@ class TradingBotGUI:
         btn_excel_m15 = tk.Button(excel_btns_m15, text="📂 Buka di Aplikasi Excel (.xlsx)", font=("Segoe UI", 8), fg="#94a3b8", bg="#1e293b", activebackground="#334155", activeforeground="#38bdf8", relief="flat", cursor="hand2", command=lambda: os.startfile(EXCEL_M15) if os.path.exists(EXCEL_M15) else messagebox.showerror("File Error", "File Excel M15 belum ditemukan!"), pady=5)
         btn_excel_m15.pack(fill="x")
 
-        # Panel Kanan: Console Log
-        right_panel = tk.Frame(paned, bg="#050811", relief="solid", bd=1)
+        # Panel Kanan: Dashboard (Timer + Donut + History)
+        right_panel, self.m15_widgets = self.build_dashboard_panel(paned, "m15", accent_color="#38bdf8")
         paned.add(right_panel)
-
-        log_header = tk.Frame(right_panel, bg="#111827", height=35)
-        log_header.pack(fill="x")
-        tk.Label(log_header, text="TERMINAL MONITORING LIVE M15", font=("Segoe UI", 9, "bold"), fg="#94a3b8", bg="#111827").pack(side="left", padx=10, pady=5)
-        tk.Button(log_header, text="Bersihkan Log", font=("Segoe UI", 8), fg="#94a3b8", bg="#1f2937", relief="flat", command=lambda: self.log_text_m15.delete('1.0', tk.END)).pack(side="right", padx=10, pady=5)
-
-        self.log_text_m15 = tk.Text(right_panel, bg="#050811", fg="#f8fafc", font=("Consolas", 9), wrap="word", relief="flat", padx=10, pady=10)
-        self.log_text_m15.pack(fill="both", expand=True)
-
-        scroll_m15 = tk.Scrollbar(self.log_text_m15, command=self.log_text_m15.yview)
-        scroll_m15.pack(side="right", fill="y")
-        self.log_text_m15.configure(yscrollcommand=scroll_m15.set)
-
-        self.setup_text_tags(self.log_text_m15)
 
     # =========================================================================
     # TAB 2: BOT M5
@@ -261,23 +486,9 @@ class TradingBotGUI:
         btn_excel_m5 = tk.Button(excel_btns_m5, text="📂 Buka di Aplikasi Excel (.xlsx)", font=("Segoe UI", 8), fg="#94a3b8", bg="#1e293b", activebackground="#334155", activeforeground="#10b981", relief="flat", cursor="hand2", command=lambda: os.startfile(EXCEL_M5) if os.path.exists(EXCEL_M5) else messagebox.showerror("File Error", "File Excel M5 belum ditemukan!"), pady=5)
         btn_excel_m5.pack(fill="x")
 
-        # Panel Kanan: Console Log
-        right_panel = tk.Frame(paned, bg="#050811", relief="solid", bd=1)
+        # Panel Kanan: Dashboard (Timer + Donut + History)
+        right_panel, self.m5_widgets = self.build_dashboard_panel(paned, "m5", accent_color="#10b981")
         paned.add(right_panel)
-
-        log_header = tk.Frame(right_panel, bg="#111827", height=35)
-        log_header.pack(fill="x")
-        tk.Label(log_header, text="TERMINAL MONITORING LIVE M5 SCALPER", font=("Segoe UI", 9, "bold"), fg="#94a3b8", bg="#111827").pack(side="left", padx=10, pady=5)
-        tk.Button(log_header, text="Bersihkan Log", font=("Segoe UI", 8), fg="#94a3b8", bg="#1f2937", relief="flat", command=lambda: self.log_text_m5.delete('1.0', tk.END)).pack(side="right", padx=10, pady=5)
-
-        self.log_text_m5 = tk.Text(right_panel, bg="#050811", fg="#f8fafc", font=("Consolas", 9), wrap="word", relief="flat", padx=10, pady=10)
-        self.log_text_m5.pack(fill="both", expand=True)
-
-        scroll_m5 = tk.Scrollbar(self.log_text_m5, command=self.log_text_m5.yview)
-        scroll_m5.pack(side="right", fill="y")
-        self.log_text_m5.configure(yscrollcommand=scroll_m5.set)
-
-        self.setup_text_tags(self.log_text_m5)
 
     # =========================================================================
     # TAB 3: REKAP EXCEL & HUB PORTOFOLIO
@@ -418,17 +629,99 @@ class TradingBotGUI:
         self.update_portfolio_summary_labels()
         self.load_excel_view(mode="m15")
 
-    def setup_text_tags(self, text_widget):
-        text_widget.tag_configure("green", foreground="#10b981", font=("Consolas", 9, "bold"))
-        text_widget.tag_configure("red", foreground="#ef4444", font=("Consolas", 9, "bold"))
-        text_widget.tag_configure("yellow", foreground="#f59e0b")
-        text_widget.tag_configure("cyan", foreground="#38bdf8")
-        text_widget.tag_configure("white", foreground="#f8fafc")
-
     def create_footer(self):
         footer = tk.Frame(self.root, bg="#0b0f19", height=25)
         footer.pack(fill="x", padx=15, pady=(0, 8))
         tk.Label(footer, text="💡 Tip: Anda dapat menyalakan Bot M15 dan Bot M5 secara independen. Data log dan Excel selalu tersinkronisasi otomatis.", font=("Segoe UI", 8), fg="#64748b", bg="#0b0f19").pack(side="left")
+
+    # =========================================================================
+    # STOPWATCH TIMER UPDATE (Real-time loop setiap detik)
+    # =========================================================================
+    def update_stopwatches(self):
+        """Update stopwatch timers for both M15 and M5 bots every second."""
+        now = time.time()
+
+        # M15 stopwatch
+        if self.m15_start_time is not None:
+            elapsed = int(now - self.m15_start_time)
+            h, m, s = elapsed // 3600, (elapsed % 3600) // 60, elapsed % 60
+            self.m15_widgets["timer"].config(text=f"{h:02d}:{m:02d}:{s:02d}", fg="#10b981")
+        else:
+            self.m15_widgets["timer"].config(text="00:00:00", fg="#64748b")
+
+        # M5 stopwatch
+        if self.m5_start_time is not None:
+            elapsed = int(now - self.m5_start_time)
+            h, m, s = elapsed // 3600, (elapsed % 3600) // 60, elapsed % 60
+            self.m5_widgets["timer"].config(text=f"{h:02d}:{m:02d}:{s:02d}", fg="#10b981")
+        else:
+            self.m5_widgets["timer"].config(text="00:00:00", fg="#64748b")
+
+        self.root.after(1000, self.update_stopwatches)
+
+    # =========================================================================
+    # DASHBOARD UPDATE HELPERS
+    # =========================================================================
+    def update_donut_and_bars(self, bot_key, prob_buy, prob_sell):
+        """Update the donut chart and probability bars for the given bot."""
+        widgets = self.m15_widgets if bot_key == "m15" else self.m5_widgets
+
+        # Store state
+        if bot_key == "m15":
+            self.m15_prob_buy = prob_buy
+            self.m15_prob_sell = prob_sell
+        else:
+            self.m5_prob_buy = prob_buy
+            self.m5_prob_sell = prob_sell
+
+        # Update donut chart
+        self.draw_donut_chart(widgets["donut_canvas"], prob_buy, prob_sell, 160)
+
+        # Update bar fills
+        total = prob_buy + prob_sell
+        if total <= 0:
+            total = 100.0
+        buy_ratio = prob_buy / total
+        sell_ratio = prob_sell / total
+
+        widgets["buy_bar_fill"].place(relx=0, rely=0, relwidth=max(0.02, buy_ratio), relheight=1.0)
+        widgets["sell_bar_fill"].place(relx=0, rely=0, relwidth=max(0.02, sell_ratio), relheight=1.0)
+
+        widgets["buy_pct_lbl"].config(text=f"{prob_buy:.1f}%")
+        widgets["sell_pct_lbl"].config(text=f"{prob_sell:.1f}%")
+
+    def add_decision_history(self, bot_key, aksi, detail, prob_buy=None, prob_sell=None, tag="info"):
+        """Add a row to the decision history Treeview for the given bot."""
+        widgets = self.m15_widgets if bot_key == "m15" else self.m5_widgets
+        tree = widgets["hist_tree"]
+        count_lbl = widgets["hist_count_lbl"]
+
+        waktu = datetime.now().strftime("%H:%M:%S")
+        buy_str = f"{prob_buy:.1f}%" if prob_buy is not None else "—"
+        sell_str = f"{prob_sell:.1f}%" if prob_sell is not None else "—"
+
+        # Insert at top (terbaru di atas)
+        tree.insert("", 0, values=(waktu, aksi, buy_str, sell_str, detail), tags=(tag,))
+
+        # Update decision label
+        decision_color = "#10b981" if tag == "buy" else ("#ef4444" if tag == "sell" else "#f59e0b")
+        widgets["decision_lbl"].config(text=f"Keputusan Terakhir: {aksi} ({waktu})", fg=decision_color)
+
+        # Auto-prune jika melebihi batas
+        children = tree.get_children()
+        if len(children) > MAX_HISTORY_ROWS:
+            for old_item in children[MAX_HISTORY_ROWS:]:
+                tree.delete(old_item)
+
+        count_lbl.config(text=f"{len(tree.get_children())} entri")
+
+    def update_dashboard_status(self, bot_key, is_active):
+        """Update the status label in the dashboard panel."""
+        widgets = self.m15_widgets if bot_key == "m15" else self.m5_widgets
+        if is_active:
+            widgets["status_lbl"].config(text="● AKTIF", fg="#10b981", bg="#064e3b")
+        else:
+            widgets["status_lbl"].config(text="○ STANDBY", fg="#ef4444", bg="#1e293b")
 
     # =========================================================================
     # LOGIKA KONTROL PROSES (START & STOP)
@@ -456,10 +749,12 @@ class TradingBotGUI:
             )
             threading.Thread(target=self.reader_thread, args=(self.proc_m15, self.queue_m15), daemon=True).start()
 
+            self.m15_start_time = time.time()
             self.m15_status_badge.config(text="● STATUS: AKTIF & BERJALAN", fg="#10b981", bg="#064e3b")
             self.btn_start_m15.config(state="disabled", bg="#064e3b")
             self.btn_stop_m15.config(state="normal", bg="#ef4444")
-            self.append_log(self.log_text_m15, "🚀 [SYSTEM] Bot M15 Konservatif Berhasil Dinyalakan!\n", "green")
+            self.update_dashboard_status("m15", True)
+            self.add_decision_history("m15", "SYSTEM", "🚀 Bot M15 Konservatif Berhasil Dinyalakan!", tag="info")
         except Exception as e:
             messagebox.showerror("Error", f"Gagal menyalakan Bot M15: {e}")
 
@@ -479,13 +774,15 @@ class TradingBotGUI:
                 exit_code = self.proc_m15.poll()
 
         self.proc_m15 = None
+        self.m15_start_time = None
         self.m15_status_badge.config(text="○ STATUS: NONAKTIF / STANDBY", fg="#ef4444", bg="#223049")
         self.btn_start_m15.config(state="normal", bg="#10b981")
         self.btn_stop_m15.config(state="disabled", bg="#7f1d1d")
+        self.update_dashboard_status("m15", False)
         if manual:
-            self.append_log(self.log_text_m15, "\n🛑 [SYSTEM] Bot M15 Telah Dihentikan oleh Pengguna.\n", "red")
+            self.add_decision_history("m15", "STOP", "🛑 Bot M15 Telah Dihentikan oleh Pengguna.", tag="system")
         else:
-            self.append_log(self.log_text_m15, f"\n⚠️ [SYSTEM] Bot M15 Terhenti Otomatis (Exit Code: {exit_code}).\n", "yellow")
+            self.add_decision_history("m15", "CRASH", f"⚠️ Bot M15 Terhenti Otomatis (Exit Code: {exit_code}).", tag="sell")
 
     def start_bot_m5(self):
         if self.proc_m5 is not None and self.proc_m5.poll() is None:
@@ -510,10 +807,12 @@ class TradingBotGUI:
             )
             threading.Thread(target=self.reader_thread, args=(self.proc_m5, self.queue_m5), daemon=True).start()
 
+            self.m5_start_time = time.time()
             self.m5_status_badge.config(text="● STATUS: AKTIF & BERJALAN", fg="#10b981", bg="#064e3b")
             self.btn_start_m5.config(state="disabled", bg="#064e3b")
             self.btn_stop_m5.config(state="normal", bg="#ef4444")
-            self.append_log(self.log_text_m5, "🚀 [SYSTEM] Bot M5 Level Bounce Scalper Berhasil Dinyalakan!\n", "green")
+            self.update_dashboard_status("m5", True)
+            self.add_decision_history("m5", "SYSTEM", "🚀 Bot M5 Level Bounce Scalper Berhasil Dinyalakan!", tag="info")
         except Exception as e:
             messagebox.showerror("Error", f"Gagal menyalakan Bot M5: {e}")
 
@@ -533,13 +832,15 @@ class TradingBotGUI:
                 exit_code = self.proc_m5.poll()
 
         self.proc_m5 = None
+        self.m5_start_time = None
         self.m5_status_badge.config(text="○ STATUS: NONAKTIF / STANDBY", fg="#ef4444", bg="#223049")
         self.btn_start_m5.config(state="normal", bg="#10b981")
         self.btn_stop_m5.config(state="disabled", bg="#7f1d1d")
+        self.update_dashboard_status("m5", False)
         if manual:
-            self.append_log(self.log_text_m5, "\n🛑 [SYSTEM] Bot M5 Telah Dihentikan oleh Pengguna.\n", "red")
+            self.add_decision_history("m5", "STOP", "🛑 Bot M5 Telah Dihentikan oleh Pengguna.", tag="system")
         else:
-            self.append_log(self.log_text_m5, f"\n⚠️ [SYSTEM] Bot M5 Terhenti Otomatis (Exit Code: {exit_code}).\n", "yellow")
+            self.add_decision_history("m5", "CRASH", f"⚠️ Bot M5 Terhenti Otomatis (Exit Code: {exit_code}).", tag="sell")
 
     def reader_thread(self, proc, out_queue):
         try:
@@ -559,7 +860,7 @@ class TradingBotGUI:
         # Proses antrian log M15
         while not self.queue_m15.empty():
             line = self.queue_m15.get_nowait()
-            self.parse_and_insert_log(self.log_text_m15, line)
+            self.parse_and_route_output("m15", line)
 
         # Cek jika proses M15 tiba-tiba keluar
         if self.proc_m15 is not None and self.proc_m15.poll() is not None:
@@ -568,7 +869,7 @@ class TradingBotGUI:
         # Proses antrian log M5
         while not self.queue_m5.empty():
             line = self.queue_m5.get_nowait()
-            self.parse_and_insert_log(self.log_text_m5, line)
+            self.parse_and_route_output("m5", line)
 
         # Cek jika proses M5 tiba-tiba keluar
         if self.proc_m5 is not None and self.proc_m5.poll() is not None:
@@ -576,41 +877,167 @@ class TradingBotGUI:
 
         self.root.after(100, self.process_log_queues)
 
-    def parse_and_insert_log(self, text_widget, raw_line):
-        is_carriage = raw_line.startswith('\r') or raw_line.startswith('⏳ [')
-        clean_text = ANSI_PATTERN.sub('', raw_line)
+    def parse_and_route_output(self, bot_key, raw_line):
+        """Parse bot output and route to appropriate dashboard component.
         
-        # Deteksi tag warna
-        tag = "white"
-        if "BUY" in clean_text or "PROFIT" in clean_text or "BERHASIL" in clean_text:
-            tag = "green"
-        elif "SELL" in clean_text or "LOSS" in clean_text or "GAGAL" in clean_text or "Cut-Loss" in clean_text:
-            tag = "red"
-        elif "TERTAHAN" in clean_text or "WAIT" in clean_text or "NETRAL" in clean_text or "TERFILTER" in clean_text or "⚠️" in clean_text:
-            tag = "yellow"
-        elif "SYNC" in clean_text or "INFO" in clean_text or "AUDIT" in clean_text or "🔄" in clean_text:
-            tag = "cyan"
-
-        if is_carriage:
-            clean_text = clean_text.lstrip('\r').strip() + "\n"
-            try:
-                last_line_idx = text_widget.index("end-1c linestart")
-                last_line_text = text_widget.get(last_line_idx, "end-1c")
-                if "⏳" in last_line_text:
-                    text_widget.delete(last_line_idx, "end")
-            except Exception:
-                pass
-            text_widget.insert(tk.END, clean_text, tag)
-            text_widget.see(tk.END)
+        Routing logic:
+        - Timer lines (⏳): Extract BUY/SELL probabilities → update donut chart. Don't show.
+        - Decision lines (KEPUTUSAN): Extract action & detail → add to history Treeview.
+        - Order lines (OPEN BUY/SELL, BERHASIL): Add to history.
+        - Break-even, exit detection: Add to history as info.
+        - Other lines: Silently skip (init messages, separator lines, etc.)
+        """
+        clean_text = ANSI_PATTERN.sub('', raw_line).strip()
+        if not clean_text:
             return
 
-        # Update tampilan normal
-        text_widget.insert(tk.END, clean_text, tag)
-        text_widget.see(tk.END)
+        # 1. TIMER LINES: Extract probabilities silently
+        if RE_TIMER_LINE.match(raw_line.lstrip()):
+            prob_match = RE_PROB_LIVE.search(clean_text)
+            if prob_match:
+                try:
+                    pb = float(prob_match.group(1))
+                    ps = float(prob_match.group(2))
+                    self.update_donut_and_bars(bot_key, pb, ps)
 
-    def append_log(self, text_widget, text, tag="white"):
-        text_widget.insert(tk.END, text, tag)
-        text_widget.see(tk.END)
+                    # Also extract trend/status info from the timer line
+                    widgets = self.m15_widgets if bot_key == "m15" else self.m5_widgets
+                    # Extract H1 trend if present
+                    trend_text = ""
+                    if "H1:Bull" in clean_text:
+                        trend_text = "Tren H1: 📈 BULLISH"
+                    elif "H1:Bear" in clean_text:
+                        trend_text = "Tren H1: 📉 BEARISH"
+
+                    # Extract status
+                    status_text = ""
+                    if "HOLDING BUY" in clean_text:
+                        status_text = " | 🟢 HOLDING BUY"
+                    elif "HOLDING SELL" in clean_text:
+                        status_text = " | 🔴 HOLDING SELL"
+                    elif "ACTIVE BUY" in clean_text:
+                        status_text = " | 🟢 ACTIVE BUY"
+                    elif "ACTIVE SELL" in clean_text:
+                        status_text = " | 🔴 ACTIVE SELL"
+                    elif "SIAP BUY" in clean_text:
+                        status_text = " | ⚡ SIAP BUY"
+                    elif "SIAP SELL" in clean_text:
+                        status_text = " | ⚡ SIAP SELL"
+                    elif "TERTAHAN" in clean_text:
+                        status_text = " | ⏸️ TERTAHAN"
+                    elif "NETRAL" in clean_text or "WAIT" in clean_text:
+                        status_text = " | ⏳ NETRAL/WAIT"
+                    elif "AREA DEMAND" in clean_text:
+                        status_text = " | 📍 AREA DEMAND"
+                    elif "AREA SUPPLY" in clean_text:
+                        status_text = " | 📍 AREA SUPPLY"
+                    elif "MID-TREND" in clean_text:
+                        status_text = " | ⏸️ MID-TREND"
+
+                    if trend_text or status_text:
+                        widgets["trend_lbl"].config(text=f"{trend_text}{status_text}")
+                except (ValueError, IndexError):
+                    pass
+            return  # Don't add timer lines to history
+
+        # 2. DECISION LINES (KEPUTUSAN BUY/SELL/NETRAL/DITAHAN)
+        if RE_DECISION_BUY.search(clean_text):
+            prob_match = RE_PROB_LIVE.search(clean_text)
+            pb = float(prob_match.group(1)) if prob_match else None
+            ps = float(prob_match.group(2)) if prob_match else None
+            self.add_decision_history(bot_key, "🟢 BUY", clean_text[:120], prob_buy=pb, prob_sell=ps, tag="buy")
+            if bot_key == "m15":
+                self.m15_last_decision = "BUY"
+            else:
+                self.m5_last_decision = "BUY"
+            return
+
+        if RE_DECISION_SELL.search(clean_text):
+            prob_match = RE_PROB_LIVE.search(clean_text)
+            pb = float(prob_match.group(1)) if prob_match else None
+            ps = float(prob_match.group(2)) if prob_match else None
+            self.add_decision_history(bot_key, "🔴 SELL", clean_text[:120], prob_buy=pb, prob_sell=ps, tag="sell")
+            if bot_key == "m15":
+                self.m15_last_decision = "SELL"
+            else:
+                self.m5_last_decision = "SELL"
+            return
+
+        if RE_DECISION_NETRAL.search(clean_text):
+            prob_match = RE_PROB_LIVE.search(clean_text)
+            pb = float(prob_match.group(1)) if prob_match else None
+            ps = float(prob_match.group(2)) if prob_match else None
+            self.add_decision_history(bot_key, "🟡 NETRAL", clean_text[:120], prob_buy=pb, prob_sell=ps, tag="netral")
+            if bot_key == "m15":
+                self.m15_last_decision = "NETRAL"
+            else:
+                self.m5_last_decision = "NETRAL"
+            return
+
+        if RE_DECISION_DITAHAN.search(clean_text):
+            prob_match = RE_PROB_LIVE.search(clean_text)
+            pb = float(prob_match.group(1)) if prob_match else None
+            ps = float(prob_match.group(2)) if prob_match else None
+            # Extract reason from parentheses
+            reason_match = re.search(r'DITAHAN\s*\(([^)]+)\)', clean_text)
+            reason = reason_match.group(1) if reason_match else "Filter Aktif"
+            self.add_decision_history(bot_key, f"⏸️ DITAHAN", f"[{reason}] {clean_text[:100]}", prob_buy=pb, prob_sell=ps, tag="ditahan")
+            return
+
+        # 3. ORDER EXECUTION LINES
+        if RE_ORDER_OPEN.search(clean_text):
+            order_type = "BUY" if "BUY" in clean_text.upper().split("OPEN")[1][:10] else "SELL"
+            tag = "buy" if order_type == "BUY" else "sell"
+            self.add_decision_history(bot_key, f"🚀 OPEN {order_type}", clean_text[:120], tag=tag)
+            return
+
+        if RE_ORDER_SUCCESS.search(clean_text):
+            self.add_decision_history(bot_key, "✅ BERHASIL", clean_text[:120], tag="buy")
+            return
+
+        # 4. BREAK-EVEN & EXIT DETECTION
+        if RE_BREAK_EVEN.search(clean_text):
+            self.add_decision_history(bot_key, "🛡️ BE GUARD", clean_text[:120], tag="info")
+            return
+
+        if RE_DETEKSI_EXIT.search(clean_text) or RE_DYNAMIC_EXIT.search(clean_text):
+            self.add_decision_history(bot_key, "🔔 EXIT", clean_text[:120], tag="info")
+            return
+
+        # 5. PROBABILITY UPDATE LINES (from analysis output, not timer)
+        prob_match = RE_PROB_LIVE.search(clean_text)
+        if prob_match and ("Probabilitas" in clean_text or "probabilitas" in clean_text):
+            try:
+                pb = float(prob_match.group(1))
+                ps = float(prob_match.group(2))
+                self.update_donut_and_bars(bot_key, pb, ps)
+                self.add_decision_history(bot_key, "📊 ANALISA", f"BUY={pb:.1f}% SELL={ps:.1f}% {clean_text[:80]}", prob_buy=pb, prob_sell=ps, tag="info")
+            except (ValueError, IndexError):
+                pass
+            return
+
+        # 6. CANDLE TUTUP notification
+        if "CANDLE" in clean_text and ("TUTUP" in clean_text or "MENJELANG" in clean_text):
+            self.add_decision_history(bot_key, "⚡ CANDLE", clean_text[:120], tag="info")
+            return
+
+        # 7. SYNC and other informational lines - show only important ones
+        if "SYNC" in clean_text.upper() or "sinkron" in clean_text.lower():
+            # Skip silent sync messages, only show explicit ones
+            if "silent" not in clean_text.lower() and "Berhasil" in clean_text:
+                self.add_decision_history(bot_key, "🔄 SYNC", clean_text[:120], tag="system")
+            return
+
+        # 8. Error / failure messages
+        if "❌" in clean_text or "Gagal" in clean_text or "ERROR" in clean_text.upper():
+            self.add_decision_history(bot_key, "❌ ERROR", clean_text[:120], tag="sell")
+            return
+
+        # 9. All other lines are silently consumed (separator lines, init messages, etc.)
+        # Only log genuinely important ones
+        if any(keyword in clean_text for keyword in ["Terhubung", "Berhasil Dimuat", "ROBOT TRADING"]):
+            self.add_decision_history(bot_key, "ℹ️ INFO", clean_text[:120], tag="system")
+
 
     # =========================================================================
     # LIVE TICKER & REKAP DATA
