@@ -1,0 +1,789 @@
+﻿TY  - JOUR
+AU  - Cohen, G
+AU  - Aiche, A
+TI  - Forecasting gold price using machine learning methodologies
+JF  - Chaos, Solitons &Fractals
+PB  - Elsevier
+UR  - https://www.sciencedirect.com/science/article/pii/S0960077923009803
+PY  - 2023///
+AB  - … of advanced Machine Learning (ML) methodologies to predict fluctuations in the price of gold. … Four machine learning models are used: Random Forest, Gradient Boosted Regression …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 62 cites: https://scholar.google.com/scholar?cites=1411049484106039769&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2023): 62
+ER  - 
+
+TY  - JOUR
+AU  - Jin, B
+AU  - Xu, X
+TI  - Machine learning gold price forecasting
+JF  - International Journal of Management Science and …
+PB  - Taylor &Francis
+DO  - 10.1080/17509653.2025.2453902
+UR  - https://www.tandfonline.com/doi/abs/10.1080/17509653.2025.2453902
+PY  - 2025///
+AB  - … use gold price projections to decide whether to purchase or sell the metal. Because gold is sometimes seen as an inflation hedge, forecasting … Changes in the price of gold may provide …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 113 cites: https://scholar.google.com/scholar?cites=17748377869811986323&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2025): 113
+ER  - 
+
+TY  - JOUR
+AU  - Das, S
+AU  - Nayak, J
+AU  - Rao, B Kamesh
+AU  - Vakula, K
+AU  - ...
+TI  - Gold price forecasting using machine learning techniques: Review of a decade
+JF  - … Intelligence in Pattern …
+PB  - Springer
+DO  - 10.1007/978-981-16-2543-5_58
+UR  - https://link.springer.com/chapter/10.1007/978-981-16-2543-5_58
+UR  - https://www.researchgate.net/profile/Das-Saumendra/publication/357161862_Gold_Price_Forecasting_Using_Machine_Learning_Techniques_Review_of_a_Decade/links/63a3e09a5ed8895050401b3a/Gold-Price-Forecasting-Using-Machine-Learning-Techniques-Review-of-a-Decade.pdf
+PY  - 2021///
+AB  - … Out of all our articles, we found most researchers have published a prediction of gold price followed by gold price forecasting. In this section, we divided prediction as well as forecasting…
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 25 cites: https://scholar.google.com/scholar?cites=8691381083671874025&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2021): 25
+ER  - 
+
+TY  - JOUR
+AU  - Yang, M
+AU  - Wang, R
+AU  - Zeng, Z
+AU  - Li, P
+TI  - Improved prediction of global gold prices: An innovative Hurst-reconfiguration-based machine learning approach
+JF  - Resources Policy
+PB  - Elsevier
+UR  - https://www.sciencedirect.com/science/article/pii/S0301420723011418
+PY  - 2024///
+AB  - … make the forecasting of gold price a challenging task. In this paper, we propose a … forecasting model for gold prices based on the Hurst-oriented reconfiguration and machine learning …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 24 cites: https://scholar.google.com/scholar?cites=848012407501720458&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2024): 24
+ER  - 
+
+TY  - JOUR
+AU  - Jabeur, SB
+AU  - Mefteh-Wali, S
+AU  - Viviani, JL
+TI  - Forecasting gold price with the XGBoost algorithm and SHAP interaction values
+JF  - Annals of Operations Research
+PB  - Springer
+DO  - 10.1007/s10479-021-04187-w
+UR  - https://link.springer.com/article/10.1007/s10479-021-04187-w
+PY  - 2024///
+AB  - … In this section, we present six machine learning models to forecast the gold price. We describe the metrics that can be used to evaluate their performance. We also present the SHAP …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 461 cites: https://scholar.google.com/scholar?cites=15956315260063433986&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2024): 461
+ER  - 
+
+TY  - PDF
+AU  - Tripurana, N
+AU  - Kar, B
+AU  - Chakravarty, S
+AU  - Paikaray, B
+AU  - ...
+TI  - Gold Price Prediction using Machine Learning Techniques.
+JF  - ACI@ ISIC
+PB  - ceur-ws.org
+UR  - https://ceur-ws.org/Vol-3283/Paper108.pdf
+UR  - https://ceur-ws.org/Vol-3283/Paper108.pdf
+PY  - 2022///
+AB  - … From this paper, it can be concluded that Machine learning algorithms can be used to forecast gold prices accurately. And this model can be very beneficial not only the government …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 23 cites: https://scholar.google.com/scholar?cites=3786256877706947049&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2022): 23
+ER  - 
+
+TY  - HTML
+AU  - Khani, M Mohtasham
+AU  - Vahidnia, S
+AU  - Abbasi, A
+TI  - A deep learning-based method for forecasting gold price with respect to pandemics
+JF  - SN Computer Science
+PB  - Springer
+DO  - 10.1007/s42979-021-00724-3
+UR  - https://link.springer.com/article/10.1007/s42979-021-00724-3
+UR  - https://link.springer.com/article/10.1007/s42979-021-00724-3
+PY  - 2021///
+AB  - … This is a limitation of machine learning at market forecasting, as designing an AI to comprehend every variable is not easily achievable. A reliable predictive model for real-world use …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 56 cites: https://scholar.google.com/scholar?cites=6932344518800667089&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2021): 56
+ER  - 
+
+TY  - JOUR
+AU  - Boongasame, L
+AU  - Viriyaphol, P
+AU  - ...
+TI  - Gold-price forecasting method using long short-term memory and the association rule
+JF  - Journal of Mobile …
+PB  - ieeexplore.ieee.org
+UR  - https://ieeexplore.ieee.org/abstract/document/10967268/
+UR  - https://ieeexplore.ieee.org/iel8/10934116/10967265/10967268.pdf
+PY  - 2023///
+AB  - … The machine-learning-based method known as artificial neural networks (ANNs) was applied generally. For example, Zhou et al. [16] used a back-propagation neural network (BPNN) …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 26 cites: https://scholar.google.com/scholar?cites=10134761008927411421&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2023): 26
+ER  - 
+
+TY  - JOUR
+AU  - Plakandaras, V
+AU  - Gogas, P
+AU  - Papadimitriou, T
+TI  - Gold Against the Machine: V. Plakandaras et al.
+JF  - Computational Economics
+PB  - Springer
+DO  - 10.1007/s10614-020-10019-z
+UR  - https://link.springer.com/article/10.1007/s10614-020-10019-z
+UR  - https://papers.ssrn.com/sol3/Delivery.cfm?abstractid=4611317
+PY  - 2021///
+AB  - … The comparison of the EEMD- SVR model coupled with the polynomial kernel with previous machine learning applications on gold price forecasting reveals the superiority of our …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 20 cites: https://scholar.google.com/scholar?cites=17464319715605203370&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2021): 20
+ER  - 
+
+TY  - JOUR
+AU  - Dhanush, N
+AU  - Prajapati, PR
+AU  - Revanth, M
+AU  - ...
+TI  - Prediction of gold price using deep learning
+JF  - 2021 IEEE 9th …
+PB  - ieeexplore.ieee.org
+UR  - https://ieeexplore.ieee.org/abstract/document/9641719/
+PY  - 2021///
+AB  - … price are based on classical machine learning algorithms. However, it was not explored the … proposed for gold price forecasting, there is still no optimal solution to forecast the gold price …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 23 cites: https://scholar.google.com/scholar?cites=7797498986420548353&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2021): 23
+ER  - 
+
+TY  - BOOK
+AU  - Fajou, J
+AU  - McCarren, A
+TI  - Forecasting gold prices using temporal convolutional networks
+PB  - doras.dcu.ie
+UR  - https://doras.dcu.ie/27102/
+UR  - https://doras.dcu.ie/27102/1/Forecasting%20Gold%20Prices%20Using%20Temporal%20Convolutional%20Networks.pdf
+PY  - 2021///
+AB  - … In this section we initially examine the use of machine learning in stock market forecasting and then focus on the techniques used specifically in gold price prediction. Finally, we explore …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 16 cites: https://scholar.google.com/scholar?cites=13291496802536614772&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2021): 16
+ER  - 
+
+TY  - JOUR
+AU  - Yang, J
+AU  - Montigny, D De
+AU  - ...
+TI  - ANN, LSTM, and SVR for gold price forecasting
+JF  - 2022 IEEE Symposium on …
+PB  - ieeexplore.ieee.org
+UR  - https://ieeexplore.ieee.org/abstract/document/9776141/
+PY  - 2022///
+AB  - … methods in machine learning to predict the gold price. … of gold price forecasting, this research is implemented to cross compare the ANN, LSTM, SVR models in gold price forecasting …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 16 cites: https://scholar.google.com/scholar?cites=6937025909296064518&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2022): 16
+ER  - 
+
+TY  - JOUR
+AU  - Sarangi, PK
+AU  - Verma, R
+AU  - Inder, S
+AU  - ...
+TI  - Machine learning based hybrid model for gold price prediction in India
+JF  - 2021 9th International …
+PB  - ieeexplore.ieee.org
+UR  - https://ieeexplore.ieee.org/abstract/document/9596391/
+PY  - 2021///
+AB  - … of a machine learning based hybrid model in predicting the future price of gold. Artificial … This section provides information about various techniques used for forecasting gold price. …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 21 cites: https://scholar.google.com/scholar?cites=11126696671452892563&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2021): 21
+ER  - 
+
+TY  - JOUR
+AU  - Makala, D
+AU  - Li, Z
+TI  - Prediction of gold price with ARIMA and SVM
+JF  - Journal of Physics: Conference Series
+PB  - iopscience.iop.org
+DO  - 10.1088/1742-6596/1767/1/012022
+UR  - https://iopscience.iop.org/article/10.1088/1742-6596/1767/1/012022/meta
+UR  - https://iopscience.iop.org/article/10.1088/1742-6596/1767/1/012022/pdf
+PY  - 2021///
+AB  - … This result agrees with many researches about the better way of forecasting is use the machine learning techniques. The SVM can be applied to predict any other commodity’s price as …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 104 cites: https://scholar.google.com/scholar?cites=9017862888063989088&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2021): 104
+ER  - 
+
+TY  - JOUR
+AU  - Ahmad, MR
+AU  - Sulaiman, MH
+TI  - Machine learning-based gold price forecasting: a bibliometric review of trends, methods, and future directions
+JF  - SN Business &Economics
+PB  - Springer
+DO  - 10.1007/s43546-026-01299-y
+UR  - https://link.springer.com/article/10.1007/s43546-026-01299-y
+PY  - 2026///
+AB  - … Gold price forecasting remains challenging due to gold’s … of machine learning approaches. This study presents a bibliometric analysis of machine learning based gold price forecasting …
+M1  - Query date: 2026-08-31 02:18:08
+ER  - 
+
+TY  - PDF
+AU  - Ghule, R
+AU  - Gadhave, A
+AU  - Dubey, M
+AU  - ...
+TI  - Gold price prediction using machine learning
+JF  - … Journal of Scientific …
+PB  - researchgate.net
+UR  - https://www.researchgate.net/profile/Jyoti-Kharade-3/publication/362491642_Gold_Price_Prediction_using_Machine_Learning/links/62ecf7ee505511283e9102ce/Gold-Price-Prediction-using-Machine-Learning.pdf
+UR  - https://www.researchgate.net/profile/Jyoti-Kharade-3/publication/362491642_Gold_Price_Prediction_using_Machine_Learning/links/62ecf7ee505511283e9102ce/Gold-Price-Prediction-using-Machine-Learning.pdf
+PY  - 2022///
+AB  - … forecast … machine learning model to be used to conduct a study in this field. Used Car Price Prediction: This research based on prediction price of used cars by using Machine Learning …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 25 cites: https://scholar.google.com/scholar?cites=17972336992558051058&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2022): 25
+ER  - 
+
+TY  - JOUR
+AU  - Shi, T
+AU  - Li, C
+AU  - Zhang, W
+AU  - Zhang, Y
+TI  - Forecasting on metal resource spot settlement price: New evidence from the machine learning model
+JF  - Resources Policy
+PB  - Elsevier
+UR  - https://www.sciencedirect.com/science/article/pii/S0301420723000685
+PY  - 2023///
+AB  - … 1, 2021, machine learning method is used to analyze the accuracy of hybrid models for predicting spot settlement prices of metal minerals. Firstly, we compared and analyzed the in-…
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 23 cites: https://scholar.google.com/scholar?cites=10079192337943878824&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2023): 23
+ER  - 
+
+TY  - JOUR
+AU  - Madziwa, L
+AU  - Pillalamarry, M
+AU  - Chatterjee, S
+TI  - Gold price forecasting using multivariate stochastic model
+JF  - Resources Policy
+PB  - Elsevier
+UR  - https://www.sciencedirect.com/science/article/pii/S0301420721005511
+PY  - 2022///
+AB  - … to forecast annual gold prices using gold demand, treasury bills rates, and lagged gold prices … This entailed application of the short-run version of the ARDL to forecasts and consequent …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 78 cites: https://scholar.google.com/scholar?cites=12372255265955551511&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2022): 78
+ER  - 
+
+TY  - JOUR
+AU  - Zhang, H
+AU  - Nguyen, H
+AU  - Vu, DA
+AU  - Bui, XN
+AU  - Pradhan, B
+TI  - Forecasting monthly copper price: A comparative study of various machine learning-based methods
+JF  - Resources Policy
+PB  - Elsevier
+UR  - https://www.sciencedirect.com/science/article/pii/S0301420721002038
+PY  - 2021///
+AB  - … forecast models for forecasting monthly copper prices in the future based on various algorithms in machine learning… used as input variables for forecasting copper price. The different set …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 72 cites: https://scholar.google.com/scholar?cites=12951586903913225803&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2021): 72
+ER  - 
+
+TY  - HTML
+AU  - Both, C
+AU  - Dimitrakopoulos, R
+TI  - Applied machine learning for geometallurgical throughput prediction—a case study using production data at the tropicana gold mining complex
+JF  - Minerals
+PB  - mdpi.com
+UR  - https://www.mdpi.com/2075-163X/11/11/1257
+UR  - https://www.mdpi.com/2075-163X/11/11/1257
+PY  - 2021///
+AB  - … This section discusses the use of supervised machine learning to create a throughput-prediction model at the Tropicana Gold mining complex. Supervised machine learning models …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 50 cites: https://scholar.google.com/scholar?cites=5321613221322732017&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2021): 50
+ER  - 
+
+TY  - JOUR
+AU  - Lu, W
+AU  - Qiu, T
+AU  - Shi, W
+AU  - Sun, X
+TI  - International gold price forecast based on CEEMDAN and support vector regression with grey wolf algorithm
+JF  - Complexity
+PB  - Wiley Online Library
+DO  - 10.1155/2022/1511479
+UR  - https://onlinelibrary.wiley.com/doi/abs/10.1155/2022/1511479
+UR  - https://onlinelibrary.wiley.com/doi/pdf/10.1155/2022/1511479
+PY  - 2022///
+AB  - … gold price, this paper adopts the decomposition-reconstruction-forecast-mergence scheme to perform the international gold price … Most importantly, the hybridization of machine learning …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 24 cites: https://scholar.google.com/scholar?cites=5277506407687256043&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2022): 24
+ER  - 
+
+TY  - JOUR
+AU  - Chen, YC
+AU  - Huang, WC
+TI  - Constructing a stock-price forecast CNN model with gold and crude oil indicators
+JF  - Applied Soft Computing
+PB  - Elsevier
+UR  - https://www.sciencedirect.com/science/article/pii/S1568494621006815
+PY  - 2021///
+AB  - … They used a variety of deep learning and machine learning algorithms such as simple investment strategies, multi-layer perceptrons (MLPs), random forest classifiers, and LSTM …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 154 cites: https://scholar.google.com/scholar?cites=11050374053495523036&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2021): 154
+ER  - 
+
+TY  - JOUR
+AU  - Mohsin, M
+AU  - Jamaani, F
+TI  - … for forecasting oil price volatility using historical prices of five precious metals in context of green financing–A comparison of deep learning, machine learning, and …
+JF  - Resources Policy
+PB  - Elsevier
+UR  - https://www.sciencedirect.com/science/article/pii/S0301420723009273
+PY  - 2023///
+AB  - … ) to forecast crude oil prices based on historical prices of five precious metals (Gold, Silver, … The proposed model is tested against seven machine learning models and three traditional …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 77 cites: https://scholar.google.com/scholar?cites=11428864237427062447&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2023): 77
+ER  - 
+
+TY  - HTML
+AU  - Sadorsky, P
+TI  - Predicting gold and silver price direction using tree-based classifiers
+JF  - Journal of Risk and Financial Management
+PB  - mdpi.com
+UR  - https://www.mdpi.com/1911-8074/14/5/198
+UR  - https://www.mdpi.com/1911-8074/14/5/198
+PY  - 2021///
+AB  - … Consequently, it is important for investors to have accurate forecasts of gold prices. This paper uses several machine learning tree-based classifiers (bagging, stochastic gradient …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 90 cites: https://scholar.google.com/scholar?cites=4188742442500207228&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2021): 90
+ER  - 
+
+TY  - HTML
+AU  - Zaki, MM
+AU  - Chen, S
+AU  - Zhang, J
+AU  - Feng, F
+AU  - Khoreshok, AA
+AU  - ...
+TI  - A novel approach for resource estimation of highly skewed gold using machine learning algorithms
+JF  - Minerals
+PB  - mdpi.com
+UR  - https://www.mdpi.com/2075-163X/12/7/900
+UR  - https://www.mdpi.com/2075-163X/12/7/900
+PY  - 2022///
+AB  - … , and the confined nature of gold, there is a propensity to … machine learning algorithms to estimate highly skewed gold … efficient method for estimating gold grade, far outperforming …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 23 cites: https://scholar.google.com/scholar?cites=8160285850469832865&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2022): 23
+ER  - 
+
+TY  - HTML
+AU  - Foroutan, P
+AU  - Lahmiri, S
+TI  - Deep learning systems for forecasting the prices of crude oil and precious metals
+JF  - Financial Innovation
+PB  - Springer
+DO  - 10.1186/s40854-024-00637-z
+UR  - https://link.springer.com/article/10.1186/s40854-024-00637-z
+UR  - https://link.springer.com/article/10.1186/s40854-024-00637-z
+PY  - 2024///
+AB  - … In this study, we implemented 16 deepand machine-learning models to forecast the daily price of the West Texas Intermediate (WTI), Brent, gold, and silver markets. The employed deep-…
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 95 cites: https://scholar.google.com/scholar?cites=14620678146532902236&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2024): 95
+ER  - 
+
+TY  - JOUR
+AU  - Nanthiya, D
+AU  - Gopal, SB
+AU  - Balakumar, S
+AU  - ...
+TI  - Gold price prediction using ARIMA model
+JF  - … on Vision Towards …
+PB  - ieeexplore.ieee.org
+UR  - https://ieeexplore.ieee.org/abstract/document/10157017/
+PY  - 2023///
+AB  - … In this research, an algorithm for predicting the price of gold using machine learning was built. In this study, we employed the software application Colab to forecast gold price rates. …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 18 cites: https://scholar.google.com/scholar?cites=1430220263536385900&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2023): 18
+ER  - 
+
+TY  - JOUR
+AU  - Shawky, T
+TI  - Gold Exchange Traded Funds (ETFs), take profit/stop loss prediction using machine learning
+JF  - Journal of Business and Management Studies
+PB  - alkindipublisher.com
+UR  - https://alkindipublisher.com/index.php/jbms/article/view/5538
+UR  - https://alkindipublisher.com/index.php/jbms/article/download/5538/4698
+PY  - 2023///
+AB  - … an easy-touse machine-learning model that aims to forecast the gold market, Stop Losses … machine learning models. Yahoo Finance released the dataset that was utilized to forecast …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 3 cites: https://scholar.google.com/scholar?cites=12273852303727828135&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2023): 3
+ER  - 
+
+TY  - JOUR
+AU  - Das, S
+AU  - Sahu, TP
+AU  - Janghel, RR
+TI  - Oil and gold price prediction using optimized fuzzy inference system based extreme learning machine
+JF  - Resources Policy
+PB  - Elsevier
+UR  - https://www.sciencedirect.com/science/article/pii/S0301420722005529
+PY  - 2022///
+AB  - … It became a fascination to forecast oil and gold prices due to their … the machine learning algorithm. The proposed ELMFIS is demonstrated over ANFIS and ELM models for oil and gold …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 44 cites: https://scholar.google.com/scholar?cites=6501533238371726839&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2022): 44
+ER  - 
+
+TY  - JOUR
+AU  - Kilimci, ZH
+TI  - Ensemble regression-based gold price (XAU/USD) prediction
+JF  - Journal of Emerging Computer Technologies
+PB  - dergipark.org.tr
+UR  - https://dergipark.org.tr/en/pub/ject/article/1100492?issue_id=68031
+UR  - https://dergipark.org.tr/en/download/article-file/2362033
+PY  - 2022///
+AB  - … a model that forecasts the value of 1 ounce of gold in dollars … in the literature to forecast the price of gold. The contributions of … with the area of machine learning. The second usage of …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 51 cites: https://scholar.google.com/scholar?cites=15396135883018065269&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2022): 51
+ER  - 
+
+TY  - HTML
+AU  - Basher, SA
+AU  - Sadorsky, P
+TI  - Forecasting Bitcoin price direction with random forests: How important are interest rates, inflation, and market volatility?
+JF  - Machine Learning with Applications
+PB  - Elsevier
+UR  - https://www.sciencedirect.com/science/article/pii/S266682702200055X
+UR  - https://www.sciencedirect.com/science/article/pii/S266682702200055X
+PY  - 2022///
+AB  - … studies Bitcoin price forecasting or gold price forecasting, we are not aware of any study that conducts an analysis of price direction forecasting for both Bitcoin and gold using a …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 163 cites: https://scholar.google.com/scholar?cites=8516971412664368710&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2022): 163
+ER  - 
+
+TY  - JOUR
+AU  - Suryanto, HL
+AU  - Hermawan, A
+TI  - Systematic Review of Deep Learning and Hybrid Architectures for Forecasting Forex and Precious Metals: Trends, Performance, and Challenges
+JF  - Journal of Computer Science and …
+PB  - eduscienta.com
+UR  - https://eduscienta.com/index.php/JCSIS/article/view/1
+UR  - https://eduscienta.com/index.php/JCSIS/article/download/1/1
+PY  - 2026///
+AB  - … The ensemble model outperformed conventional machine-learning and standalone deep-… of deep learning methods for forecasting Forex and gold prices has shown a positive trajectory…
+M1  - Query date: 2026-08-31 02:18:08
+ER  - 
+
+TY  - JOUR
+AU  - Yurtsever, M
+TI  - Gold price forecasting using LSTM, Bi-LSTM and GRU
+JF  - Avrupa Bilim ve Teknoloji Dergisi
+PB  - dergipark.org.tr
+UR  - https://dergipark.org.tr/en/pub/ejosat/issue/66239/959405
+UR  - https://dergipark.org.tr/en/download/article-file/1849815
+PY  - 2021///
+AB  - … Instead, machine learning and neural networks are used in a wide variety of applications due to their superior ability to understand nonlinear relationships between complex inputs and …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 62 cites: https://scholar.google.com/scholar?cites=7822304815771600002&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2021): 62
+ER  - 
+
+TY  - JOUR
+AU  - Jin, B
+AU  - Xu, X
+TI  - Palladium price predictions via machine learning
+JF  - Materials Circular Economy
+PB  - Springer
+DO  - 10.1007/s42824-024-00123-y
+UR  - https://link.springer.com/article/10.1007/s42824-024-00123-y
+PY  - 2024///
+AB  - … machine learning techniques for commodity price forecasting. It is noteworthy that accurate commodity price forecasts … ties, such as palladium, silver, and gold, and found that while the …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 168 cites: https://scholar.google.com/scholar?cites=10411562951492245007&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2024): 168
+ER  - 
+
+TY  - JOUR
+AU  - Zhang, SE
+AU  - Nwaila, GT
+AU  - Tolmay, L
+AU  - Frimmel, HE
+AU  - ...
+TI  - Integration of Machine Learning Algorithms with Gompertz Curves and Kriging to Estimate Resources in Gold Deposits: Zhang, Nwaila, Tolmay, Frimmel, and …
+JF  - Natural Resources …
+PB  - Springer
+DO  - 10.1007/s11053-020-09750-z
+UR  - https://link.springer.com/article/10.1007/s11053-020-09750-z
+UR  - https://www.researchgate.net/profile/Julie-Bourdeau-3/publication/344411826_Integration_of_Machine_Learning_Algorithms_with_Gompertz_Curves_and_Kriging_to_Estimate_Resources_in_Gold_Deposits/links/66f7f2b99e6e82486ff52ba4/Integration-of-Machine-Learning-Algorithms-with-Gompertz-Curves-and-Kriging-to-Estimate-Resources-in-Gold-Deposits.pdf
+PY  - 2021///
+AB  - … Resource estimation on gold (Au) deposits usually requires costly … This paper reports a refinement of a novel machine learning … In this application, machine learning algorithms are …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 45 cites: https://scholar.google.com/scholar?cites=8170461600738765245&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2021): 45
+ER  - 
+
+TY  - JOUR
+AU  - Henriques, I
+AU  - Sadorsky, P
+TI  - Forecasting rare earth stock prices with machine learning
+JF  - Resources Policy
+PB  - Elsevier
+UR  - https://www.sciencedirect.com/science/article/pii/S0301420723009595
+PY  - 2023///
+AB  - … with base metal stock prices and weakly linked to gold, oil, clean energy and global stock … equities, base metals, crude oil, and gold. They find that the volatility connectedness and return …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 38 cites: https://scholar.google.com/scholar?cites=17705527150810088402&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2023): 38
+ER  - 
+
+TY  - HTML
+AU  - Shakri, IH
+TI  - Time series prediction using machine learning: a case of Bitcoin returns
+JF  - Studies in economics and finance
+PB  - emerald.com
+UR  - https://www.emerald.com/sef/article/39/3/458/511941
+UR  - https://www.emerald.com/sef/article/39/3/458/511941
+PY  - 2022///
+AB  - … times, machine learning (ML) algorithms have gained much appreciation to forecast timeseries … assets, eg equity market, oil market, gold market and physical currency exchange rates. …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 29 cites: https://scholar.google.com/scholar?cites=13724636513415232890&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2022): 29
+ER  - 
+
+TY  - JOUR
+AU  - Madhika, YR
+AU  - Kusrini, K
+AU  - Hidayat, T
+TI  - Gold price prediction using the ARIMA and LSTM models
+JF  - Sinkron: jurnal dan penelitian …
+PB  - jurnal.polgan.ac.id
+UR  - https://www.jurnal.polgan.ac.id/index.php/sinkron/article/view/12461
+UR  - https://www.jurnal.polgan.ac.id/index.php/sinkron/article/download/12461/1718
+PY  - 2023///
+AB  - … Many empirical studies identify factors that affect gold prices to forecast them. Factual and … by utilizing machine learning algorithms and this research only uses the gold price variable so …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 43 cites: https://scholar.google.com/scholar?cites=18334679246036253752&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2023): 43
+ER  - 
+
+TY  - PDF
+AU  - Wang, J
+AU  - Li, Y
+AU  - Wang, T
+AU  - Li, J
+AU  - Wang, H
+AU  - Liu, P
+TI  - A gold futures price forecast model based on SGRU-AM
+JF  - IEEE Access
+PB  - thuvienso.hoasen.edu.vn
+UR  - https://thuvienso.hoasen.edu.vn/bitstream/handle/123456789/13720/A_Gold_Futures_Price_Forecast_Model_Based_on_SGRU-AM.pdf?sequence=1
+UR  - https://thuvienso.hoasen.edu.vn/bitstream/handle/123456789/13720/A_Gold_Futures_Price_Forecast_Model_Based_on_SGRU-AM.pdf?sequence=1
+PY  - 2021///
+AB  - … methods, decision tree [8]–[10], genetic algorithm [11], support vector machine (SVM) [12] and other machine learning methods have also been implemented to financial price …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 16 cites: https://scholar.google.com/scholar?cites=4364946171679809561&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2021): 16
+ER  - 
+
+TY  - JOUR
+AU  - Chen, ZY
+TI  - Integration learning of neural network training with swarm intelligence and meta-heuristic algorithms for spot gold price forecast
+JF  - Applied Artificial Intelligence
+PB  - Taylor &Francis
+DO  - 10.1080/08839514.2021.1994217
+UR  - https://www.tandfonline.com/doi/abs/10.1080/08839514.2021.1994217
+UR  - https://www.tandfonline.com/doi/pdf/10.1080/08839514.2021.1994217
+PY  - 2022///
+AB  - … gold price forecast exercise show that the proposed IGACO algorithm outperforms other algorithms and the Box-Jenkins models in terms of forecasting preciseness and execution time. …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 18 cites: https://scholar.google.com/scholar?cites=18267177974588640729&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2022): 18
+ER  - 
+
+TY  - JOUR
+AU  - Li, Y
+AU  - Wang, S
+AU  - Wei, Y
+AU  - Zhu, Q
+TI  - A new hybrid VMD-ICSS-BiGRU approach for gold futures price forecasting and algorithmic trading
+JF  - IEEE Transactions on …
+PB  - ieeexplore.ieee.org
+UR  - https://ieeexplore.ieee.org/abstract/document/9455130/
+UR  - https://www.researchgate.net/profile/Qing-Zhu-44/publication/352418881_A_New_Hybrid_VMD-ICSS-BiGRU_Approach_for_Gold_Futures_Price_Forecasting_and_Algorithmic_Trading/links/6191b0653068c54fa5e83c55/A-New-Hybrid-VMD-ICSS-BiGRU-Approach-for-Gold-Futures-Price-Forecasting-and-Algorithmic-Trading.pdf
+PY  - 2021///
+AB  - … accurate forecasts and build effective trading strategies for the gold futures market, the Gold … His research interests are big data and soft computing, machine learning, and neural …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 84 cites: https://scholar.google.com/scholar?cites=674526353168356680&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2021): 84
+ER  - 
+
+TY  - HTML
+AU  - Hamadou, F Ben
+AU  - Mezghani, T
+AU  - Zouari, R
+AU  - ...
+TI  - Forecasting Bitcoin returns using machine learning algorithms: impact of investor sentiment
+JF  - EuroMed Journal of …
+PB  - emerald.com
+UR  - https://www.emerald.com/emjb/article/20/1/179/1243995
+UR  - https://www.emerald.com/emjb/article/20/1/179/1243995
+PY  - 2025///
+AB  - … Traditional financial indicators, such as S&P500 and gold, were identified as influential factors in forecasting Bitcoin returns. Their importance remained consistent during the COVID-19 …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 33 cites: https://scholar.google.com/scholar?cites=6042969353730491266&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2025): 33
+ER  - 
+
+TY  - PDF
+AU  - Hansun, S
+AU  - Suryadibrata, A
+TI  - Gold price prediction in COVID-19 era
+JF  - Int J Comput Intell Control
+PB  - mukpublications.com
+UR  - https://www.mukpublications.com/resources/ijcic%20v13-2-4.pdf
+UR  - https://www.mukpublications.com/resources/ijcic%20v13-2-4.pdf
+PY  - 2021///
+AB  - … [19], then the prediction results can be considered as a good forecasting result. Lastly, we … task in the Machine Learning domain. The 𝑅2 score for the gold price prediction using the …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 22 cites: https://scholar.google.com/scholar?cites=13631819889859182705&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2021): 22
+ER  - 
+
+TY  - JOUR
+AU  - Ameur, H Ben
+AU  - Boubaker, S
+AU  - Ftiti, Z
+AU  - Louhichi, W
+AU  - ...
+TI  - Forecasting commodity prices: empirical evidence using deep learning tools
+JF  - Annals of Operations …
+PB  - Springer
+DO  - 10.1007/s10479-022-05076-6
+UR  - https://link.springer.com/article/10.1007/s10479-022-05076-6
+UR  - https://pmc.ncbi.nlm.nih.gov/articles/PMC9857912/pdf/10479_2022_Article_5076.pdf
+PY  - 2024///
+AB  - … machine learning and deep learning. The choice of algorithms in both machine learning and … Hence, AI practitioners should first attempt solutions related to machine learning algorithms, …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 106 cites: https://scholar.google.com/scholar?cites=7837473298334855554&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2024): 106
+ER  - 
+
+TY  - JOUR
+AU  - Köse, N
+AU  - Gür, YE
+AU  - Ünal, E
+TI  - Deep learning and machine learning insights into the global economic drivers of the Bitcoin price
+JF  - Journal of Forecasting
+PB  - Wiley Online Library
+DO  - 10.1002/for.3258
+UR  - https://onlinelibrary.wiley.com/doi/abs/10.1002/for.3258
+UR  - https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/for.3258
+PY  - 2025///
+AB  - … , the US dollar index, the gold price, and interest rates estimated using … forecasting analysis. Deep learning methodologies, including LSTM, GRU, CNN, and TFT, with machine learning …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 19 cites: https://scholar.google.com/scholar?cites=7391541308596625691&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2025): 19
+ER  - 
+
+TY  - JOUR
+AU  - Wang, L
+AU  - Liu, Z
+AU  - Liang, C
+TI  - Enhancing gold futures volatility forecasts: integrating growth-rate changepoint correction into the TVP-SVM model
+JF  - Applied Economics
+PB  - Taylor &Francis
+DO  - 10.1080/00036846.2025.2519936
+UR  - https://www.tandfonline.com/doi/abs/10.1080/00036846.2025.2519936
+PY  - 2026///
+AB  - … ’s forecast results are still usable, considering the potential for future crashes (or surges), it might be advisable to consider integrating machine learning models to meet the challenges. …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 3 cites: https://scholar.google.com/scholar?cites=11311298531956393381&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2026): 3
+ER  - 
+
+TY  - JOUR
+AU  - Aygun, B
+AU  - Gunay, EK
+TI  - Comparison of statistical and machine learning algorithms for forecasting daily bitcoin returns
+JF  - Avrupa Bilim ve Teknoloji Dergisi
+PB  - dergipark.org.tr
+UR  - https://dergipark.org.tr/en/pub/ejosat/issue/59648/822153
+UR  - https://dergipark.org.tr/en/download/article-file/1383140
+PY  - 2021///
+AB  - … machine learning algorithms yield better results with low error rates than traditional statistical techniques. Two statistical and three machine learning … For machine learning algorithms, …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 22 cites: https://scholar.google.com/scholar?cites=984630749156687378&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2021): 22
+ER  - 
+
+TY  - HTML
+AU  - Varshini, A
+AU  - Kayal, P
+AU  - Maiti, M
+TI  - How good are different machine and deep learning models in forecasting the future price of metals? Full sample versus sub-sample
+JF  - Resources Policy
+PB  - Elsevier
+UR  - https://www.sciencedirect.com/science/article/pii/S0301420724004070
+UR  - https://www.sciencedirect.com/science/article/pii/S0301420724004070
+PY  - 2024///
+AB  - … This study aims to forecast metal futures in commodity markets, including gold, silver, copper… employ various machine learning (ML), and deep learning (DL) techniques to forecast metal …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 34 cites: https://scholar.google.com/scholar?cites=15739209185156719514&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2024): 34
+ER  - 
+
+TY  - HTML
+AU  - Sebastião, H
+AU  - Godinho, P
+TI  - Forecasting and trading cryptocurrencies with machine learning under changing market conditions
+JF  - Financial Innovation
+PB  - Springer
+DO  - 10.1186/s40854-020-00217-x
+UR  - https://link.springer.com/article/10.1186/s40854-020-00217-x
+UR  - https://link.springer.com/article/10.1186/s40854-020-00217-x
+PY  - 2021///
+AB  - … profitability of trading strategies devised upon machine learning techniques (eg, linear models… These positive results support the claim that machine learning provides robust techniques …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 329 cites: https://scholar.google.com/scholar?cites=5732547016934396595&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2021): 329
+ER  - 
+
+TY  - HTML
+AU  - Amini, A
+AU  - Kalantari, R
+TI  - Gold price prediction by a CNN-Bi-LSTM model along with automatic parameter tuning
+JF  - Plos one
+PB  - journals.plos.org
+UR  - https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0298426
+UR  - https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0298426
+PY  - 2024///
+AB  - … , machine learning models appear to be unable to detect and capture the nonlinear and complex behavior of the gold … for closing gold price forecasting on a daily time step. The closing …
+M1  - Query date: 2026-08-31 02:18:08
+M1  - 57 cites: https://scholar.google.com/scholar?cites=15750367365815106963&as_sdt=2005&sciodt=2007&hl=en
+N1  - Cited By (since 2024): 57
+ER  - 
+
