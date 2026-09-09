@@ -35,10 +35,12 @@ FORWARD_CANDLES  = 5        # Horizon Prediksi: 5 Candle (75 menit)
 LOT_SIZE         = 0.01     # Lot Size Eksekusi
 PROB_THRESHOLD   = 60.0     # Ambang Keyakinan Minimum Model (60% untuk Sinyal Valid)
 
-SL_TP_MODE       = "SMART_INTRADAY"
-RRR_RATIO        = 1.5      # Risk-to-Reward Ratio (1 : 1.5)
-AUTO_EXECUTE     = True     # Set True untuk Eksekusi Otomatis ke MT5!
-ENABLE_BREAKEVEN = True     # Pindahkan SL ke Break-Even (Risk-Free) jika profit >= +$4.00 USD
+SL_TP_MODE         = "SMART_INTRADAY"
+RRR_RATIO          = 1.5      # Risk-to-Reward Ratio (1 : 1.5)
+AUTO_EXECUTE       = True     # Set True untuk Eksekusi Otomatis ke MT5!
+ENABLE_BREAKEVEN   = True     # Pindahkan SL ke Break-Even (Risk-Free) jika profit >= +$4.00 USD
+PROXIMITY_GUARD    = True     # Anti-Sell di Lantai Demand/Support & Anti-Buy di Atap Resistance
+PROXIMITY_MIN_DIST = 0.0025   # Batas Aman Minimal (0.25% ~ 11 pips dari Support/Resistance)
 
 MT5_PATH = r"C:\Program Files\MetaTrader 5 EXNESS\terminal64.exe"
 MODEL_FILE_PATH = r"d:\SKRIPSI INFORMATIKA\model_lightgbm_xauusd.pkl"
@@ -85,7 +87,7 @@ def analyze_market_and_predict():
         rates_h1  = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_H1, 0, 500)
         if rates_m15 is None or len(rates_m15) == 0:
             print("❌ Gagal menarik data dari MT5. Melewati candle ini...")
-            return 50.0, 50.0, False, False, 8.0, 0.0, 0.0
+            return 50.0, 50.0, False, False, 8.0, 0.0, 0.0, 0.01, 0.01
 
     df_m15 = pd.DataFrame(rates_m15)
     df_m15['time'] = pd.to_datetime(df_m15['time'], unit='s')
@@ -212,12 +214,14 @@ def analyze_market_and_predict():
     
     h1_bull = df_clean['Trend_H1_Bull'].iloc[-1] == 1
     h1_strong_bull = df_clean['Trend_H1_Strong'].iloc[-1] == 1
-    
+    dist_support = float(df_clean['Dist_Support'].iloc[-1])
+    dist_resistance = float(df_clean['Dist_Resistance'].iloc[-1])
+
     tick = mt5.symbol_info_tick(symbol)
     live_ask = tick.ask if tick else df_clean['close'].iloc[-1]
     live_bid = tick.bid if tick else df_clean['close'].iloc[-1]
     
-    return prob_up, prob_down, h1_bull, h1_strong_bull, latest_atr, live_ask, live_bid
+    return prob_up, prob_down, h1_bull, h1_strong_bull, latest_atr, live_ask, live_bid, dist_support, dist_resistance
 
 MAGIC_NUMBER = 123230
 
@@ -332,26 +336,34 @@ def main():
 
     # Audit awal kondisi pasar & prediksi model saat pertama kali dibuka
     print(f"\n{COLOR_CYAN}🔍 MELAKUKAN AUDIT AWAL KONDISI PASAR & PREDIKSI MODEL SAAT INI...{COLOR_RESET}")
-    prob_up, prob_down, h1_bull, h1_strong_bull, atr_val, ask_p, bid_p = analyze_market_and_predict()
+    prob_up, prob_down, h1_bull, h1_strong_bull, atr_val, ask_p, bid_p, dist_sup, dist_res = analyze_market_and_predict()
     print("="*75)
     print(f"📊 HASIL AUDIT MODEL M15 (REAL-TIME LIVE):")
-    print(f"• Probabilitas AI      : BUY = {prob_up:.1f}%  |  SELL = {prob_down:.1f}%")
-    print(f"• Ambang Batas Valid   : Min >= {PROB_THRESHOLD:.1f}%")
-    print(f"• Arah Tren Makro H1   : {'BULLISH (Up)' if h1_bull else 'BEARISH (Down)'}")
+    print(f"• Probabilitas AI          : BUY = {prob_up:.1f}%  |  SELL = {prob_down:.1f}%")
+    print(f"• Ambang Batas Valid       : Min >= {PROB_THRESHOLD:.1f}%")
+    print(f"• Arah Tren Makro H1       : {'BULLISH (Up)' if h1_bull else 'BEARISH (Down)'}")
+    print(f"• Jarak Lantai Demand/SNR  : {dist_sup*100:.2f}% (Batas Aman Anti-Sell: >= {PROXIMITY_MIN_DIST*100:.2f}%)")
+    print(f"• Jarak Atap Resistance    : {dist_res*100:.2f}% (Batas Aman Anti-Buy:  >= {PROXIMITY_MIN_DIST*100:.2f}%)")
     
     if prob_up >= PROB_THRESHOLD and h1_bull:
-        audit_note = f"{COLOR_GREEN}{COLOR_BOLD}🟢 SINYAL BUY AKTIF ({prob_up:.1f}% >= {PROB_THRESHOLD}% & H1 Bullish){COLOR_RESET}"
+        if PROXIMITY_GUARD and dist_res < PROXIMITY_MIN_DIST:
+            audit_note = f"{COLOR_YELLOW}🟡 TERTAHAN: BUY {prob_up:.1f}% dekat Resistance ({dist_res*100:.2f}%). Anti-Buy Pucuk!{COLOR_RESET}"
+        else:
+            audit_note = f"{COLOR_GREEN}{COLOR_BOLD}🟢 SINYAL BUY AKTIF ({prob_up:.1f}% >= {PROB_THRESHOLD}% & H1 Bullish){COLOR_RESET}"
     elif prob_down >= PROB_THRESHOLD and not h1_bull:
-        audit_note = f"{COLOR_RED}{COLOR_BOLD}🔴 SINYAL SELL AKTIF ({prob_down:.1f}% >= {PROB_THRESHOLD}% & H1 Bearish){COLOR_RESET}"
+        if PROXIMITY_GUARD and dist_sup < PROXIMITY_MIN_DIST:
+            audit_note = f"{COLOR_YELLOW}🟡 TERTAHAN: SELL {prob_down:.1f}% dekat Demand/Support ({dist_sup*100:.2f}%). Anti-Sell Lembah!{COLOR_RESET}"
+        else:
+            audit_note = f"{COLOR_RED}{COLOR_BOLD}🔴 SINYAL SELL AKTIF ({prob_down:.1f}% >= {PROB_THRESHOLD}% & H1 Bearish){COLOR_RESET}"
     elif prob_up >= PROB_THRESHOLD and not h1_bull:
-        audit_note = f"{COLOR_YELLOW}🟡 TERTILTER: BUY {prob_up:.1f}% ditahan karena Tren H1 Bearish (Hindari Trapping){COLOR_RESET}"
+        audit_note = f"{COLOR_YELLOW}🟡 TERFILTER: BUY {prob_up:.1f}% ditahan karena Tren H1 Bearish (Hindari Trapping){COLOR_RESET}"
     elif prob_down >= PROB_THRESHOLD and h1_bull:
-        audit_note = f"{COLOR_YELLOW}🟡 TERTILTER: SELL {prob_down:.1f}% ditahan karena Tren H1 Bullish (Hindari Trapping){COLOR_RESET}"
+        audit_note = f"{COLOR_YELLOW}🟡 TERFILTER: SELL {prob_down:.1f}% ditahan karena Tren H1 Bullish (Hindari Trapping){COLOR_RESET}"
     else:
         audit_note = f"{COLOR_YELLOW}🟡 NETRAL: Keyakinan Model ({max(prob_up, prob_down):.1f}%) belum mencapai {PROB_THRESHOLD}%{COLOR_RESET}"
         
-    print(f"• Status Evaluasi Pasar : {audit_note}")
-    print(f"• Waktu Eksekusi Order  : Menunggu 5 detik sebelum tutup candle ({CHOSEN_TF})")
+    print(f"• Status Evaluasi Pasar     : {audit_note}")
+    print(f"• Waktu Eksekusi Order      : Menunggu 5 detik sebelum tutup candle ({CHOSEN_TF})")
     print("="*75 + "\n")
 
     tf_min = 15
@@ -390,7 +402,7 @@ def main():
             if time.time() - last_prob_refresh >= 30:
                 last_prob_refresh = time.time()
                 try:
-                    prob_up, prob_down, h1_bull, h1_strong_bull, atr_val, ask_p, bid_p = analyze_market_and_predict()
+                    prob_up, prob_down, h1_bull, h1_strong_bull, atr_val, ask_p, bid_p, dist_sup, dist_res = analyze_market_and_predict()
                 except Exception:
                     pass
             
@@ -419,9 +431,15 @@ def main():
                     status_str = f"{COLOR_RED}{COLOR_BOLD}HOLDING SELL #{cur_positions[0].ticket}{COLOR_RESET}"
             else:
                 if prob_up >= PROB_THRESHOLD and h1_bull:
-                    status_str = f"{COLOR_GREEN}{COLOR_BOLD}SIAP BUY{COLOR_RESET}"
+                    if PROXIMITY_GUARD and dist_res < PROXIMITY_MIN_DIST:
+                        status_str = f"{COLOR_YELLOW}TERTAHAN RESIST{COLOR_RESET}"
+                    else:
+                        status_str = f"{COLOR_GREEN}{COLOR_BOLD}SIAP BUY{COLOR_RESET}"
                 elif prob_down >= PROB_THRESHOLD and not h1_bull:
-                    status_str = f"{COLOR_RED}{COLOR_BOLD}SIAP SELL{COLOR_RESET}"
+                    if PROXIMITY_GUARD and dist_sup < PROXIMITY_MIN_DIST:
+                        status_str = f"{COLOR_YELLOW}TERTAHAN SUPPORT{COLOR_RESET}"
+                    else:
+                        status_str = f"{COLOR_RED}{COLOR_BOLD}SIAP SELL{COLOR_RESET}"
                 elif (prob_up >= PROB_THRESHOLD and not h1_bull) or (prob_down >= PROB_THRESHOLD and h1_bull):
                     status_str = f"{COLOR_YELLOW}TERFILTER H1{COLOR_RESET}"
                 else:
@@ -436,28 +454,33 @@ def main():
                 print("\n" + "="*75)
                 print(f"⚡ CANDLE M15 MENJELANG TUTUP ({now.strftime('%H:%M:%S')})! KEPUTUSAN EKSEKUSI MODEL:")
                 
-                prob_up, prob_down, h1_bull, h1_strong_bull, atr_val, ask_p, bid_p = analyze_market_and_predict()
+                prob_up, prob_down, h1_bull, h1_strong_bull, atr_val, ask_p, bid_p, dist_sup, dist_res = analyze_market_and_predict()
                 
                 sl_pips = max(40.0, round(atr_val * 10.0 * 0.6, 0))
                 tp_pips = round(sl_pips * RRR_RATIO, 0)
                 
                 print(f"📊 Probabilitas Final : BUY = {prob_up:.1f}%  |  SELL = {prob_down:.1f}% (Threshold: >={PROB_THRESHOLD}%)")
                 print(f"🛡️ Tren Makro H1       : {'BULLISH (Up)' if h1_bull else 'BEARISH (Down)'}")
+                print(f"📐 Struktur Level SNR  : Lantai Demand = {dist_sup*100:.2f}% | Atap Resist = {dist_res*100:.2f}%")
                 
                 final_signal = "WAIT"
                 
                 if prob_up >= PROB_THRESHOLD:
-                    if h1_bull:
-                        final_signal = "BUY"
-                        print(f"{COLOR_GREEN}{COLOR_BOLD}🟢 KEPUTUSAN BUY: Probabilitas BUY ({prob_up:.1f}%) >= {PROB_THRESHOLD}% dan searah Tren H1 Bullish. Membuka posisi BUY...{COLOR_RESET}")
-                    else:
-                        print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN (FILTER): Sinyal BUY ({prob_up:.1f}%) dibatalkan karena Tren H1 Bearish (Hindari False Breakout).{COLOR_RESET}")
-                elif prob_down >= PROB_THRESHOLD:
                     if not h1_bull:
-                        final_signal = "SELL"
-                        print(f"{COLOR_RED}{COLOR_BOLD}🔴 KEPUTUSAN SELL: Probabilitas SELL ({prob_down:.1f}%) >= {PROB_THRESHOLD}% dan searah Tren H1 Bearish. Membuka posisi SELL...{COLOR_RESET}")
+                        print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN (FILTER H1): Sinyal BUY ({prob_up:.1f}%) dibatalkan karena Tren H1 Bearish (Hindari False Breakout).{COLOR_RESET}")
+                    elif PROXIMITY_GUARD and dist_res < PROXIMITY_MIN_DIST:
+                        print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN (PROXIMITY GUARD): Sinyal BUY ({prob_up:.1f}%) dibatalkan karena harga terlalu dekat Atap Resistance ({dist_res*100:.2f}% < {PROXIMITY_MIN_DIST*100:.2f}%). Hindari Buy di Pucuk!{COLOR_RESET}")
                     else:
-                        print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN (FILTER): Sinyal SELL ({prob_down:.1f}%) dibatalkan karena Tren H1 Bullish (Hindari False Breakout).{COLOR_RESET}")
+                        final_signal = "BUY"
+                        print(f"{COLOR_GREEN}{COLOR_BOLD}🟢 KEPUTUSAN BUY: Probabilitas BUY ({prob_up:.1f}%) >= {PROB_THRESHOLD}%, Tren H1 Bullish, & Ruang Naik Aman. Membuka posisi BUY...{COLOR_RESET}")
+                elif prob_down >= PROB_THRESHOLD:
+                    if h1_bull:
+                        print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN (FILTER H1): Sinyal SELL ({prob_down:.1f}%) dibatalkan karena Tren H1 Bullish (Hindari False Breakout).{COLOR_RESET}")
+                    elif PROXIMITY_GUARD and dist_sup < PROXIMITY_MIN_DIST:
+                        print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN (PROXIMITY GUARD): Sinyal SELL ({prob_down:.1f}%) dibatalkan karena harga terlalu dekat Lantai Demand/Support ({dist_sup*100:.2f}% < {PROXIMITY_MIN_DIST*100:.2f}%). Hindari Sell di Lembah!{COLOR_RESET}")
+                    else:
+                        final_signal = "SELL"
+                        print(f"{COLOR_RED}{COLOR_BOLD}🔴 KEPUTUSAN SELL: Probabilitas SELL ({prob_down:.1f}%) >= {PROB_THRESHOLD}%, Tren H1 Bearish, & Ruang Turun Aman. Membuka posisi SELL...{COLOR_RESET}")
                 else:
                     print(f"{COLOR_YELLOW}🟡 KEPUTUSAN NETRAL: Keyakinan Model ({max(prob_up, prob_down):.1f}%) < Ambang Batas {PROB_THRESHOLD}%. Belum ada peluang dengan kepastian tinggi.{COLOR_RESET}")
                     
