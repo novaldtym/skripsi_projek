@@ -18,9 +18,9 @@ p1 = subprocess.Popen(
 
 time.sleep(3)
 
-print("[2] Membuka Bot M5 Scalping Agresif (>= 55%, Stacking, Magic 123235)...")
+print("[2] Membuka Bot M5 Dynamic Scalper (>= 58%, Dynamic TP $1.50, Magic 123235)...")
 p2 = subprocess.Popen(
-    ["cmd", "/k", "title Bot 2: M5 Scalping Agresif (>= 55%) && python Eksekusi_Otomatis_Trading_Bot_M5_Scalping.py"],
+    ["cmd", "/k", "title Bot 2: M5 Dynamic Scalper (>= 58%) && python Eksekusi_Otomatis_Trading_Bot_M5_Scalping.py"],
     creationflags=subprocess.CREATE_NEW_CONSOLE,
     cwd=r"d:\SKRIPSI INFORMATIKA"
 )
@@ -28,5 +28,5 @@ p2 = subprocess.Popen(
 print("\n" + "="*80)
 print("✅ KEDUA ROBOT TELAH BERJALAN BERSAMAAN DALAM CONSOLE TERPISAH!")
 print("• Bot M15 Konservatif : Magic 123230 | Single Position | Log: Laporan_Forward_Testing_Model_Terbaru_SMC.xlsx")
-print("• Bot M5 Scalping     : Magic 123235 | Stacking Max 3   | Log: Laporan_Forward_Testing_Model_M5_Scalping.xlsx")
+print("• Bot M5 Scalper      : Magic 123235 | Dynamic TP $1.50| Log: Laporan_Forward_Testing_Model_M5_Scalping.xlsx")
 print("="*80)
