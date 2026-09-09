@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 import tkinter as tk
 from tkinter import ttk, messagebox
 import MetaTrader5 as mt5
+import pandas as pd
 
 # Path konfigurasi
 BASE_DIR = r"d:\SKRIPSI INFORMATIKA"
@@ -36,6 +37,12 @@ class TradingBotGUI:
         self.proc_m5  = None
         self.queue_m15 = queue.Queue()
         self.queue_m5  = queue.Queue()
+
+        # Data & Mode Rekap Excel In-App
+        self.current_rekap_mode = "m15"
+        self.current_filter_status = "ALL"
+        self.search_var = tk.StringVar()
+        self.current_data_rows = []
 
         self.setup_styles()
         self.create_header()
@@ -65,6 +72,24 @@ class TradingBotGUI:
 
         style.configure("TFrame", background="#0b0f19")
         style.configure("Card.TFrame", background="#161f30", relief="solid", borderwidth=1)
+
+        # Styling Treeview Dark Theme
+        style.configure("Treeview", 
+                        background="#0f172a", 
+                        foreground="#f8fafc", 
+                        fieldbackground="#0f172a",
+                        rowheight=26,
+                        font=("Segoe UI", 9))
+        style.configure("Treeview.Heading", 
+                        background="#1e293b", 
+                        foreground="#38bdf8", 
+                        font=("Segoe UI", 9, "bold"),
+                        padding=[6, 6])
+        style.map("Treeview.Heading", 
+                  background=[("active", "#334155")])
+        style.map("Treeview", 
+                  background=[("selected", "#0284c7")],
+                  foreground=[("selected", "#ffffff")])
 
     def create_header(self):
         header_frame = tk.Frame(self.root, bg="#111827", height=80, relief="solid", bd=1)
@@ -153,9 +178,15 @@ class TradingBotGUI:
         )
         tk.Label(info_box, text=params_text, font=("Consolas", 8), fg="#cbd5e1", bg="#161f30", justify="left").pack(anchor="w")
 
-        # Tombol Buka Excel M15
-        btn_excel_m15 = tk.Button(left_panel, text="📊 Buka Laporan Excel M15", font=("Segoe UI", 9, "bold"), fg="#38bdf8", bg="#1e293b", activebackground="#334155", activeforeground="#38bdf8", relief="flat", cursor="hand2", command=lambda: os.startfile(EXCEL_M15) if os.path.exists(EXCEL_M15) else messagebox.showerror("File Error", "File Excel M15 belum ditemukan!"), pady=6)
-        btn_excel_m15.pack(fill="x", padx=15, side="bottom", pady=15)
+        # Tombol Buka & Lihat Excel M15
+        excel_btns_m15 = tk.Frame(left_panel, bg="#161f30")
+        excel_btns_m15.pack(fill="x", padx=15, side="bottom", pady=15)
+
+        btn_view_m15 = tk.Button(excel_btns_m15, text="👁️ Tampilkan Tabel Excel M15", font=("Segoe UI", 9, "bold"), fg="#ffffff", bg="#0284c7", activebackground="#0369a1", relief="flat", cursor="hand2", command=lambda: self.switch_to_rekap_tab("m15"), pady=7)
+        btn_view_m15.pack(fill="x", pady=(0, 6))
+
+        btn_excel_m15 = tk.Button(excel_btns_m15, text="📂 Buka di Aplikasi Excel (.xlsx)", font=("Segoe UI", 8), fg="#94a3b8", bg="#1e293b", activebackground="#334155", activeforeground="#38bdf8", relief="flat", cursor="hand2", command=lambda: os.startfile(EXCEL_M15) if os.path.exists(EXCEL_M15) else messagebox.showerror("File Error", "File Excel M15 belum ditemukan!"), pady=5)
+        btn_excel_m15.pack(fill="x")
 
         # Panel Kanan: Console Log
         right_panel = tk.Frame(paned, bg="#050811", relief="solid", bd=1)
@@ -220,9 +251,15 @@ class TradingBotGUI:
         )
         tk.Label(info_box, text=params_text, font=("Consolas", 8), fg="#cbd5e1", bg="#161f30", justify="left").pack(anchor="w")
 
-        # Tombol Buka Excel M5
-        btn_excel_m5 = tk.Button(left_panel, text="⚡ Buka Laporan Excel M5", font=("Segoe UI", 9, "bold"), fg="#10b981", bg="#1e293b", activebackground="#334155", activeforeground="#10b981", relief="flat", cursor="hand2", command=lambda: os.startfile(EXCEL_M5) if os.path.exists(EXCEL_M5) else messagebox.showerror("File Error", "File Excel M5 belum ditemukan!"), pady=6)
-        btn_excel_m5.pack(fill="x", padx=15, side="bottom", pady=15)
+        # Tombol Buka & Lihat Excel M5
+        excel_btns_m5 = tk.Frame(left_panel, bg="#161f30")
+        excel_btns_m5.pack(fill="x", padx=15, side="bottom", pady=15)
+
+        btn_view_m5 = tk.Button(excel_btns_m5, text="👁️ Tampilkan Tabel Excel M5", font=("Segoe UI", 9, "bold"), fg="#ffffff", bg="#059669", activebackground="#047857", relief="flat", cursor="hand2", command=lambda: self.switch_to_rekap_tab("m5"), pady=7)
+        btn_view_m5.pack(fill="x", pady=(0, 6))
+
+        btn_excel_m5 = tk.Button(excel_btns_m5, text="📂 Buka di Aplikasi Excel (.xlsx)", font=("Segoe UI", 8), fg="#94a3b8", bg="#1e293b", activebackground="#334155", activeforeground="#10b981", relief="flat", cursor="hand2", command=lambda: os.startfile(EXCEL_M5) if os.path.exists(EXCEL_M5) else messagebox.showerror("File Error", "File Excel M5 belum ditemukan!"), pady=5)
+        btn_excel_m5.pack(fill="x")
 
         # Panel Kanan: Console Log
         right_panel = tk.Frame(paned, bg="#050811", relief="solid", bd=1)
@@ -245,63 +282,141 @@ class TradingBotGUI:
     # =========================================================================
     # TAB 3: REKAP EXCEL & HUB PORTOFOLIO
     # =========================================================================
+    # =========================================================================
+    # TAB 3: REKAP EXCEL & HUB PORTOFOLIO (INTERACTIVE IN-APP EXCEL VIEWER)
+    # =========================================================================
     def setup_rekap_tab(self):
         container = tk.Frame(self.tab_rekap, bg="#0b0f19")
-        container.pack(fill="both", expand=True, padx=20, pady=20)
+        container.pack(fill="both", expand=True, padx=15, pady=12)
 
         # Kartu Rekap Atas
         cards_frame = tk.Frame(container, bg="#0b0f19")
-        cards_frame.pack(fill="x", pady=(0, 20))
+        cards_frame.pack(fill="x", pady=(0, 12))
 
         # Kartu M15
-        card_m15 = tk.Frame(cards_frame, bg="#161f30", relief="solid", bd=1, padx=20, pady=15)
-        card_m15.pack(side="left", fill="both", expand=True, padx=(0, 10))
+        card_m15 = tk.Frame(cards_frame, bg="#161f30", relief="solid", bd=1, padx=15, pady=10)
+        card_m15.pack(side="left", fill="both", expand=True, padx=(0, 6))
         tk.Label(card_m15, text="PORTOFOLIO MODEL M15 (KONSERVATIF)", font=("Segoe UI", 10, "bold"), fg="#38bdf8", bg="#161f30").pack(anchor="w")
-        self.lbl_rekap_m15 = tk.Label(card_m15, text="Memuat riwayat MT5...", font=("Consolas", 10), fg="#f8fafc", bg="#161f30", justify="left")
-        self.lbl_rekap_m15.pack(anchor="w", pady=(8, 10))
-        tk.Button(card_m15, text="Buka File Excel M15 (.xlsx)", font=("Segoe UI", 9, "bold"), fg="#ffffff", bg="#0284c7", activebackground="#0369a1", relief="flat", cursor="hand2", command=lambda: os.startfile(EXCEL_M15) if os.path.exists(EXCEL_M15) else None).pack(anchor="w")
+        self.lbl_rekap_m15 = tk.Label(card_m15, text="Memuat riwayat...", font=("Consolas", 9), fg="#f8fafc", bg="#161f30", justify="left")
+        self.lbl_rekap_m15.pack(anchor="w", pady=(4, 8))
+
+        btn_box_15 = tk.Frame(card_m15, bg="#161f30")
+        btn_box_15.pack(fill="x")
+        self.btn_card_view_m15 = tk.Button(btn_box_15, text="👁️ Tampilkan Tabel Excel M15", font=("Segoe UI", 9, "bold"), fg="#ffffff", bg="#0284c7", activebackground="#0369a1", relief="flat", cursor="hand2", command=lambda: self.load_excel_view("m15"), padx=10, pady=5)
+        self.btn_card_view_m15.pack(side="left", padx=(0, 6))
+        tk.Button(btn_box_15, text="📂 Buka di Excel (.xlsx)", font=("Segoe UI", 8), fg="#94a3b8", bg="#1e293b", activebackground="#334155", activeforeground="#ffffff", relief="flat", cursor="hand2", command=lambda: os.startfile(EXCEL_M15) if os.path.exists(EXCEL_M15) else messagebox.showerror("File Error", "File Excel M15 belum ditemukan!"), padx=8, pady=5).pack(side="left")
 
         # Kartu M5
-        card_m5 = tk.Frame(cards_frame, bg="#161f30", relief="solid", bd=1, padx=20, pady=15)
-        card_m5.pack(side="right", fill="both", expand=True, padx=(10, 0))
+        card_m5 = tk.Frame(cards_frame, bg="#161f30", relief="solid", bd=1, padx=15, pady=10)
+        card_m5.pack(side="right", fill="both", expand=True, padx=(6, 0))
         tk.Label(card_m5, text="PORTOFOLIO MODEL M5 (SCALPING DYNAMIC)", font=("Segoe UI", 10, "bold"), fg="#10b981", bg="#161f30").pack(anchor="w")
-        self.lbl_rekap_m5 = tk.Label(card_m5, text="Memuat riwayat MT5...", font=("Consolas", 10), fg="#f8fafc", bg="#161f30", justify="left")
-        self.lbl_rekap_m5.pack(anchor="w", pady=(8, 10))
-        tk.Button(card_m5, text="Buka File Excel M5 (.xlsx)", font=("Segoe UI", 9, "bold"), fg="#ffffff", bg="#059669", activebackground="#047857", relief="flat", cursor="hand2", command=lambda: os.startfile(EXCEL_M5) if os.path.exists(EXCEL_M5) else None).pack(anchor="w")
+        self.lbl_rekap_m5 = tk.Label(card_m5, text="Memuat riwayat...", font=("Consolas", 9), fg="#f8fafc", bg="#161f30", justify="left")
+        self.lbl_rekap_m5.pack(anchor="w", pady=(4, 8))
 
-        # Tabel Riwayat Transaksi Terakhir
-        table_frame = tk.Frame(container, bg="#161f30", relief="solid", bd=1, padx=15, pady=15)
+        btn_box_5 = tk.Frame(card_m5, bg="#161f30")
+        btn_box_5.pack(fill="x")
+        self.btn_card_view_m5 = tk.Button(btn_box_5, text="👁️ Tampilkan Tabel Excel M5", font=("Segoe UI", 9, "bold"), fg="#ffffff", bg="#059669", activebackground="#047857", relief="flat", cursor="hand2", command=lambda: self.load_excel_view("m5"), padx=10, pady=5)
+        self.btn_card_view_m5.pack(side="left", padx=(0, 6))
+        tk.Button(btn_box_5, text="📂 Buka di Excel (.xlsx)", font=("Segoe UI", 8), fg="#94a3b8", bg="#1e293b", activebackground="#334155", activeforeground="#ffffff", relief="flat", cursor="hand2", command=lambda: os.startfile(EXCEL_M5) if os.path.exists(EXCEL_M5) else messagebox.showerror("File Error", "File Excel M5 belum ditemukan!"), padx=8, pady=5).pack(side="left")
+
+        # Panel Tabel Interaktif Terpadu
+        table_frame = tk.Frame(container, bg="#161f30", relief="solid", bd=1, padx=12, pady=10)
         table_frame.pack(fill="both", expand=True)
 
+        # Header Bar Tabel
         tbl_top = tk.Frame(table_frame, bg="#161f30")
-        tbl_top.pack(fill="x", pady=(0, 10))
-        tk.Label(tbl_top, text="DAFTAR 15 TRANSAKSI MT5 TERAKHIR (LIVE SYNC)", font=("Segoe UI", 10, "bold"), fg="#f8fafc", bg="#161f30").pack(side="left")
-        tk.Button(tbl_top, text="🔄 Refresh Data", font=("Segoe UI", 8), fg="#38bdf8", bg="#1e293b", relief="flat", cursor="hand2", command=self.refresh_rekap_data).pack(side="right")
+        tbl_top.pack(fill="x", pady=(0, 8))
 
-        columns = ("waktu", "magic", "tipe", "lot", "open_p", "close_p", "profit", "comment")
-        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=12)
+        title_box = tk.Frame(tbl_top, bg="#161f30")
+        title_box.pack(side="left")
+
+        self.lbl_table_title = tk.Label(title_box, text="DAFTAR TRANSAKSI EXCEL M15", font=("Segoe UI", 11, "bold"), fg="#38bdf8", bg="#161f30")
+        self.lbl_table_title.pack(anchor="w")
+
+        self.lbl_table_subtitle = tk.Label(title_box, text="Memuat ringkasan data...", font=("Segoe UI", 8), fg="#94a3b8", bg="#161f30")
+        self.lbl_table_subtitle.pack(anchor="w")
+
+        # Tombol Navigasi Mode Data
+        nav_box = tk.Frame(tbl_top, bg="#161f30")
+        nav_box.pack(side="right")
+
+        self.btn_nav_m15 = tk.Button(nav_box, text="📊 Excel M15", font=("Segoe UI", 8, "bold"), fg="#ffffff", bg="#0284c7", activebackground="#0369a1", relief="flat", cursor="hand2", command=lambda: self.load_excel_view("m15"), padx=8, pady=4)
+        self.btn_nav_m15.pack(side="left", padx=2)
+
+        self.btn_nav_m5 = tk.Button(nav_box, text="⚡ Excel M5", font=("Segoe UI", 8, "bold"), fg="#94a3b8", bg="#1e293b", activebackground="#059669", activeforeground="#ffffff", relief="flat", cursor="hand2", command=lambda: self.load_excel_view("m5"), padx=8, pady=4)
+        self.btn_nav_m5.pack(side="left", padx=2)
+
+        self.btn_nav_stat = tk.Button(nav_box, text="📈 Perbandingan Statistik", font=("Segoe UI", 8, "bold"), fg="#94a3b8", bg="#1e293b", activebackground="#6366f1", activeforeground="#ffffff", relief="flat", cursor="hand2", command=lambda: self.load_excel_view("stat"), padx=8, pady=4)
+        self.btn_nav_stat.pack(side="left", padx=2)
+
+        self.btn_nav_mt5 = tk.Button(nav_box, text="🔄 Live MT5 Deals", font=("Segoe UI", 8, "bold"), fg="#94a3b8", bg="#1e293b", activebackground="#334155", activeforeground="#ffffff", relief="flat", cursor="hand2", command=lambda: self.load_excel_view("mt5"), padx=8, pady=4)
+        self.btn_nav_mt5.pack(side="left", padx=2)
+
+        self.btn_nav_popup = tk.Button(nav_box, text="🔍 Jendela Penuh", font=("Segoe UI", 8, "bold"), fg="#f59e0b", bg="#1e293b", activebackground="#d97706", activeforeground="#ffffff", relief="flat", cursor="hand2", command=self.open_excel_viewer_modal, padx=8, pady=4)
+        self.btn_nav_popup.pack(side="left", padx=2)
+
+        self.btn_nav_refresh = tk.Button(nav_box, text="🔄 Refresh", font=("Segoe UI", 8), fg="#38bdf8", bg="#1e293b", activebackground="#334155", relief="flat", cursor="hand2", command=self.refresh_current_view, padx=8, pady=4)
+        self.btn_nav_refresh.pack(side="left", padx=(2, 0))
+
+        # Filter & Search Strip
+        self.filter_strip = tk.Frame(table_frame, bg="#111827", relief="solid", bd=1, padx=8, pady=5)
+        self.filter_strip.pack(fill="x", pady=(0, 8))
+
+        filter_left = tk.Frame(self.filter_strip, bg="#111827")
+        filter_left.pack(side="left")
+
+        tk.Label(filter_left, text="🔍 Cari:", font=("Segoe UI", 8, "bold"), fg="#94a3b8", bg="#111827").pack(side="left", padx=(0, 4))
         
-        self.tree.heading("waktu", text="Waktu Selesai (WIB)")
-        self.tree.heading("magic", text="Model")
-        self.tree.heading("tipe", text="Arah")
-        self.tree.heading("lot", text="Lot")
-        self.tree.heading("open_p", text="Harga Masuk")
-        self.tree.heading("close_p", text="Harga Keluar")
-        self.tree.heading("profit", text="Profit (USD)")
-        self.tree.heading("comment", text="Alasan Exit")
+        self.entry_search = tk.Entry(filter_left, textvariable=self.search_var, font=("Segoe UI", 8), bg="#1e293b", fg="#f8fafc", insertbackground="#38bdf8", relief="flat", width=22)
+        self.entry_search.pack(side="left", padx=(0, 10), ipady=2)
+        self.search_var.trace_add("write", lambda *args: self.render_table_rows())
 
-        self.tree.column("waktu", width=140, anchor="center")
-        self.tree.column("magic", width=110, anchor="center")
-        self.tree.column("tipe", width=70, anchor="center")
-        self.tree.column("lot", width=60, anchor="center")
-        self.tree.column("open_p", width=95, anchor="center")
-        self.tree.column("close_p", width=95, anchor="center")
-        self.tree.column("profit", width=100, anchor="center")
-        self.tree.column("comment", width=220, anchor="w")
+        tk.Label(filter_left, text="Filter:", font=("Segoe UI", 8, "bold"), fg="#94a3b8", bg="#111827").pack(side="left", padx=(5, 4))
 
+        self.btn_filter_all = tk.Button(filter_left, text="Semua", font=("Segoe UI", 8, "bold"), fg="#ffffff", bg="#0284c7", activebackground="#0369a1", relief="flat", cursor="hand2", command=lambda: self.set_filter_status("ALL"), padx=8, pady=2)
+        self.btn_filter_all.pack(side="left", padx=2)
+
+        self.btn_filter_win = tk.Button(filter_left, text="Hanya WIN", font=("Segoe UI", 8), fg="#94a3b8", bg="#1e293b", activebackground="#059669", activeforeground="#ffffff", relief="flat", cursor="hand2", command=lambda: self.set_filter_status("WIN"), padx=8, pady=2)
+        self.btn_filter_win.pack(side="left", padx=2)
+
+        self.btn_filter_loss = tk.Button(filter_left, text="Hanya LOSS", font=("Segoe UI", 8), fg="#94a3b8", bg="#1e293b", activebackground="#dc2626", activeforeground="#ffffff", relief="flat", cursor="hand2", command=lambda: self.set_filter_status("LOSS"), padx=8, pady=2)
+        self.btn_filter_loss.pack(side="left", padx=2)
+
+        self.lbl_row_count = tk.Label(self.filter_strip, text="Menampilkan 0 baris", font=("Segoe UI", 8), fg="#94a3b8", bg="#111827")
+        self.lbl_row_count.pack(side="right")
+
+        # Container Treeview dengan Scrollbar Ganda (Vertikal & Horizontal)
+        tree_container = tk.Frame(table_frame, bg="#161f30")
+        tree_container.pack(fill="both", expand=True)
+
+        self.scroll_y = ttk.Scrollbar(tree_container, orient="vertical")
+        self.scroll_y.pack(side="right", fill="y")
+
+        self.scroll_x = ttk.Scrollbar(tree_container, orient="horizontal")
+        self.scroll_x.pack(side="bottom", fill="x")
+
+        self.tree = ttk.Treeview(
+            tree_container,
+            columns=("no", "ticket", "w_open", "w_close", "durasi", "tipe", "lot", "entry", "sl", "tp", "exit", "pips", "profit", "hasil", "alasan"),
+            show="headings",
+            yscrollcommand=self.scroll_y.set,
+            xscrollcommand=self.scroll_x.set
+        )
         self.tree.pack(fill="both", expand=True)
 
-        self.refresh_rekap_data()
+        self.scroll_y.config(command=self.tree.yview)
+        self.scroll_x.config(command=self.tree.xview)
+
+        # Tree Tags
+        self.tree.tag_configure("win", foreground="#10b981", font=("Segoe UI", 9, "bold"))
+        self.tree.tag_configure("loss", foreground="#ef4444", font=("Segoe UI", 9, "bold"))
+        self.tree.tag_configure("normal", foreground="#f8fafc", font=("Consolas", 9))
+        self.tree.tag_configure("stat_title", foreground="#38bdf8", font=("Segoe UI", 9, "bold"))
+        self.tree.tag_configure("stat_num", foreground="#f8fafc", font=("Consolas", 9))
+
+        # Muat ringkasan portofolio & data default (M15)
+        self.update_portfolio_summary_labels()
+        self.load_excel_view(mode="m15")
 
     def setup_text_tags(self, text_widget):
         text_widget.tag_configure("green", foreground="#10b981", font=("Consolas", 9, "bold"))
@@ -516,64 +631,471 @@ class TradingBotGUI:
             pass
         self.root.after(2000, self.update_live_market_ticker)
 
+    def switch_to_rekap_tab(self, mode="m15"):
+        self.notebook.select(self.tab_rekap)
+        self.load_excel_view(mode)
+
+    def set_filter_status(self, status):
+        self.current_filter_status = status
+        self.btn_filter_all.config(
+            bg="#0284c7" if status == "ALL" else "#1e293b",
+            fg="#ffffff" if status == "ALL" else "#94a3b8",
+            font=("Segoe UI", 8, "bold" if status == "ALL" else "normal")
+        )
+        self.btn_filter_win.config(
+            bg="#059669" if status == "WIN" else "#1e293b",
+            fg="#ffffff" if status == "WIN" else "#94a3b8",
+            font=("Segoe UI", 8, "bold" if status == "WIN" else "normal")
+        )
+        self.btn_filter_loss.config(
+            bg="#dc2626" if status == "LOSS" else "#1e293b",
+            fg="#ffffff" if status == "LOSS" else "#94a3b8",
+            font=("Segoe UI", 8, "bold" if status == "LOSS" else "normal")
+        )
+        self.render_table_rows()
+
+    def refresh_current_view(self):
+        self.update_portfolio_summary_labels()
+        self.load_excel_view(self.current_rekap_mode)
+
     def refresh_rekap_data(self):
+        # Dipanggil secara berkala untuk sinkronisasi otomatis
+        self.update_portfolio_summary_labels()
+        if self.current_rekap_mode == "mt5":
+            self.load_excel_view("mt5")
+
+    def update_portfolio_summary_labels(self):
+        # Update M15 dari file Excel
+        if os.path.exists(EXCEL_M15):
+            try:
+                df = pd.read_excel(EXCEL_M15, sheet_name="Trade Log Model Terbaru")
+                tot = len(df)
+                pnl = float(df["Profit ($ USD)"].sum()) if "Profit ($ USD)" in df else 0.0
+                wins = len(df[df["Hasil"] == "WIN"]) if "Hasil" in df else 0
+                loss = len(df[df["Hasil"] == "LOSS"]) if "Hasil" in df else 0
+                wr = (wins / tot * 100) if tot > 0 else 0.0
+                self.lbl_rekap_m15.config(
+                    text=f"Total Trade : {tot} Transaksi\nWin / Loss  : {wins} WIN / {loss} LOSS\nWin Rate    : {wr:.1f}%\nNet PnL     : ${pnl:+.2f} USD"
+                )
+            except Exception:
+                pass
+
+        # Update M5 dari file Excel
+        if os.path.exists(EXCEL_M5):
+            try:
+                df = pd.read_excel(EXCEL_M5, sheet_name="Trade Log M5 Scalping")
+                tot = len(df)
+                pnl = float(df["Profit ($ USD)"].sum()) if "Profit ($ USD)" in df else 0.0
+                wins = len(df[df["Hasil"] == "WIN"]) if "Hasil" in df else 0
+                loss = len(df[df["Hasil"] == "LOSS"]) if "Hasil" in df else 0
+                wr = (wins / tot * 100) if tot > 0 else 0.0
+                self.lbl_rekap_m5.config(
+                    text=f"Total Trade : {tot} Transaksi\nWin / Loss  : {wins} WIN / {loss} LOSS\nWin Rate    : {wr:.1f}%\nNet PnL     : ${pnl:+.2f} USD"
+                )
+            except Exception:
+                pass
+
+    def load_excel_view(self, mode="m15"):
+        self.current_rekap_mode = mode
+
+        # Update visual tombol nav aktif
+        self.btn_nav_m15.config(bg="#0284c7" if mode == "m15" else "#1e293b", fg="#ffffff" if mode == "m15" else "#94a3b8")
+        self.btn_nav_m5.config(bg="#059669" if mode == "m5" else "#1e293b", fg="#ffffff" if mode == "m5" else "#94a3b8")
+        self.btn_nav_stat.config(bg="#6366f1" if mode == "stat" else "#1e293b", fg="#ffffff" if mode == "stat" else "#94a3b8")
+        self.btn_nav_mt5.config(bg="#0284c7" if mode == "mt5" else "#1e293b", fg="#ffffff" if mode == "mt5" else "#94a3b8")
+
+        self.current_data_rows = []
+
+        if mode in ["m15", "m5"]:
+            self.filter_strip.pack(fill="x", pady=(0, 8))
+
+            cols = ("no", "ticket", "w_open", "w_close", "durasi", "tipe", "lot", "entry", "sl", "tp", "exit", "pips", "profit", "hasil", "alasan")
+            self.tree["columns"] = cols
+
+            col_defs = [
+                ("no", "Trade Ke-", 65, "center"),
+                ("ticket", "Ticket", 95, "center"),
+                ("w_open", "Waktu Open (WIB)", 135, "center"),
+                ("w_close", "Waktu Close (WIB)", 135, "center"),
+                ("durasi", "Durasi", 75, "center"),
+                ("tipe", "Arah", 60, "center"),
+                ("lot", "Lot", 50, "center"),
+                ("entry", "Harga Entry", 95, "center"),
+                ("sl", "Stop Loss", 95, "center"),
+                ("tp", "Take Profit", 95, "center"),
+                ("exit", "Harga Exit", 95, "center"),
+                ("pips", "Pips", 70, "center"),
+                ("profit", "Profit (USD)", 95, "center"),
+                ("hasil", "Hasil", 65, "center"),
+                ("alasan", "Alasan Exit / Keterangan", 220, "w"),
+            ]
+            for cid, heading, width, anchor in col_defs:
+                self.tree.heading(cid, text=heading)
+                self.tree.column(cid, width=width, anchor=anchor, stretch=(cid == "alasan"))
+
+            target_excel = EXCEL_M15 if mode == "m15" else EXCEL_M5
+            sheet_name = "Trade Log Model Terbaru" if mode == "m15" else "Trade Log M5 Scalping"
+            model_label = "M15 Konservatif" if mode == "m15" else "M5 Scalper"
+
+            if os.path.exists(target_excel):
+                try:
+                    df = pd.read_excel(target_excel, sheet_name=sheet_name)
+                    wins, loss, total_pnl = 0, 0, 0.0
+                    for _, r in df.iterrows():
+                        pnl = float(r.get("Profit ($ USD)", 0.0))
+                        total_pnl += pnl
+                        hasil_str = str(r.get("Hasil", "")).strip().upper()
+                        if hasil_str == "WIN": wins += 1
+                        elif hasil_str == "LOSS": loss += 1
+
+                        sl_val = r.get("Stop Loss (SL)")
+                        tp_val = r.get("Take Profit (TP)")
+                        row_data = {
+                            "vals": (
+                                int(r.get("Trade Ke-", 0)),
+                                int(r.get("Ticket Posisi", 0)),
+                                str(r.get("Waktu Open", "")),
+                                str(r.get("Waktu Close", "")),
+                                str(r.get("Durasi", "")),
+                                str(r.get("Tipe", "")),
+                                f"{float(r.get('Lot', 0.01)):.2f}",
+                                f"${float(r.get('Harga Entry', 0)):.2f}",
+                                f"${float(sl_val):.2f}" if pd.notna(sl_val) and sl_val > 0 else "-",
+                                f"${float(tp_val):.2f}" if pd.notna(tp_val) and tp_val > 0 else "-",
+                                f"${float(r.get('Harga Exit', 0)):.2f}",
+                                f"{float(r.get('Pips (P/L)', 0)):+.1f}",
+                                f"${pnl:+.2f}",
+                                hasil_str,
+                                str(r.get("Keterangan / Alasan Exit", ""))
+                            ),
+                            "hasil": hasil_str
+                        }
+                        self.current_data_rows.append(row_data)
+
+                    tot = len(df)
+                    wr = (wins / tot * 100) if tot > 0 else 0.0
+                    self.lbl_table_title.config(
+                        text=f"{'📊' if mode=='m15' else '⚡'} DATA TRANSAKSI EXCEL {model_label.upper()} ({tot} Trade Selesai)",
+                        fg="#38bdf8" if mode == "m15" else "#10b981"
+                    )
+                    self.lbl_table_subtitle.config(
+                        text=f"Total: {tot} Trade  |  {wins} WIN / {loss} LOSS (Win Rate: {wr:.1f}%)  |  Net PnL: ${total_pnl:+.2f} USD  |  File: {os.path.basename(target_excel)}"
+                    )
+                except Exception as e:
+                    self.lbl_table_title.config(text=f"⚠️ GAGAL MEMBACA EXCEL {model_label.upper()}")
+                    self.lbl_table_subtitle.config(text=f"Error: {e}")
+            else:
+                self.lbl_table_title.config(text=f"⚠️ FILE EXCEL {model_label.upper()} BELUM ADA")
+                self.lbl_table_subtitle.config(text=f"Path: {target_excel}")
+
+        elif mode == "stat":
+            self.filter_strip.pack_forget()
+
+            cols = ("metrik", "m15_val", "m5_val")
+            self.tree["columns"] = cols
+            self.tree.heading("metrik", text="Metrik Evaluasi Forward Testing Skripsi")
+            self.tree.heading("m15_val", text="Model M15 Konservatif (TF 15m)")
+            self.tree.heading("m5_val", text="Model M5 Level Bounce Scalper (TF 5m)")
+            self.tree.column("metrik", width=340, anchor="w")
+            self.tree.column("m15_val", width=280, anchor="center")
+            self.tree.column("m5_val", width=280, anchor="center")
+
+            self.lbl_table_title.config(text="📈 RINGKASAN STATISTIK & PERBANDINGAN MODEL M15 vs M5", fg="#818cf8")
+            self.lbl_table_subtitle.config(text="Perbandingan indikator kinerja forward testing langsung dari lembar Ringkasan Statistik Excel.")
+
+            try:
+                s15 = pd.read_excel(EXCEL_M15, sheet_name="Ringkasan Statistik") if os.path.exists(EXCEL_M15) else pd.DataFrame()
+                s5 = pd.read_excel(EXCEL_M5, sheet_name="Ringkasan Statistik") if os.path.exists(EXCEL_M5) else pd.DataFrame()
+
+                if not s15.empty and not s5.empty:
+                    merged = pd.merge(s15, s5, on="Metrik Evaluasi Forward Testing", suffixes=(" (M15)", " (M5)"), how="outer")
+                    for _, r in merged.iterrows():
+                        self.current_data_rows.append({
+                            "vals": (str(r.iloc[0]), str(r.iloc[1]), str(r.iloc[2])),
+                            "hasil": "STAT"
+                        })
+                elif not s15.empty:
+                    for _, r in s15.iterrows():
+                        self.current_data_rows.append({
+                            "vals": (str(r.iloc[0]), str(r.iloc[1]), "-"),
+                            "hasil": "STAT"
+                        })
+                elif not s5.empty:
+                    for _, r in s5.iterrows():
+                        self.current_data_rows.append({
+                            "vals": (str(r.iloc[0]), "-", str(r.iloc[1])),
+                            "hasil": "STAT"
+                        })
+            except Exception as e:
+                self.lbl_table_subtitle.config(text=f"Gagal memuat ringkasan statistik: {e}")
+
+        elif mode == "mt5":
+            self.filter_strip.pack(fill="x", pady=(0, 8))
+
+            cols = ("waktu", "magic", "tipe", "lot", "open_p", "close_p", "profit", "comment")
+            self.tree["columns"] = cols
+            self.tree.heading("waktu", text="Waktu Selesai (WIB)")
+            self.tree.heading("magic", text="Model AI")
+            self.tree.heading("tipe", text="Arah")
+            self.tree.heading("lot", text="Lot")
+            self.tree.heading("open_p", text="Harga Masuk")
+            self.tree.heading("close_p", text="Harga Keluar")
+            self.tree.heading("profit", text="Profit (USD)")
+            self.tree.heading("comment", text="Alasan Exit")
+
+            self.tree.column("waktu", width=140, anchor="center")
+            self.tree.column("magic", width=130, anchor="center")
+            self.tree.column("tipe", width=70, anchor="center")
+            self.tree.column("lot", width=60, anchor="center")
+            self.tree.column("open_p", width=95, anchor="center")
+            self.tree.column("close_p", width=95, anchor="center")
+            self.tree.column("profit", width=100, anchor="center")
+            self.tree.column("comment", width=220, anchor="w")
+
+            self.lbl_table_title.config(text="🔄 DAFTAR TRANSAKSI BROKER MT5 EXNESS (LIVE SYNC)", fg="#38bdf8")
+            self.lbl_table_subtitle.config(text="Riwayat transaksi yang tersimpan langsung di server broker MetaTrader 5.")
+
+            if mt5.initialize(path=MT5_PATH):
+                deals = mt5.history_deals_get(datetime.now() - timedelta(days=7), datetime.now())
+                if deals:
+                    deal_ins = {d.position_id: d for d in deals if d.entry == 0 and d.position_id != 0}
+                    deals_out = [d for d in deals if d.entry == 1 and d.magic in [123230, 123235]]
+                    deals_out.sort(key=lambda x: x.time, reverse=True)
+
+                    for d in deals_out:
+                        d_in = deal_ins.get(d.position_id)
+                        open_p = d_in.price if d_in else d.price
+                        close_p = d.price
+                        dir_str = ("BUY" if d_in.type == 0 else "SELL") if d_in else ("BUY" if d.type == 0 else "SELL")
+                        model_name = "M15 Konservatif" if d.magic == 123230 else "M5 Scalper"
+                        hasil_str = "WIN" if d.profit > 0 else ("LOSS" if d.profit < 0 else "BE")
+
+                        self.current_data_rows.append({
+                            "vals": (
+                                datetime.fromtimestamp(d.time).strftime("%d/%m/%y %H:%M:%S"),
+                                model_name,
+                                dir_str,
+                                f"{d.volume:.2f}",
+                                f"${open_p:.2f}",
+                                f"${close_p:.2f}",
+                                f"${d.profit:+.2f}",
+                                d.comment
+                            ),
+                            "hasil": hasil_str
+                        })
+
+        self.render_table_rows()
+
+    def render_table_rows(self):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        search_q = self.search_var.get().strip().lower()
+        filter_st = self.current_filter_status
+
+        shown_count = 0
+        for item in self.current_data_rows:
+            vals = item["vals"]
+            hasil = item.get("hasil", "")
+
+            # Filter WIN/LOSS (jika bukan mode STAT)
+            if filter_st == "WIN" and hasil != "WIN":
+                continue
+            if filter_st == "LOSS" and hasil != "LOSS":
+                continue
+
+            # Filter search query
+            if search_q:
+                row_str = " ".join(str(v).lower() for v in vals)
+                if search_q not in row_str:
+                    continue
+
+            # Tentukan tag warna
+            tag = "normal"
+            if hasil == "WIN":
+                tag = "win"
+            elif hasil == "LOSS":
+                tag = "loss"
+            elif hasil == "STAT":
+                tag = "stat_title"
+
+            self.tree.insert("", "end", values=vals, tags=(tag,))
+            shown_count += 1
+
+        tot = len(self.current_data_rows)
+        self.lbl_row_count.config(text=f"Menampilkan {shown_count} dari {tot} baris data")
+
+    def open_excel_viewer_modal(self, default_tab=0):
+        modal = tk.Toplevel(self.root)
+        modal.title("📑 In-App Excel Data Viewer - Forward Testing AI Trading Bot")
+        modal.geometry("1240x720")
+        modal.minsize(1050, 600)
+        modal.configure(bg="#0b0f19")
+
+        # Header Bar Modal
+        top_bar = tk.Frame(modal, bg="#111827", relief="solid", bd=1, padx=15, pady=10)
+        top_bar.pack(fill="x", padx=15, pady=10)
+
+        t_box = tk.Frame(top_bar, bg="#111827")
+        t_box.pack(side="left")
+        tk.Label(t_box, text="📑 JENDELA LENGKAP EXCEL DATA VIEWER", font=("Segoe UI", 13, "bold"), fg="#38bdf8", bg="#111827").pack(anchor="w")
+        tk.Label(t_box, text="Pemantauan log transaksi dan ringkasan forward testing real-time tanpa perlu membuka Microsoft Excel", font=("Segoe UI", 8), fg="#94a3b8", bg="#111827").pack(anchor="w")
+
+        r_box = tk.Frame(top_bar, bg="#111827")
+        r_box.pack(side="right")
+        tk.Button(r_box, text="📂 Buka Folder Proyek", font=("Segoe UI", 8), fg="#cbd5e1", bg="#1f2937", relief="flat", cursor="hand2", command=lambda: os.startfile(BASE_DIR), padx=10, pady=5).pack(side="left", padx=4)
+        tk.Button(r_box, text="🔄 Refresh Semua Tab", font=("Segoe UI", 8, "bold"), fg="#38bdf8", bg="#1e293b", relief="flat", cursor="hand2", command=lambda: self.populate_modal_tabs(modal_nb), padx=10, pady=5).pack(side="left")
+
+        modal_nb = ttk.Notebook(modal)
+        modal_nb.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+
+        self.populate_modal_tabs(modal_nb)
         try:
-            if not mt5.initialize(path=MT5_PATH):
-                return
-            
-            # Ambil deals 3 hari terakhir
-            deals = mt5.history_deals_get(datetime.now() - timedelta(days=3), datetime.now())
-            if not deals:
-                return
+            modal_nb.select(default_tab)
+        except Exception:
+            pass
 
-            # Clear Treeview
-            for item in self.tree.get_children():
-                self.tree.delete(item)
+    def populate_modal_tabs(self, modal_nb):
+        for tab in modal_nb.tabs():
+            modal_nb.forget(tab)
 
-            deals_out = [d for d in deals if d.entry == 1 and d.magic in [123230, 123235]]
-            deals_out.sort(key=lambda x: x.time, reverse=True)
+        tab1 = self.build_modal_excel_tab(modal_nb, EXCEL_M15, "Trade Log Model Terbaru", is_stats=False, model_name="M15 Konservatif")
+        modal_nb.add(tab1, text="  📊 Trade Log M15  ")
 
-            m15_wins, m15_loss, m15_pnl = 0, 0, 0.0
-            m5_wins,  m5_loss,  m5_pnl  = 0, 0, 0.0
+        tab2 = self.build_modal_excel_tab(modal_nb, EXCEL_M5, "Trade Log M5 Scalping", is_stats=False, model_name="M5 Scalper")
+        modal_nb.add(tab2, text="  ⚡ Trade Log M5  ")
 
-            for d in deals_out:
-                if d.magic == 123230:
-                    m15_pnl += d.profit
-                    if d.profit > 0: m15_wins += 1
-                    elif d.profit < 0: m15_loss += 1
-                elif d.magic == 123235:
-                    m5_pnl += d.profit
-                    if d.profit > 0: m5_wins += 1
-                    elif d.profit < 0: m5_loss += 1
+        tab3 = self.build_modal_excel_tab(modal_nb, EXCEL_M15, "Ringkasan Statistik", is_stats=True, model_name="Statistik M15")
+        modal_nb.add(tab3, text="  📈 Ringkasan Statistik M15  ")
 
-            # Update Label Rekap M15
-            m15_tot = m15_wins + m15_loss
-            m15_wr = (m15_wins / m15_tot * 100) if m15_tot > 0 else 0
-            self.lbl_rekap_m15.config(
-                text=f"Total Trade : {m15_tot} Transaksi\nWin / Loss  : {m15_wins} WIN / {m15_loss} LOSS\nWin Rate    : {m15_wr:.1f}%\nNet PnL     : ${m15_pnl:+.2f} USD"
-            )
+        tab4 = self.build_modal_excel_tab(modal_nb, EXCEL_M5, "Ringkasan Statistik", is_stats=True, model_name="Statistik M5")
+        modal_nb.add(tab4, text="  📈 Ringkasan Statistik M5  ")
 
-            # Update Label Rekap M5
-            m5_tot = m5_wins + m5_loss
-            m5_wr = (m5_wins / m5_tot * 100) if m5_tot > 0 else 0
-            self.lbl_rekap_m5.config(
-                text=f"Total Trade : {m5_tot} Transaksi\nWin / Loss  : {m5_wins} WIN / {m5_loss} LOSS\nWin Rate    : {m5_wr:.1f}%\nNet PnL     : ${m5_pnl:+.2f} USD"
-            )
+    def build_modal_excel_tab(self, parent, file_path, sheet_name, is_stats=False, model_name=""):
+        frame = tk.Frame(parent, bg="#0b0f19")
 
-            # Isi Treeview 15 transaksi terakhir
-            for d in deals_out[:15]:
-                dt_str = datetime.fromtimestamp(d.time).strftime("%d/%m/%y %H:%M:%S")
-                model_name = "M15 Konservatif" if d.magic == 123230 else "M5 Scalper"
-                dir_str = "BUY" if d.type == 0 else "SELL"
-                pnl_str = f"${d.profit:+.2f}"
+        bar = tk.Frame(frame, bg="#161f30", padx=12, pady=8)
+        bar.pack(fill="x", padx=10, pady=(10, 6))
 
-                self.tree.insert("", "end", values=(
-                    dt_str, model_name, dir_str, f"{d.volume:.2f}",
-                    f"${d.price:.2f}", f"${d.price:.2f}", pnl_str, d.comment
-                ))
+        info_lbl = tk.Label(bar, text=f"Memuat data {sheet_name}...", font=("Segoe UI", 9, "bold"), fg="#38bdf8", bg="#161f30")
+        info_lbl.pack(side="left")
 
-        except Exception as e:
-            print(f"Error refresh rekap: {e}")
+        search_box = tk.Frame(bar, bg="#161f30")
+        search_box.pack(side="right")
+        tk.Label(search_box, text="🔍 Cari:", font=("Segoe UI", 8, "bold"), fg="#94a3b8", bg="#161f30").pack(side="left", padx=4)
+        search_v = tk.StringVar()
+        s_entry = tk.Entry(search_box, textvariable=search_v, font=("Segoe UI", 8), bg="#1e293b", fg="#f8fafc", relief="flat", width=20)
+        s_entry.pack(side="left", padx=4)
+
+        tree_box = tk.Frame(frame, bg="#161f30")
+        tree_box.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+        sy = ttk.Scrollbar(tree_box, orient="vertical")
+        sy.pack(side="right", fill="y")
+        sx = ttk.Scrollbar(tree_box, orient="horizontal")
+        sx.pack(side="bottom", fill="x")
+
+        tree = ttk.Treeview(tree_box, show="headings", yscrollcommand=sy.set, xscrollcommand=sx.set)
+        tree.pack(fill="both", expand=True)
+        sy.config(command=tree.yview)
+        sx.config(command=tree.xview)
+
+        tree.tag_configure("win", foreground="#10b981", font=("Segoe UI", 9, "bold"))
+        tree.tag_configure("loss", foreground="#ef4444", font=("Segoe UI", 9, "bold"))
+        tree.tag_configure("normal", foreground="#f8fafc", font=("Consolas", 9))
+        tree.tag_configure("stat_k", foreground="#38bdf8", font=("Segoe UI", 9, "bold"))
+
+        rows_data = []
+
+        if os.path.exists(file_path):
+            try:
+                df = pd.read_excel(file_path, sheet_name=sheet_name)
+                if is_stats:
+                    tree["columns"] = ("k", "v")
+                    tree.heading("k", text="Metrik Evaluasi")
+                    tree.heading("v", text="Nilai Statistik")
+                    tree.column("k", width=380, anchor="w")
+                    tree.column("v", width=340, anchor="center")
+
+                    for _, r in df.iterrows():
+                        rows_data.append({"vals": (str(r.iloc[0]), str(r.iloc[1])), "tag": "stat_k"})
+
+                    info_lbl.config(text=f"📋 Ringkasan Statistik {model_name} ({len(df)} Indikator Evaluasi)")
+                else:
+                    cols = ("no", "ticket", "w_open", "w_close", "durasi", "tipe", "lot", "entry", "sl", "tp", "exit", "pips", "profit", "hasil", "alasan")
+                    tree["columns"] = cols
+                    col_defs = [
+                        ("no", "#", 50, "center"),
+                        ("ticket", "Ticket", 95, "center"),
+                        ("w_open", "Waktu Open", 130, "center"),
+                        ("w_close", "Waktu Close", 130, "center"),
+                        ("durasi", "Durasi", 70, "center"),
+                        ("tipe", "Arah", 60, "center"),
+                        ("lot", "Lot", 50, "center"),
+                        ("entry", "Entry", 90, "center"),
+                        ("sl", "SL", 90, "center"),
+                        ("tp", "TP", 90, "center"),
+                        ("exit", "Exit", 90, "center"),
+                        ("pips", "Pips", 65, "center"),
+                        ("profit", "Profit ($)", 90, "center"),
+                        ("hasil", "Hasil", 65, "center"),
+                        ("alasan", "Keterangan / Alasan Exit", 220, "w"),
+                    ]
+                    for cid, h, w, a in col_defs:
+                        tree.heading(cid, text=h)
+                        tree.column(cid, width=w, anchor=a)
+
+                    wins, loss, pnl_tot = 0, 0, 0.0
+                    for _, r in df.iterrows():
+                        pnl = float(r.get("Profit ($ USD)", 0.0))
+                        pnl_tot += pnl
+                        h_str = str(r.get("Hasil", "")).strip().upper()
+                        if h_str == "WIN": wins += 1
+                        elif h_str == "LOSS": loss += 1
+
+                        sl_val = r.get("Stop Loss (SL)")
+                        tp_val = r.get("Take Profit (TP)")
+                        tag = "win" if h_str == "WIN" else ("loss" if h_str == "LOSS" else "normal")
+                        vals = (
+                            int(r.get("Trade Ke-", 0)),
+                            int(r.get("Ticket Posisi", 0)),
+                            str(r.get("Waktu Open", "")),
+                            str(r.get("Waktu Close", "")),
+                            str(r.get("Durasi", "")),
+                            str(r.get("Tipe", "")),
+                            f"{float(r.get('Lot', 0.01)):.2f}",
+                            f"${float(r.get('Harga Entry', 0)):.2f}",
+                            f"${float(sl_val):.2f}" if pd.notna(sl_val) and sl_val > 0 else "-",
+                            f"${float(tp_val):.2f}" if pd.notna(tp_val) and tp_val > 0 else "-",
+                            f"${float(r.get('Harga Exit', 0)):.2f}",
+                            f"{float(r.get('Pips (P/L)', 0)):+.1f}",
+                            f"${pnl:+.2f}",
+                            h_str,
+                            str(r.get("Keterangan / Alasan Exit", ""))
+                        )
+                        rows_data.append({"vals": vals, "tag": tag})
+
+                    tot = len(df)
+                    wr = (wins / tot * 100) if tot > 0 else 0.0
+                    info_lbl.config(text=f"📊 {model_name}: {tot} Trade | {wins} WIN / {loss} LOSS ({wr:.1f}%) | Net PnL: ${pnl_tot:+.2f} USD")
+
+            except Exception as e:
+                info_lbl.config(text=f"⚠️ Gagal membaca sheet {sheet_name}: {e}")
+        else:
+            info_lbl.config(text=f"⚠️ File Excel belum ditemukan: {file_path}")
+
+        def filter_modal_rows(*args):
+            for itm in tree.get_children():
+                tree.delete(itm)
+            sq = search_v.get().strip().lower()
+            for r in rows_data:
+                if sq and sq not in " ".join(str(v).lower() for v in r["vals"]):
+                    continue
+                tree.insert("", "end", values=r["vals"], tags=(r["tag"],))
+
+        search_v.trace_add("write", filter_modal_rows)
+        filter_modal_rows()
+        return frame
 
     def on_close(self):
         if (self.proc_m15 and self.proc_m15.poll() is None) or (self.proc_m5 and self.proc_m5.poll() is None):
