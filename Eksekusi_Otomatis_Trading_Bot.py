@@ -65,12 +65,19 @@ TRAILING_LOCK_USD      = 1.50       # Kunci profit minimal +$1.50 USD jika harga
 ENABLE_AI_CUTLOSS      = True       # AI Early Cut-Loss jika sinyal candle M15 berbalik tajam >= 65%
 AI_CUTLOSS_REV_PROB    = 65.0       # Ambang batas pembalikan arah AI untuk cut-loss dini
 
+# --- IDENTITAS VERSI DAN LOGGING ---
+BOT_VERSION            = "Versi 2.0 (SMC Key-Level Bounce & Wick Rejection Precision)"
+MODEL_LABEL_EXCEL      = "LightGBM M15 v2.0 (SMC Level Bounce)"
+THRESHOLD_LABEL_EXCEL  = "Prob >= 60% + SNR 10J + Wick Rej (v2.0)"
+ORDER_COMMENT          = "LightGBM M15 v2.0"
+
 MT5_PATH = r"C:\Program Files\MetaTrader 5 EXNESS\terminal64.exe"
 MODEL_FILE_PATH = r"d:\SKRIPSI INFORMATIKA\model_lightgbm_xauusd.pkl"
 
 print("="*75)
-print("🤖 ROBOT TRADING OTOMATIS LIGHTGBM XAUUSD (SMC LEVEL BOUNCE & PRECISION)")
-print("Fitur: Multi-Hour SNR 10J + Rejection Wick Guard + Trailing Lock + AI Cut-Loss")
+print(f"🤖 ROBOT TRADING OTOMATIS LIGHTGBM XAUUSD [{BOT_VERSION}]")
+print("Pembeda Utama: Multi-Hour SNR 10J + Wick Rejection Guard + Anti-Mid-Trend")
+print("Manajemen Exit: Dynamic Trailing Lock ($1.50) + AI Early Cut-Loss (>= 65%)")
 print("="*75)
 
 if not os.path.exists(MT5_PATH):
@@ -290,7 +297,11 @@ def close_position_market(pos, comment_reason="Market Close"):
         color_res = COLOR_GREEN if profit_final > 0 else COLOR_RED
         print(f"{color_res}{COLOR_BOLD}🎯 DYNAMIC EXIT M15 SUKSES (#{pos.ticket}): {comment_reason} | Hasil: ${profit_final:+.2f} USD @ ${price:.2f}{COLOR_RESET}")
         try:
-            sync_mt5_trades_to_excel()
+            sync_mt5_trades_to_excel(
+                model_label=MODEL_LABEL_EXCEL,
+                threshold_label=THRESHOLD_LABEL_EXCEL,
+                silent=True
+            )
         except Exception:
             pass
         return True
@@ -419,7 +430,7 @@ def execute_auto_trade(signal_type, entry_price, sl_pips, tp_pips):
         "tp": tp,
         "deviation": 20,
         "magic": MAGIC_NUMBER,
-        "comment": "LightGBM SMC Auto-Bot",
+        "comment": ORDER_COMMENT,
         "type_time": mt5.ORDER_TIME_GTC,
         "type_filling": filling_mode,
     }
@@ -434,15 +445,19 @@ def execute_auto_trade(signal_type, entry_price, sl_pips, tp_pips):
 
 def main():
     print("\n" + "="*75)
-    print("🤖 ROBOT TRADING M15 SMC LEVEL BOUNCE & PRECISION BERJALAN OTOMATIS")
-    print(f"Threshold: >={PROB_THRESHOLD}% | SNR 10 Jam | Rejection Wick >= {WICK_MIN_RATIO*100:.0f}% | Trailing Lock: ${TRAILING_TRIGGER_USD:.2f}")
+    print(f"🤖 ROBOT TRADING M15 SMC LEVEL BOUNCE [{BOT_VERSION}]")
+    print(f"Pembeda Utama : SNR 10 Jam + Wick Rejection >= {WICK_MIN_RATIO*100:.0f}% + Anti-Mid-Trend Guard")
+    print(f"Target Exit   : Trailing Lock (+${TRAILING_LOCK_USD:.2f}) | Auto Break-Even (+${4.00:.2f}) | AI Cut-Loss ({AI_CUTLOSS_REV_PROB:.0f}%)")
     print("Tekan Ctrl+C untuk menghentikan Robot.")
     print("="*75)
 
     # Sinkronisasi awal saat bot pertama kali dinyalakan
     print(f"{COLOR_CYAN}🔄 Memeriksa & menyinkronkan riwayat trade M15 ke Excel...{COLOR_RESET}")
     try:
-        sync_mt5_trades_to_excel()
+        sync_mt5_trades_to_excel(
+            model_label=MODEL_LABEL_EXCEL,
+            threshold_label=THRESHOLD_LABEL_EXCEL
+        )
     except Exception as e:
         print(f"⚠️ Gagal sinkronisasi awal Excel: {e}")
 
@@ -498,7 +513,10 @@ def main():
             if prev_positions_count > 0 and cur_count == 0:
                 print(f"\n{COLOR_CYAN}🔔 [DETEKSI EXIT]: Posisi M15 baru saja ditutup. Menyinkronkan update Win/Loss ke Excel...{COLOR_RESET}")
                 try:
-                    sync_mt5_trades_to_excel()
+                    sync_mt5_trades_to_excel(
+                        model_label=MODEL_LABEL_EXCEL,
+                        threshold_label=THRESHOLD_LABEL_EXCEL
+                    )
                 except Exception as sync_err:
                     print(f"⚠️ Gagal sinkronisasi Excel: {sync_err}")
 
@@ -508,7 +526,11 @@ def main():
             if time.time() - last_periodic_sync >= 60:
                 last_periodic_sync = time.time()
                 try:
-                    sync_mt5_trades_to_excel(silent=True)
+                    sync_mt5_trades_to_excel(
+                        model_label=MODEL_LABEL_EXCEL,
+                        threshold_label=THRESHOLD_LABEL_EXCEL,
+                        silent=True
+                    )
                 except Exception:
                     pass
 
@@ -625,7 +647,10 @@ def main():
                         execute_auto_trade(final_signal, entry_p, sl_pips, tp_pips)
                 
                 try:
-                    sync_mt5_trades_to_excel()
+                    sync_mt5_trades_to_excel(
+                        model_label=MODEL_LABEL_EXCEL,
+                        threshold_label=THRESHOLD_LABEL_EXCEL
+                    )
                 except Exception as sync_err:
                     print(f"⚠️ Gagal sinkronisasi Excel: {sync_err}")
                 print("="*75)
