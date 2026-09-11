@@ -8,6 +8,7 @@ import numpy as np
 import yfinance as yf
 from datetime import datetime, timedelta
 import MetaTrader5 as mt5
+import Macro_Economic_News_Engine as macro_news
 
 from Auto_Logger_Forward_Testing import sync_mt5_trades_to_excel
 
@@ -57,18 +58,25 @@ ZONE_B_WICK_MIN        = 0.20        # Minimal 20% ekor penolakan atau Higher Lo
 # Zona C: High-Probability Trend Scalp (Area Antara / Momentum Kuat)
 ZONE_C_PROB_MIN        = 66.0        # Ambang AI Sangat Kuat (>= 66%) + Konfirmasi BOS/Trend
 
-# --- TARGET DYNAMIC REAL-TIME EXIT PER ZONA ---
-QUICK_TP_USD           = 3.00        # Target Scalping Seimbang ($3.00 USD / 30 pips)
-MAX_CUTLOSS_USD        = 2.40        # Cut-Loss Terukur & Ketat ($2.40 USD / 24 pips)
-TRAILING_TRIGGER_USD   = 2.40        # Aktifkan Trailing Lock saat profit mencapai >= +$2.40 USD
-TRAILING_LOCK_USD      = 1.80        # Kunci profit minimal +$1.80 USD (seimbang dengan risiko, tidak tipis)
-EMERGENCY_SL_USD       = 3.20        # Hard SL Pengaman Darurat di Broker ($3.20 USD)
+# --- TARGET DYNAMIC REAL-TIME EXIT BERBASIS VOLATILITAS ATR (RUANG NAFAS LONGGAR) ---
+# Emas (XAUUSD) di level $4350-$4400 memiliki volatilitas normal $4.00 - $7.00 per candle M5.
+# Target SL dan TP kini dihitung adaptif berbasis ATR (Average True Range 14) agar tidak kejilat derau lilin!
+MIN_SL_USD             = 4.50        # Minimal ruang SL ($4.50 USD / 45 pips) agar tidak kejilat noise
+MIN_TP_USD             = 8.00        # Target TP Sehat ($8.00 - $14.00 USD / 80-140 pips) dengan RRR >= 1:1.8
+TRAILING_TRIGGER_MIN   = 4.00        # Aktifkan Trailing Lock saat profit sudah mencapai >= +$4.00 USD
+TRAILING_LOCK_MIN      = 2.50        # Kunci profit aman minimal +$2.50 USD (membawa pulang profit nyata)
+EMERGENCY_SL_BUFFER    = 1.50        # Buffer pengaman di broker di atas dynamic SL
+
+QUICK_TP_USD           = MIN_TP_USD
+MAX_CUTLOSS_USD        = MIN_SL_USD
+TRAILING_TRIGGER_USD   = TRAILING_TRIGGER_MIN
+TRAILING_LOCK_USD      = TRAILING_LOCK_MIN
 
 # --- IDENTITAS VERSI DAN LOGGING ---
-BOT_VERSION            = "Versi 3.4 (Technical Confluence Suite: Descending Triangle, Anti-Falling Knife & Symmetric RRR)"
-MODEL_LABEL_EXCEL      = "LightGBM M5 v3.4 (Confluence)"
-THRESHOLD_LABEL_EXCEL  = "Technical Confluence (Stoch RSI + Patterns v3.4)"
-ORDER_COMMENT          = "LightGBM M5 v3.4"
+BOT_VERSION            = "Versi 3.5 (Macro News Calendar Guard & Dynamic ATR Breathing Room)"
+MODEL_LABEL_EXCEL      = "LightGBM M5 v3.5 (Macro + ATR)"
+THRESHOLD_LABEL_EXCEL  = "Macro Calendar Guard + Dynamic ATR v3.5"
+ORDER_COMMENT          = "LightGBM M5 v3.5"
 COLLISION_DISTANCE_MIN = 0.0018      # Jarak minimal 0.18% (~$8) dari Lantai Demand / Atap Supply Mayor
 
 MT5_PATH               = r"C:\Program Files\MetaTrader 5 EXNESS\terminal64.exe"
@@ -168,6 +176,7 @@ def close_position_market(pos, comment_reason="Bot Scalp Close"):
 
 # Pelacak Puncak Profit per Tiket untuk Trailing Lock
 peak_profits = {}
+_last_loss_record = {'type': None, 'price': 0.0, 'time': 0.0}
 
 def manage_open_positions(latest_prob_up=50.0, latest_prob_down=50.0, channel_data=None, pattern_data=None, struct_data=None, m30_bull=False, h1_bull=False):
     """
@@ -293,8 +302,12 @@ def manage_open_positions(latest_prob_up=50.0, latest_prob_down=50.0, channel_da
         # -----------------------------------------------------------------
         # 4. KONDISI D: HARD SCALP CUT-LOSS TERUKUR (-$1.80 USD) -> RRR 1:1 Sehat
         # -----------------------------------------------------------------
-        if profit_usd <= -MAX_CUTLOSS_USD:
-            if close_position_market(pos, f"Scalp Cut-Loss (-${abs(profit_usd):.2f})"):
+        # Dynamic Cut-Loss: Sesuaikan dengan ruang nafas ATR (minimal -$4.50)
+        dynamic_sl_usd = max(MIN_SL_USD, round(atr_val * 1.5, 2)) if 'atr_val' in locals() and atr_val else MIN_SL_USD
+        if profit_usd <= -dynamic_sl_usd:
+            if close_position_market(pos, f"Dynamic Cut-Loss (-${abs(profit_usd):.2f}) [ATR Room: ${dynamic_sl_usd:.2f}]"):
+                global _last_loss_record
+                _last_loss_record = {'type': "BUY" if pos_type == mt5.ORDER_TYPE_BUY else "SELL", 'price': pos.price_open, 'time': time.time()}
                 peak_profits.pop(pos.ticket, None)
                 continue
 
@@ -900,8 +913,17 @@ def evaluate_multi_zone_m5_decision(prob_up, prob_down, m30_bull, h1_bull, atr_v
     stoch_bull_cross = tech_data.get('stoch_bull_cross', False) if tech_data else False
     stoch_bear_cross = tech_data.get('stoch_bear_cross', False) if tech_data else False
     
-    has_sell_confluence = stoch_overbought or stoch_bear_cross or (bb_pos >= 0.75) or ('BEARISH' in (pattern_data.get('pattern_bias', '') if pattern_data else ''))
-    has_buy_confluence  = stoch_oversold or stoch_bull_cross or (bb_pos <= 0.25) or ('BULLISH' in (pattern_data.get('pattern_bias', '') if pattern_data else ''))
+    # 🛡️ KALENDER BERITA MAKROEKONOMI (NEWS GUARD)
+    is_news_freeze, news_desc, _ = macro_news.check_news_guard(window_before_min=10, window_after_min=15)
+    if is_news_freeze:
+        return "WAIT", "NEWS_FREEZE", 0, 0, news_desc
+
+    # 🛡️ PENCEGAHAN JEBAKAN TREN: Jangan jadikan Stoch Overbought sebagai konfluensi SELL saat pasar Uptrend kuat!
+    is_strong_bull_trend = (m30_bull and h1_bull) or (slope > 0.08) or (channel_type == 'UPTREND_CHANNEL')
+    is_strong_bear_trend = (not m30_bull and not h1_bull) or (slope < -0.08) or (channel_type == 'DOWNTREND_CHANNEL')
+
+    has_sell_confluence = (stoch_overbought or stoch_bear_cross or (bb_pos >= 0.75) or ('BEARISH' in (pattern_data.get('pattern_bias', '') if pattern_data else ''))) and not is_strong_bull_trend
+    has_buy_confluence  = (stoch_oversold or stoch_bull_cross or (bb_pos <= 0.25) or ('BULLISH' in (pattern_data.get('pattern_bias', '') if pattern_data else ''))) and not is_strong_bear_trend
     
     # 1. EVALUASI DEMAND/SUPPORT (BUY):
     if abs(slope) > 0.06 and dist_dyn_sup < dist_sup:
@@ -932,9 +954,8 @@ def evaluate_multi_zone_m5_decision(prob_up, prob_down, m30_bull, h1_bull, atr_v
     # -----------------------------------------------------------------
     sell_candidate = None
     
-    # 🛡️ ANTI-OVERSOLD GUARD: Dilarang SELL jika Stoch RSI sudah di dasar jenuh jual (<= 25%)
-    # KECUALI jika terjadi Breakdown Impulsif / Tembus Level Mayor dengan lilin Marubozu solid!
-    if stoch_oversold and not (is_bear_c and (upper_w <= 0.15 or struct_data.get('is_impulse_bear', False))):
+    # 🛡️ ANTI-OVERSOLD GUARD: Hanya aktif jika BUKAN dalam Downtrend / Momentum Kuat
+    if stoch_oversold and not is_strong_bear_trend and not (is_bear_c and (upper_w <= 0.15 or struct_data.get('is_impulse_bear', False))):
         sell_candidate = ("WAIT", "OVERSOLD", 0, 0, f"🛑 OVERSOLD FILTER: SELL Dibatalkan! Stoch RSI di dasar (%K={stoch_k:.1f} <= 25). Risiko pantulan rebound tinggi!")
     elif effective_dist_res <= ZONE_A_THRESHOLD:
         # Konfluensi Indikator Overbought di Resisten: turunkan ambang batas AI
@@ -994,9 +1015,8 @@ def evaluate_multi_zone_m5_decision(prob_up, prob_down, m30_bull, h1_bull, atr_v
     # -----------------------------------------------------------------
     buy_candidate = None
     
-    # 🛡️ ANTI-OVERBOUGHT GUARD: Dilarang BUY jika Stoch RSI sudah di pucuk jenuh beli (>= 75%)
-    # KECUALI jika terjadi Breakout Impulsif tembus atap mayor!
-    if stoch_overbought and not (is_bull_c and (lower_w <= 0.15 or struct_data.get('is_impulse_bull', False))):
+    # 🛡️ ANTI-OVERBOUGHT GUARD: Hanya aktif jika BUKAN dalam Uptrend / Momentum Kuat
+    if stoch_overbought and not is_strong_bull_trend and not (is_bull_c and (lower_w <= 0.15 or struct_data.get('is_impulse_bull', False))):
         buy_candidate = ("WAIT", "OVERBOUGHT", 0, 0, f"🛑 OVERBOUGHT FILTER: BUY Dibatalkan! Stoch RSI di puncak (%K={stoch_k:.1f} >= 75). Risiko pembalikan drop tinggi!")
     elif effective_dist_sup <= ZONE_A_THRESHOLD:
         # Konfluensi Indikator Oversold di Support: turunkan ambang batas AI
@@ -1081,7 +1101,7 @@ def evaluate_multi_zone_m5_decision(prob_up, prob_down, m30_bull, h1_bull, atr_v
     min_c_sell = 54.0 if (has_sell_confluence or 'BEARISH' in pattern_data.get('pattern_bias', '')) else ZONE_C_PROB_MIN
 
     if prob_up >= min_c_buy and not is_tight:
-        if stoch_overbought:
+        if stoch_overbought and not is_strong_bull_trend:
             return "WAIT", "OVERBOUGHT", 0, 0, f"🛑 OVERBOUGHT FILTER: BUY Zona C Dibatalkan! Stoch RSI di puncak (%K={stoch_k:.1f} >= 75)."
         has_structure = (
             struct_data.get('bos_bull_recent', False) or 
@@ -1093,12 +1113,12 @@ def evaluate_multi_zone_m5_decision(prob_up, prob_down, m30_bull, h1_bull, atr_v
             if pattern_data and not pattern_data.get('can_buy_safely', True):
                 near_res_val = pattern_data.get('nearest_res', m15_res)
                 return "WAIT", "COLLISION", 0, 0, f"🛑 ANTI-COLLISION: BUY Zona C Dibatalkan! Terlalu Dekat Atap Resisten (${near_res_val:.2f})."
-            return "BUY", "C", 1.60, 1.40, f"🟢 ZONA C BUY (TREND SCALP): Keyakinan AI Sangat Kuat ({prob_up:.1f}%) + Momentum Bullish M30/H1 + Konfirmasi EMA/Structure!"
+            return "BUY", "C", MIN_TP_USD, MIN_SL_USD, f"🟢 ZONA C BUY (TREND SCALP): Keyakinan AI Sangat Kuat ({prob_up:.1f}%) + Momentum Bullish M30/H1 + Konfirmasi EMA/Structure!"
         else:
             return "WAIT", "C", 0, 0, f"Zona C Mid: BUY {prob_up:.1f}% menunggu konfirmasi candle/tren M30/H1"
 
     elif prob_down >= min_c_sell and not is_tight:
-        if stoch_oversold:
+        if stoch_oversold and not is_strong_bear_trend:
             return "WAIT", "OVERSOLD", 0, 0, f"🛑 OVERSOLD FILTER: SELL Zona C Dibatalkan! Stoch RSI di dasar (%K={stoch_k:.1f} <= 25)."
         has_structure = (
             struct_data.get('bos_bear_recent', False) or 
@@ -1120,6 +1140,23 @@ def evaluate_multi_zone_m5_decision(prob_up, prob_down, m30_bull, h1_bull, atr_v
         pattern_desc = f" | Pola: {pattern_data.get('pattern', 'None')}" if pattern_data else ""
         stoch_desc = f" | Stoch: %K={stoch_k:.0f}"
         return "WAIT", "C", 0, 0, f"TERTAHAN MID-ZONE: Area antara {sup_label} & {res_label} [{channel_desc}{pattern_desc}{stoch_desc}]. AI ({max_p:.1f}%) < {ZONE_C_PROB_MIN:.0f}%."
+
+
+def calc_dynamic_trade_levels(atr_val, current_price, signal_type, struct_data=None):
+    """
+    Menghitung TP, Cut-Loss, dan SL adaptif berbasis volatilitas ATR dan struktur pasar.
+    Menjamin ruang gerak (breathing room) yang cukup bagi XAUUSD di level $4350-$4400.
+    """
+    atr_safe = max(3.50, float(atr_val) if atr_val and not pd.isna(atr_val) else 4.00)
+    
+    # Ruang SL = 1.5x ATR (antara $4.50 s/d $8.00)
+    sl_usd = max(MIN_SL_USD, round(atr_safe * 1.5, 2))
+    # Target TP = 1.8x SL (antara $8.00 s/d $15.00) untuk RRR sehat
+    tp_usd = max(MIN_TP_USD, round(sl_usd * 1.8, 2))
+    
+    # Emergency SL di broker = SL dinamis + buffer
+    emergency_sl_usd = sl_usd + EMERGENCY_SL_BUFFER
+    return sl_usd, tp_usd, emergency_sl_usd
 
 def execute_auto_trade(signal_type, entry_price, zone_type="A"):
     all_positions = mt5.positions_get(symbol=symbol)
@@ -1154,13 +1191,14 @@ def execute_auto_trade(signal_type, entry_price, zone_type="A"):
     order_type = mt5.ORDER_TYPE_BUY if signal_type == "BUY" else mt5.ORDER_TYPE_SELL
     price = mt5.symbol_info_tick(symbol).ask if signal_type == "BUY" else mt5.symbol_info_tick(symbol).bid
     
-    # Emergency Broker Disaster Stop Loss (-$2.50 USD / 25 pips di broker)
-    emergency_dist = EMERGENCY_SL_USD / (LOT_SIZE * 100.0)
+    # Hitung SL dan TP adaptif berbasis ATR (ruang gerak luas, anti kejilat)
+    dynamic_sl_usd, dynamic_tp_usd, dynamic_emerg_sl = calc_dynamic_trade_levels(latest_atr, price, signal_type)
+    emergency_dist = dynamic_emerg_sl / (LOT_SIZE * 100.0)
     sl = price - emergency_dist if signal_type == "BUY" else price + emergency_dist
-    tp = price + 10.0 if signal_type == "BUY" else price - 10.0
+    tp = price + (dynamic_tp_usd / (LOT_SIZE * 100.0)) if signal_type == "BUY" else price - (dynamic_tp_usd / (LOT_SIZE * 100.0))
         
     filling_mode = get_best_filling_mode(symbol)
-    order_comment_zone = f"M5 v3.2 Z-{zone_type}"
+    order_comment_zone = f"M5 v3.5 Z-{zone_type}"
         
     request = {
         "action": mt5.TRADE_ACTION_DEAL,

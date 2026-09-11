@@ -8,6 +8,7 @@ import numpy as np
 import yfinance as yf
 from datetime import datetime, timedelta
 import MetaTrader5 as mt5
+import Macro_Economic_News_Engine as macro_news
 
 from Auto_Logger_Forward_Testing import sync_mt5_trades_to_excel
 
@@ -69,10 +70,10 @@ ENABLE_AI_CUTLOSS      = True       # AI Early Cut-Loss jika sinyal candle M15 b
 AI_CUTLOSS_REV_PROB    = 65.0       # Ambang batas pembalikan arah AI untuk cut-loss dini
 
 # --- IDENTITAS VERSI DAN LOGGING ---
-BOT_VERSION            = "Versi 3.4 (Technical Confluence Suite: Descending Triangle, Anti-Falling Knife & Symmetric RRR)"
-MODEL_LABEL_EXCEL      = "LightGBM M15 v3.4 (Confluence)"
-THRESHOLD_LABEL_EXCEL  = "Technical Confluence (Stoch RSI + Patterns v3.4)"
-ORDER_COMMENT          = "LightGBM M15 v3.4"
+BOT_VERSION            = "Versi 3.5 (Macro News Calendar Guard & Dynamic ATR Breathing Room)"
+MODEL_LABEL_EXCEL      = "LightGBM M15 v3.5 (Macro + ATR)"
+THRESHOLD_LABEL_EXCEL  = "Macro Calendar Guard + Dynamic ATR v3.5"
+ORDER_COMMENT          = "LightGBM M15 v3.5"
 COLLISION_DISTANCE_MIN = 0.0018      # Jarak minimal 0.18% (~$8) dari Lantai Demand / Atap Supply Mayor
 
 MT5_PATH = r"C:\Program Files\MetaTrader 5 EXNESS\terminal64.exe"
@@ -689,8 +690,16 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
     stoch_bull_cross = tech_data.get('stoch_bull_cross', False) if tech_data else False
     stoch_bear_cross = tech_data.get('stoch_bear_cross', False) if tech_data else False
     
-    has_sell_confluence = stoch_overbought or stoch_bear_cross or (bb_pos >= 0.75) or ('BEARISH' in (pattern_data.get('pattern_bias', '') if pattern_data else ''))
-    has_buy_confluence  = stoch_oversold or stoch_bull_cross or (bb_pos <= 0.25) or ('BULLISH' in (pattern_data.get('pattern_bias', '') if pattern_data else ''))
+    # 🛡️ KALENDER BERITA MAKROEKONOMI (NEWS GUARD M15)
+    is_news_freeze, news_desc, _ = macro_news.check_news_guard(window_before_min=10, window_after_min=15)
+    if is_news_freeze:
+        return "WAIT", "NEWS_FREEZE", 0, 0, news_desc
+
+    is_strong_bull_trend = h1_bull or (slope > 0.08) or (channel_type == 'UPTREND_CHANNEL')
+    is_strong_bear_trend = not h1_bull or (slope < -0.08) or (channel_type == 'DOWNTREND_CHANNEL')
+
+    has_sell_confluence = (stoch_overbought or stoch_bear_cross or (bb_pos >= 0.75) or ('BEARISH' in (pattern_data.get('pattern_bias', '') if pattern_data else ''))) and not is_strong_bull_trend
+    has_buy_confluence  = (stoch_oversold or stoch_bull_cross or (bb_pos <= 0.25) or ('BULLISH' in (pattern_data.get('pattern_bias', '') if pattern_data else ''))) and not is_strong_bear_trend
     
     # 1. EVALUASI DUAL DEMAND/SUPPORT (BUY):
     if abs(slope) > 0.08 and dist_dyn_sup < dist_sup:
@@ -1133,7 +1142,7 @@ def execute_auto_trade(signal_type, entry_price, sl_pips, tp_pips, zone_type="A"
         tp = price - (tp_pips / 10.0)
         
     filling_mode = get_best_filling_mode(symbol)
-    order_comment_zone = f"M15 v3.2 Z-{zone_type}"
+    order_comment_zone = f"M15 v3.5 Z-{zone_type}"
         
     request = {
         "action": mt5.TRADE_ACTION_DEAL,

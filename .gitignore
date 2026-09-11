@@ -55,3 +55,6 @@ ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 .DS_Store
+
+# Local calendar cache
+economic_calendar_cache.json

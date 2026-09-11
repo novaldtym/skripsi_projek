@@ -933,6 +933,8 @@ class TradingBotGUI:
                         status_text = " | 📍 AREA SUPPLY"
                     elif "MID-TREND" in clean_text:
                         status_text = " | ⏸️ MID-TREND"
+                    elif "NEWS" in clean_text or "MAKRO" in clean_text:
+                        status_text = " | 🛑 NEWS FREEZE"
 
                     if trend_text or status_text:
                         widgets["trend_lbl"].config(text=f"{trend_text}{status_text}")

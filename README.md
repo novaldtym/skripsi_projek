@@ -54,6 +54,7 @@ Sistem terdiri dari dua arsitektur bot yang berjalan secara independen dan paral
 ├── Trading_Bot_GUI_App.py                         # Aplikasi Desktop GUI Dashboard (M15, M5, Excel Viewer)
 ├── Eksekusi_Otomatis_Trading_Bot.py               # Bot trading otomatis M15 (SMC & Multi-Zone Swing)
 ├── Eksekusi_Otomatis_Trading_Bot_M5_Scalping.py   # Bot trading otomatis M5 Scalper (Technical Confluence)
+├── Macro_Economic_News_Engine.py                  # Engine kalender berita makroekonomi real-time (CPI, PPI, NFP, FOMC)
 ├── Auto_Logger_Forward_Testing.py                 # Engine sinkronisasi trade MT5 ke Excel
 ├── train_model_lightgbm_m5.py                     # Script pelatihan model M5
 ├── jalankan_perbandingan_model_skripsi.py         # Benchmark Bab 4 (LightGBM vs XGBoost vs RF)
