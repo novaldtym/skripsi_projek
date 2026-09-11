@@ -43,7 +43,7 @@ MAX_HISTORY_ROWS = 200
 class TradingBotGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("⚡ AI Trading Bot Dashboard - SMC / ICT LightGBM (M15 & M5)")
+        self.root.title("⚡ AI Trading Bot Dashboard - SMC / LightGBM v3.3 Technical Confluence (M15 & M5)")
         self.root.geometry("1200x820")
         self.root.minsize(1050, 700)
         self.root.configure(bg="#0b0f19")
@@ -130,10 +130,10 @@ class TradingBotGUI:
         title_box = tk.Frame(header_frame, bg="#111827")
         title_box.pack(side="left", padx=20, pady=12)
 
-        lbl_title = tk.Label(title_box, text="⚡ AI TRADING BOT DASHBOARD", font=("Segoe UI", 16, "bold"), fg="#38bdf8", bg="#111827")
+        lbl_title = tk.Label(title_box, text="⚡ AI TRADING BOT DASHBOARD v3.3", font=("Segoe UI", 16, "bold"), fg="#38bdf8", bg="#111827")
         lbl_title.pack(anchor="w")
 
-        lbl_sub = tk.Label(title_box, text="Smart Money Concepts (SMC) & LightGBM Machine Learning | XAUUSD", font=("Segoe UI", 9), fg="#94a3b8", bg="#111827")
+        lbl_sub = tk.Label(title_box, text="Multi-Indicator Technical Confluence (Stoch RSI, BB, EMA, SNR & Anti-Collision) | XAUUSD", font=("Segoe UI", 9), fg="#94a3b8", bg="#111827")
         lbl_sub.pack(anchor="w")
 
         # Panel Kanan: Status MT5 & Live Ticker
@@ -152,12 +152,12 @@ class TradingBotGUI:
 
         # TAB 1: BOT M15
         self.tab_m15 = tk.Frame(self.notebook, bg="#0b0f19")
-        self.notebook.add(self.tab_m15, text="  📊 Bot M15 (SMC Konservatif)  ")
+        self.notebook.add(self.tab_m15, text="  📊 Bot M15 (v3.3 Confluence)  ")
         self.setup_m15_tab()
 
         # TAB 2: BOT M5
         self.tab_m5 = tk.Frame(self.notebook, bg="#0b0f19")
-        self.notebook.add(self.tab_m5, text="  ⚡ Bot M5 (SMC Level Bounce Scalper)  ")
+        self.notebook.add(self.tab_m5, text="  ⚡ Bot M5 (v3.3 Confluence Scalper)  ")
         self.setup_m5_tab()
 
         # TAB 3: REKAP EXCEL & PORTOFOLIO
@@ -239,7 +239,7 @@ class TradingBotGUI:
         row1 = tk.Frame(status_frame, bg="#111827")
         row1.pack(fill="x", padx=12, pady=(10, 4))
         
-        tf_label = "M15 KONSERVATIF" if bot_key == "m15" else "M5 SCALPER"
+        tf_label = "M15 v3.0 MULTI-ZONE" if bot_key == "m15" else "M5 v3.0 SCALPER"
         tk.Label(row1, text=f"⏱️ MONITORING LIVE {tf_label}", font=("Segoe UI", 10, "bold"), fg=accent_color, bg="#111827").pack(side="left")
         
         timer_lbl = tk.Label(row1, text="00:00:00", font=("Consolas", 18, "bold"), fg="#f8fafc", bg="#111827")
