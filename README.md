@@ -50,13 +50,17 @@ Sistem terdiri dari dua arsitektur bot yang berjalan secara independen dan paral
 ## 📂 Struktur Repositori
 
 ```text
-├── Eksekusi_Otomatis_Trading_Bot.py               # Bot trading otomatis M15
-├── Eksekusi_Otomatis_Trading_Bot_M5_Scalping.py   # Bot trading otomatis M5 Scalper
+├── Buka_Aplikasi_Trading_Bot.bat                  # [UTAMA] Launcher Desktop GUI Dashboard satu-klik
+├── Trading_Bot_GUI_App.py                         # Aplikasi Desktop GUI Dashboard (M15, M5, Excel Viewer)
+├── Eksekusi_Otomatis_Trading_Bot.py               # Bot trading otomatis M15 (SMC & Multi-Zone Swing)
+├── Eksekusi_Otomatis_Trading_Bot_M5_Scalping.py   # Bot trading otomatis M5 Scalper (Technical Confluence)
 ├── Auto_Logger_Forward_Testing.py                 # Engine sinkronisasi trade MT5 ke Excel
 ├── train_model_lightgbm_m5.py                     # Script pelatihan model M5
 ├── jalankan_perbandingan_model_skripsi.py         # Benchmark Bab 4 (LightGBM vs XGBoost vs RF)
 ├── jalankan_kedua_bot_paralel.bat                 # Launcher konsol ganda otomatis (.bat)
 ├── jalankan_kedua_bot_paralel.py                  # Launcher konsol ganda Python (.py)
+├── setup_auto_start.bat                           # Skrip konfigurasi auto-start bot saat PC menyala
+├── hapus_auto_start.bat                           # Skrip penghapus auto-start bot
 ├── model_lightgbm_xauusd.pkl                      # Master Model LightGBM (Timeframe M15)
 ├── model_lightgbm_xauusd_m5.pkl                   # Master Model LightGBM (Timeframe M5)
 ├── Laporan_Forward_Testing_Model_Terbaru_SMC.xlsx # Rekap forward testing bot M15
@@ -72,7 +76,7 @@ Sistem terdiri dari dua arsitektur bot yang berjalan secara independen dan paral
 ## 🚀 Cara Menjalankan
 
 ### 1. Prasyarat Sistem
-- Python 3.10+
+- Python 3.10+ (disarankan Python 3.11 s/d 3.13)
 - MetaTrader 5 (Exness Terminal) terinstall dan terhubung ke akun aktif
 - Izinkan opsi **"Allow Algo Trading"** pada terminal MetaTrader 5
 
@@ -80,19 +84,28 @@ Sistem terdiri dari dua arsitektur bot yang berjalan secara independen dan paral
 ```bash
 pip install -r requirements.txt
 # atau
-pip install MetaTrader5 lightgbm scikit-learn pandas numpy openpyxl yfinance
+pip install MetaTrader5 lightgbm scikit-learn pandas numpy openpyxl yfinance psutil
 ```
 
-### 3. Menjalankan Kedua Bot Sekaligus
-Cukup klik ganda (*double click*) file:
+### 3. Menjalankan Aplikasi (Metode Rekomendasi: GUI Dashboard)
+Cukup klik ganda (*double click*) file utama:
+```cmd
+Buka_Aplikasi_Trading_Bot.bat
+```
+Atau via terminal:
+```bash
+python Trading_Bot_GUI_App.py
+```
+Aplikasi GUI Dashboard akan terbuka dengan fitur:
+- Kontrol independen untuk Bot M15 dan Bot M5 (Tombol Mulai / Hentikan).
+- Stopwatch durasi bot, Donut Chart probabilitas real-time, dan Riwayat Keputusan live.
+- *In-App Excel Data Viewer* untuk memeriksa dan memfilter riwayat transaksi M15, M5, serta statistik perbandingan tanpa perlu menutup bot.
+
+### 4. Alternatif: Menjalankan via Konsol CLI
+Jika ingin menjalankan lewat konsol terminal tanpa GUI:
 ```cmd
 jalankan_kedua_bot_paralel.bat
 ```
-Atau jalankan via terminal:
-```bash
-python jalankan_kedua_bot_paralel.py
-```
-Kedua bot akan otomatis terbuka di dua jendela konsol terpisah dan langsung memantau pasar XAUUSD secara *real-time*.
 
 ---
 
