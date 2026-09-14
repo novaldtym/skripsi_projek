@@ -178,7 +178,7 @@ def close_position_market(pos, comment_reason="Bot Scalp Close"):
 peak_profits = {}
 _last_loss_record = {'type': None, 'price': 0.0, 'time': 0.0}
 
-def manage_open_positions(latest_prob_up=50.0, latest_prob_down=50.0, channel_data=None, pattern_data=None, struct_data=None, m30_bull=False, h1_bull=False):
+def manage_open_positions(latest_prob_up=50.0, latest_prob_down=50.0, channel_data=None, pattern_data=None, struct_data=None, m30_bull=False, h1_bull=False, atr_val=None):
     """
     Pemantauan Real-Time Setiap Detik (Versi 3.2 Adaptive Runner Exit Engine):
     1. Evaluasi Momentum (Sempit vs Kuat/Runner):
@@ -303,7 +303,8 @@ def manage_open_positions(latest_prob_up=50.0, latest_prob_down=50.0, channel_da
         # 4. KONDISI D: HARD SCALP CUT-LOSS TERUKUR (-$1.80 USD) -> RRR 1:1 Sehat
         # -----------------------------------------------------------------
         # Dynamic Cut-Loss: Sesuaikan dengan ruang nafas ATR (minimal -$4.50)
-        dynamic_sl_usd = max(MIN_SL_USD, round(atr_val * 1.5, 2)) if 'atr_val' in locals() and atr_val else MIN_SL_USD
+        safe_atr = float(atr_val) if (atr_val is not None and not pd.isna(atr_val) and atr_val > 0) else 4.0
+        dynamic_sl_usd = max(MIN_SL_USD, round(safe_atr * 1.5, 2))
         if profit_usd <= -dynamic_sl_usd:
             if close_position_market(pos, f"Dynamic Cut-Loss (-${abs(profit_usd):.2f}) [ATR Room: ${dynamic_sl_usd:.2f}]"):
                 global _last_loss_record
@@ -1158,7 +1159,7 @@ def calc_dynamic_trade_levels(atr_val, current_price, signal_type, struct_data=N
     emergency_sl_usd = sl_usd + EMERGENCY_SL_BUFFER
     return sl_usd, tp_usd, emergency_sl_usd
 
-def execute_auto_trade(signal_type, entry_price, zone_type="A"):
+def execute_auto_trade(signal_type, entry_price, zone_type="A", atr_val=None):
     all_positions = mt5.positions_get(symbol=symbol)
     my_positions = [p for p in (all_positions or []) if p.magic == MAGIC_NUMBER]
     
@@ -1192,7 +1193,19 @@ def execute_auto_trade(signal_type, entry_price, zone_type="A"):
     price = mt5.symbol_info_tick(symbol).ask if signal_type == "BUY" else mt5.symbol_info_tick(symbol).bid
     
     # Hitung SL dan TP adaptif berbasis ATR (ruang gerak luas, anti kejilat)
-    dynamic_sl_usd, dynamic_tp_usd, dynamic_emerg_sl = calc_dynamic_trade_levels(latest_atr, price, signal_type)
+    if atr_val is None or pd.isna(atr_val) or atr_val <= 0:
+        try:
+            r = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M5, 0, 20)
+            if r is not None and len(r) >= 15:
+                df_atr = pd.DataFrame(r)
+                tr = np.maximum(df_atr['high'] - df_atr['low'], np.maximum((df_atr['high'] - df_atr['close'].shift()).abs(), (df_atr['low'] - df_atr['close'].shift()).abs()))
+                atr_val = float(tr.rolling(14).mean().iloc[-1])
+            else:
+                atr_val = 5.0
+        except Exception:
+            atr_val = 5.0
+
+    dynamic_sl_usd, dynamic_tp_usd, dynamic_emerg_sl = calc_dynamic_trade_levels(atr_val, price, signal_type)
     emergency_dist = dynamic_emerg_sl / (LOT_SIZE * 100.0)
     sl = price - emergency_dist if signal_type == "BUY" else price + emergency_dist
     tp = price + (dynamic_tp_usd / (LOT_SIZE * 100.0)) if signal_type == "BUY" else price - (dynamic_tp_usd / (LOT_SIZE * 100.0))
@@ -1216,12 +1229,14 @@ def execute_auto_trade(signal_type, entry_price, zone_type="A"):
     }
     
     color_order = COLOR_GREEN if signal_type == "BUY" else COLOR_RED
-    print(f"{color_order}{COLOR_BOLD}🚀 [OPEN {signal_type} - ZONA {zone_type}] MENGIRIM ORDER SCALPING M5: {signal_type} {LOT_SIZE} Lot XAUUSD @ ${price:.2f} (SL: ${sl:.2f}){COLOR_RESET}")
+    print(f"{color_order}{COLOR_BOLD}🚀 [OPEN {signal_type} - ZONA {zone_type}] MENGIRIM ORDER SCALPING M5: {signal_type} {LOT_SIZE} Lot XAUUSD @ ${price:.2f} (SL: ${sl:.2f}, TP: ${tp:.2f}){COLOR_RESET}")
     result = mt5.order_send(request)
-    if result.retcode == mt5.TRADE_RETCODE_DONE:
-        print(f"{color_order}{COLOR_BOLD}🎉 ORDER M5 SCALPING {signal_type} (ZONA {zone_type}) BERHASIL! (Layer {layer_num}/{MAX_STACKED_POSITIONS}){COLOR_RESET}")
+    if result and result.retcode == mt5.TRADE_RETCODE_DONE:
+        print(f"{color_order}{COLOR_BOLD}🎉 ORDER M5 SCALPING {signal_type} (ZONA {zone_type}) BERHASIL! (Layer {layer_num}/{MAX_STACKED_POSITIONS}) Order Ticket: #{result.order}{COLOR_RESET}")
     else:
-        print(f"❌ Gagal Eksekusi Order M5. Retcode: {result.retcode} ({result.comment})")
+        ret_code = result.retcode if result else 'NO_RESPONSE'
+        comment = result.comment if result else 'Unknown error / None response'
+        print(f"❌ Gagal Eksekusi Order M5. Retcode: {ret_code} ({comment})")
 
 def main():
     global _lock_socket
@@ -1338,7 +1353,7 @@ def main():
             print(f"   Alasan: {init_reason}")
             if AUTO_EXECUTE:
                 entry_p = ask_p if init_sig == "BUY" else bid_p
-                execute_auto_trade(init_sig, entry_p, zone_type=init_zone)
+                execute_auto_trade(init_sig, entry_p, zone_type=init_zone, atr_val=atr_val)
                 last_analyzed_candle = current_candle_time
         elif init_sig in ["BUY", "SELL"]:
             print(f"ℹ️ Sinyal {init_sig} terdeteksi, namun candle M5 sudah berjalan {minutes_past}m {now.second}s (>1 menit). Menunggu tutup candle untuk presisi.")
@@ -1354,7 +1369,8 @@ def main():
                 pattern_data=pattern_data,
                 struct_data=struct_data,
                 m30_bull=m30_bull,
-                h1_bull=h1_bull
+                h1_bull=h1_bull,
+                atr_val=atr_val
             )
 
             all_pos = mt5.positions_get(symbol=symbol)
@@ -1494,7 +1510,7 @@ def main():
                     print(f"{color_sig}{COLOR_BOLD}🎯 KEPUTUSAN {final_sig} (ZONA {final_zone}): {final_reason}{COLOR_RESET}")
                     entry_p = ask_p if final_sig == "BUY" else bid_p
                     if AUTO_EXECUTE:
-                        execute_auto_trade(final_sig, entry_p, zone_type=final_zone)
+                        execute_auto_trade(final_sig, entry_p, zone_type=final_zone, atr_val=atr_val)
                 else:
                     print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN: {final_reason}{COLOR_RESET}")
                 

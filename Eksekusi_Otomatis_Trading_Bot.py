@@ -1162,10 +1162,12 @@ def execute_auto_trade(signal_type, entry_price, sl_pips, tp_pips, zone_type="A"
     color_order = COLOR_GREEN if signal_type == "BUY" else COLOR_RED
     print(f"{color_order}{COLOR_BOLD}🚀 [OPEN {signal_type} - ZONA {zone_type}] MENGIRIM ORDER OTOMATIS KE MT5: {signal_type} {LOT_SIZE} Lot XAUUSD @ ${price:.2f} (SL: ${sl:.2f}, TP: ${tp:.2f} | {sl_pips}pips){COLOR_RESET}")
     result = mt5.order_send(request)
-    if result.retcode == mt5.TRADE_RETCODE_DONE:
-        print(f"{color_order}{COLOR_BOLD}🎉 ORDER {signal_type} (ZONA {zone_type}) BERHASIL DIEKSEKUSI OTOMATIS DENGAN PRESISI 0-DELAY!{COLOR_RESET}")
+    if result and result.retcode == mt5.TRADE_RETCODE_DONE:
+        print(f"{color_order}{COLOR_BOLD}🎉 ORDER {signal_type} (ZONA {zone_type}) BERHASIL DIEKSEKUSI OTOMATIS DENGAN PRESISI 0-DELAY! Order Ticket: #{result.order}{COLOR_RESET}")
     else:
-        print(f"❌ Gagal Eksekusi Order. Retcode Error: {result.retcode} (Comment: {result.comment})")
+        ret_code = result.retcode if result else 'NO_RESPONSE'
+        comment = result.comment if result else 'Unknown error / None response'
+        print(f"❌ Gagal Eksekusi Order. Retcode Error: {ret_code} (Comment: {comment})")
 
 def main():
     global _lock_socket
