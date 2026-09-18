@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bot Trading AI — Dashboard v3.7</title>
+
+    <!-- PWA & Mobile Web App Meta -->
+    <meta name="theme-color" content="#090D14">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Bot Trading AI">
+    <meta name="description" content="Dashboard Monitoring Real-Time Robot Trading LightGBM XAUUSD Skripsi Informatika">
+
+    <!-- PWA Manifest & Icons -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+    <link rel="icon" type="image/png" href="/static/icon-192.png">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="theme-dark">
+    <!-- Offline Snapshot Banner -->
+    <div id="offline-banner" class="offline-banner hidden">
+        <span class="offline-icon">📡</span>
+        <div class="offline-text">
+            <strong>MODE OFFLINE — PC TIDAK TERHUBUNG</strong>
+            <p>Menampilkan snapshot data terakhir yang tersimpan di HP.</p>
+        </div>
+    </div>
+
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+        <div class="header-left">
+            <span class="logo-icon">⚡</span>
+            <div class="brand-text">
+                <h1>BOT TRADING AI</h1>
+                <span class="version-badge">LightGBM v3.7</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <div id="live-indicator" class="live-pill">
+                <span class="pulsing-dot"></span>
+                <span id="live-text">LIVE</span>
+            </div>
+            <!-- Theme Toggle Switch -->
+            <button id="btn-theme-toggle" class="icon-btn" title="Ganti Tema">
+                <i id="theme-icon" class="lucide-icon" data-lucide="moon"></i>
+            </button>
+            <button id="btn-show-qr" class="icon-btn" title="QR Code HP">
+                <i class="lucide-icon" data-lucide="qr-code"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="app-container">
+        <!-- 1. Account Summary Hero Card -->
+        <section class="card card-hero">
+            <div class="hero-top-row">
+                <div>
+                    <p class="label-muted">Saldo Terkini Akun</p>
+                    <div class="hero-balance-row">
+                        <h2 id="val-balance" class="balance-display">$500.00</h2>
+                        <span id="roi-pill" class="roi-badge positive">
+                            <i class="lucide-icon-sm" data-lucide="trending-up"></i>
+                            <span id="val-roi">+0.00%</span>
+                        </span>
+                    </div>
+                </div>
+                <div class="hero-wallet-icon">
+                    <i class="lucide-icon" data-lucide="wallet"></i>
+                </div>
+            </div>
+            <!-- Equity Curve SVG -->
+            <div class="equity-curve-section">
+                <div class="equity-meta">
+                    <span class="label-muted">Kurva Ekuitas</span>
+                    <span id="equity-peak" class="equity-peak">Tertinggi: $500.00</span>
+                </div>
+                <div class="equity-chart-container">
+                    <svg id="equity-svg" class="equity-svg" preserveAspectRatio="none" viewBox="0 0 320 60">
+                        <defs>
+                            <linearGradient id="curveGrad" x1="0%" x2="0%" y1="0%" y2="100%">
+                                <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.3"></stop>
+                                <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.0"></stop>
+                            </linearGradient>
+                        </defs>
+                        <path id="eq-fill" d="M 0 55 L 320 55 L 320 60 L 0 60 Z" fill="url(#curveGrad)"></path>
+                        <path id="eq-line" d="M 0 55 L 320 55" fill="none" stroke="var(--accent)" stroke-linecap="round" stroke-width="2"></path>
+                        <circle id="eq-dot" cx="320" cy="55" fill="var(--accent)" r="3.5"></circle>
+                    </svg>
+                </div>
+            </div>
+            <!-- Quick Stats Row -->
+            <div class="hero-stats-grid">
+                <div class="stat-item">
+                    <span class="stat-label">Ekuitas</span>
+                    <span id="val-equity" class="stat-value">$500.00</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Floating</span>
+                    <span id="val-floating" class="stat-value neutral">$0.00</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Win Rate</span>
+                    <span id="val-winrate" class="stat-value">0%</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Net P/L</span>
+                    <span id="val-netpl" class="stat-value neutral">$0.00</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Target Skripsi Progress -->
+        <section class="card card-progress">
+            <div class="progress-header">
+                <div class="progress-title-group">
+                    <i class="lucide-icon-sm" data-lucide="graduation-cap"></i>
+                    <h4>Target Skripsi</h4>
+                </div>
+                <span id="progress-count" class="progress-badge">0 / 100 Trade</span>
+            </div>
+            <div class="progress-bar-track">
+                <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%"></div>
+            </div>
+            <div class="progress-footer">
+                <span class="label-muted">Status: Menunggu pemicu eksekusi</span>
+                <span id="progress-pct" class="progress-pct">0.0%</span>
+            </div>
+        </section>
+
+        <!-- 3. Bot Status Cards -->
+        <section class="bot-cards-grid">
+            <article id="card-bot-m15" class="card card-bot">
+                <div class="bot-header">
+                    <span class="bot-name">M15 Swing</span>
+                    <span id="status-m15" class="status-badge checking">
+                        <span class="status-dot"></span>
+                        Memeriksa...
+                    </span>
+                </div>
+                <div class="bot-stats">
+                    <div>
+                        <span class="label-muted">Win Rate Historis</span>
+                        <span id="m15-winrate" class="bot-big-stat">—</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="label-muted">Timeframe</span>
+                        <span class="bot-tf-badge">M15 TF</span>
+                    </div>
+                </div>
+                <div class="bot-footer">
+                    <span class="label-muted">Pasangan:</span>
+                    <span class="bot-pair-badge">XAU/USD (Gold)</span>
+                </div>
+            </article>
+            <article id="card-bot-m5" class="card card-bot">
+                <div class="bot-header">
+                    <span class="bot-name">M5 Scalper</span>
+                    <span id="status-m5" class="status-badge checking">
+                        <span class="status-dot"></span>
+                        Memeriksa...
+                    </span>
+                </div>
+                <div class="bot-stats">
+                    <div>
+                        <span class="label-muted">Win Rate Historis</span>
+                        <span id="m5-winrate" class="bot-big-stat">—</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="label-muted">Timeframe</span>
+                        <span class="bot-tf-badge">M5 High-Freq</span>
+                    </div>
+                </div>
+                <div class="bot-footer">
+                    <span class="label-muted">Pasangan:</span>
+                    <span class="bot-pair-badge gold">XAU/USD (Gold)</span>
+                </div>
+            </article>
+        </section>
+
+        <!-- 4. Macroeconomic Alert Banner -->
+        <section id="macro-alert-card" class="card card-macro">
+            <div class="macro-icon-wrap">
+                <i class="lucide-icon" data-lucide="alert-triangle"></i>
+            </div>
+            <div class="macro-content">
+                <div class="macro-header">
+                    <h5 id="macro-title">Memeriksa kondisi makro...</h5>
+                    <span id="macro-impact" class="macro-impact-badge">—</span>
+                </div>
+                <p id="macro-desc" class="macro-desc">Memuat data kalender ekonomi terkini.</p>
+            </div>
+        </section>
+
+        <!-- 5. Live Open Positions Section -->
+        <section class="card card-section">
+            <div class="section-header">
+                <div class="section-title-group">
+                    <i class="lucide-icon-sm" data-lucide="activity"></i>
+                    <h3>Posisi Terbuka</h3>
+                    <span id="pos-count" class="section-badge">0</span>
+                </div>
+            </div>
+            <div id="positions-list" class="positions-list">
+                <div class="empty-state">
+                    <div class="empty-icon-wrap">
+                        <i class="lucide-icon" data-lucide="coffee"></i>
+                    </div>
+                    <h5>Tidak Ada Posisi Terbuka</h5>
+                    <p>Bot sedang menunggu setup terbaik sesuai probabilitas model machine learning.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 6. Trade History Section -->
+        <section class="card card-section">
+            <div class="section-header">
+                <div class="section-title-group">
+                    <i class="lucide-icon-sm" data-lucide="list-ordered"></i>
+                    <h3>Riwayat Trade</h3>
+                    <span id="trades-count" class="section-badge">0</span>
+                </div>
+                <!-- Filter Tabs -->
+                <div class="filter-tabs">
+                    <button id="tab-all" class="tab-btn active" onclick="switchTab('all')">Semua</button>
+                    <button id="tab-m15" class="tab-btn" onclick="switchTab('m15')">M15</button>
+                    <button id="tab-m5" class="tab-btn" onclick="switchTab('m5')">M5</button>
+                </div>
+            </div>
+            <div id="section-trades" class="trades-list">
+                <div class="empty-state">
+                    <p>Belum ada trade tercatat sejak reset terakhir.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+        <div class="footer-engine">
+            Status Engine: <span id="engine-status" class="engine-online">ONLINE</span> | Model: <span class="model-name">LightGBM-M5-M15-v3.7</span>
+        </div>
+        <div class="footer-sub">
+            Skripsi Informatika — UPN "Veteran" Yogyakarta • Nouval Ditya Maheswara (123230165)
+        </div>
+        <p class="server-time">Update: <span id="last-sync-time">—</span></p>
+    </footer>
+
+    <!-- QR Code & Remote Access Modal -->
+    <div id="modal-qr" class="modal-overlay hidden">
+        <div class="modal-card">
+            <button id="btn-close-qr" class="modal-close-btn">&times;</button>
+            <div class="modal-header">
+                <span class="modal-icon">🌍</span>
+                <h3>Akses Monitoring dari HP</h3>
+            </div>
+            <p class="modal-desc">Bisa diakses dari <strong>mana saja</strong> (kuota paket data 4G/5G, luar rumah, atau beda Wi-Fi):</p>
+            
+            <div class="qr-box">
+                <img id="qr-image" src="/api/qr" alt="QR Code">
+            </div>
+
+            <!-- Primary HTTPS Internet URL -->
+            <div class="qr-url-box primary-url-box">
+                <div class="url-badge-row">
+                    <span class="url-lbl">URL PUBLIK (HTTPS • DI MANA SAJA):</span>
+                    <span class="badge-https">ONLINE</span>
+                </div>
+                <code id="qr-url-text">{{ primary_url }}</code>
+            </div>
+            <button id="btn-copy-url" class="copy-btn">Salin Link HTTPS</button>
+
+            <!-- Secondary Local Wi-Fi Info -->
+            <div class="local-url-accordion">
+                <span class="local-lbl">Link Alternatif (Khusus 1 Wi-Fi):</span>
+                <code id="local-url-text">{{ mobile_url }}</code>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

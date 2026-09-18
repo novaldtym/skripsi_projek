@@ -155,6 +155,58 @@ def check_news_guard(window_before_min=10, window_after_min=15):
 
     return freeze_active, status_desc, active_event
 
+def compute_macro_features(df_index):
+    """
+    Menghitung fitur makroekonomi berbasis kalender & proxy untuk time-series candle.
+    Digunakan secara konsisten baik pada tahap pelatihan model maupun inferensi live.
+    """
+    import pandas as pd
+    import numpy as np
+    
+    dates = pd.to_datetime(df_index)
+    
+    # 1. Is_NFP_Week: Pekan rilis Non-Farm Payrolls (Jumat pertama setiap bulan, aktif Rabu-Jumat)
+    is_nfp_week = ((dates.day <= 7) & (dates.dayofweek >= 2) & (dates.dayofweek <= 4)).astype(int)
+    
+    # 2. Is_CPI_Day: Jendela rilis CPI inflasi AS (tanggal 10 s/d 15 setiap bulan)
+    is_cpi_day = ((dates.day >= 10) & (dates.day <= 15) & (dates.dayofweek < 5)).astype(int)
+    
+    # 3. Is_FOMC_Week: Pekan pengumuman suku bunga The Fed (pertengahan bulan di bulan FOMC)
+    fomc_months = [1, 3, 5, 6, 7, 9, 11, 12]
+    is_fomc_week = ((dates.day >= 14) & (dates.day <= 22) & (dates.month.isin(fomc_months)) & (dates.dayofweek < 5)).astype(int)
+    
+    return pd.DataFrame({
+        'Is_NFP_Week': is_nfp_week,
+        'Is_CPI_Day': is_cpi_day,
+        'Is_FOMC_Week': is_fomc_week
+    }, index=df_index)
+
+def get_macro_snapshot_for_trade():
+    """
+    Mengambil snapshot kondisi makroekonomi saat entry posisi untuk pencatatan skenario evaluasi.
+    """
+    freeze, desc, ev = check_news_guard(window_before_min=30, window_after_min=30)
+    now_utc = datetime.now(timezone.utc)
+    
+    event_title = ev['title'] if ev else "None"
+    impact = ev['impact'] if ev else "Low/None"
+    mins_to_event = int((ev['time_utc'] - now_utc).total_seconds() / 60.0) if ev else 999
+    
+    if freeze:
+        status_tag = "NEWS_FREEZE_ACTIVE"
+    elif ev and abs(mins_to_event) <= 60:
+        status_tag = "NEAR_HIGH_IMPACT_NEWS"
+    else:
+        status_tag = "NORMAL_MARKET"
+        
+    return {
+        'status_tag': status_tag,
+        'desc': desc,
+        'nearest_event': event_title,
+        'event_impact': impact,
+        'mins_to_event': mins_to_event
+    }
+
 if __name__ == "__main__":
     print("="*75)
     print("TESTING ENGINE BERITA MAKROEKONOMI REAL-TIME")
@@ -167,3 +219,6 @@ if __name__ == "__main__":
     freeze, desc, ev = check_news_guard()
     print(f"\nStatus Guard Saat Ini: Freeze={freeze}")
     print(f"Deskripsi: {desc}")
+    
+    snap = get_macro_snapshot_for_trade()
+    print(f"Macro Snapshot: {snap}")

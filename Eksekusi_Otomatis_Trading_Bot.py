@@ -9,6 +9,7 @@ import yfinance as yf
 from datetime import datetime, timedelta
 import MetaTrader5 as mt5
 import Macro_Economic_News_Engine as macro_news
+import Scenario_Evaluator_Engine as scenario_eval
 
 from Auto_Logger_Forward_Testing import sync_mt5_trades_to_excel
 
@@ -43,38 +44,52 @@ LOT_SIZE               = 0.01       # Lot Size Eksekusi
 MAGIC_NUMBER           = 123230     # Magic ID Unik M15
 
 SL_TP_MODE             = "SMART_INTRADAY"
-RRR_RATIO              = 1.5        # Risk-to-Reward Ratio (1 : 1.5)
+RRR_RATIO              = 2.5        # Risk-to-Reward Ratio (1 : 2.5) → TP lebih besar, cukup WR 40% untuk profit
 AUTO_EXECUTE           = True       # Set True untuk Eksekusi Otomatis ke MT5!
 
 # --- SMC MULTI-ZONE ADAPTIVE ENTRY PARAMETERS (VERSI 3.3 CONFLUENCE & BREAKDOWN ENGINE) ---
 # Zona A: Boundary Bounce & Key Level Reversal (<= 0.15% dari Support / Resistance)
 ZONE_A_THRESHOLD       = 0.0015     # Jarak <= 0.15% (~$6.60) dari Support / Resistance
-ZONE_A_PROB_MIN        = 54.0       # Ambang AI dasar (dengan Confluence Booster turun ke >= 50.0%)
+ZONE_A_PROB_MIN        = 58.0       # Ambang AI dasar (dinaikkan dari 54% untuk filter entry lebih ketat)
 WICK_MIN_RATIO         = 0.20       # Minimal 20% Ekor Penolakan (Rejection Wick / Pinbar)
 
 # Zona B: Proximity Opportunity & Structure HL/LH (0.15% - 0.40%)
 ZONE_B_THRESHOLD       = 0.0040     # Jarak 0.15% s/d 0.40% (~$6.60 - $17.60)
-ZONE_B_PROB_MIN        = 58.0       # Ambang AI Zona B (dioptimasi dari 65.0% agar frekuensi trade stabil 3-6/hari)
+ZONE_B_PROB_MIN        = 60.0       # Ambang AI Zona B (dinaikkan dari 58% untuk entry lebih selektif)
 ZONE_B_WICK_MIN        = 0.18       # Minimal 18% Ekor Penolakan atau Higher Low / Lower High
 
 # Zona C: High-Probability Trend & Breakout / Breakdown PDL (> 0.40%)
-ZONE_C_PROB_MIN        = 62.0       # Ambang AI Zona C (dioptimasi dari 68.0% agar tidak mandek berhari-hari)
+ZONE_C_PROB_MIN        = 65.0       # Ambang AI Zona C (dinaikkan dari 62% untuk Zona C hanya saat sangat yakin)
+
+# --- SNIPER DIRECT ENTRY (BYPASS FILTER SAAT HIGH-CONVICTION) ---
+# Berdasarkan hasil Layer 2 Backtest: saat prob >= 70%, direct entry menghasilkan
+# WR 83.2%, PF 10.74 di M15. Filter heuristik justru merusak performa.
+SNIPER_DIRECT_PROB_MIN = 70.0       # Bypass semua filter saat AI >= 70%
 
 # --- DYNAMIC PROFIT PROTECTION & AI EXIT (M15 SWING) ---
 ENABLE_BREAKEVEN       = True       # Pindahkan SL ke Break-Even (+ $0.20) jika profit >= +$4.00 USD
 ENABLE_TRAILING_LOCK   = True       # Kunci profit minimal jika floating profit pernah naik tinggi
-TRAILING_TRIGGER_USD   = 3.50       # Aktifkan trailing lock saat profit mencapai >= +$3.50 USD
-TRAILING_LOCK_USD      = 2.50       # Kunci profit minimal +$2.50 USD (rasio seimbang, tidak tipis)
-MAX_CUTLOSS_USD        = 3.20       # Batas risiko rugi terukur
+TRAILING_TRIGGER_USD   = 5.00       # Aktifkan trailing lock saat profit mencapai >= +$5.00 USD (dinaikkan agar tidak lock terlalu dini)
+TRAILING_LOCK_USD      = 3.50       # Kunci profit minimal +$3.50 USD (naik dari $2.50 agar profit pulang lebih besar)
+MAX_CUTLOSS_USD        = 6.00       # Batas risiko rugi terukur (naik dari $3.20 agar SL tidak terlalu tipis)
 ENABLE_AI_CUTLOSS      = True       # AI Early Cut-Loss jika sinyal candle M15 berbalik tajam >= 65%
 AI_CUTLOSS_REV_PROB    = 65.0       # Ambang batas pembalikan arah AI untuk cut-loss dini
 
 # --- IDENTITAS VERSI DAN LOGGING ---
-BOT_VERSION            = "Versi 3.5 (Macro News Calendar Guard & Dynamic ATR Breathing Room)"
-MODEL_LABEL_EXCEL      = "LightGBM M15 v3.5 (Macro + ATR)"
-THRESHOLD_LABEL_EXCEL  = "Macro Calendar Guard + Dynamic ATR v3.5"
-ORDER_COMMENT          = "LightGBM M15 v3.5"
+BOT_VERSION            = "Versi 3.7 (Wide SL + High RRR + Sniper Entry + Smart Structure)"
+MODEL_LABEL_EXCEL      = "LightGBM M15 v3.7 (Wide SL + RRR 2.5 + Sniper)"
+THRESHOLD_LABEL_EXCEL  = "Versi 3.7 (Wide SL + RRR 2.5 + Sniper Entry)"
+ORDER_COMMENT          = "LightGBM M15 v3.7"
+EXCEL_M15_PATH         = r"d:\SKRIPSI INFORMATIKA\Laporan_Forward_Testing_Model_Terbaru_SMC.xlsx"
+SHEET_TITLE_M15        = "Trade Log Model Terbaru (v3.7)"
+SUMMARY_TITLE_M15      = "Ringkasan Statistik (v3.7)"
 COLLISION_DISTANCE_MIN = 0.0018      # Jarak minimal 0.18% (~$8) dari Lantai Demand / Atap Supply Mayor
+
+# --- RISK MANAGEMENT: LOSS COOLDOWN & DAILY LIMIT (REVISI v3.7) ---
+MAX_DAILY_LOSSES       = 5           # Maks 5x loss per hari (sesuai revisi user agar tidak membatasi peluang)
+LOSS_COOLDOWN_CANDLES  = 2           # Tunggu 2 candle M15 (30 menit) sebelum entry baru setelah loss
+AREA_LOCKOUT_RANGE     = 12.0        # Lockout area +/-$12 dari entry terakhir yang loss selama 30 menit
+MAX_BROKER_SL_USD      = 10.00       # Batas absolut SL broker M15
 
 MT5_PATH = r"C:\Program Files\MetaTrader 5 EXNESS\terminal64.exe"
 MODEL_FILE_PATH = r"d:\SKRIPSI INFORMATIKA\model_lightgbm_xauusd.pkl"
@@ -368,36 +383,57 @@ def calc_technical_indicators(df_data):
 
 def detect_candle_structure(df_clean):
     """
-    Menganalisis struktur candlestick 3-5 candle terakhir (SMC Price Action):
+    Menganalisis struktur candlestick 3-5 candle terakhir (SMC Price Action v3.7):
     - Pola Higher Low (HL): Rebound bullish dari area demand
     - Pola Lower High (LH): Rejection bearish dari area supply
     - Breakout Structure (BOS / CHoCH baru)
     - Market State: 'TRENDING_BULL', 'TRENDING_BEAR', 'SIDEWAYS_TIGHT', 'SIDEWAYS_WIDE'
+    - Market Structure Shift (MSS): Perubahan dari HH/HL → LH/LL atau sebaliknya
+    - FVG/Imbalance Zone Proximity: Jarak harga ke zona FVG terdekat yang belum terisi
+    - Order Block Bearish: Deteksi candle bullish sebelum impulse turun
+    - PDH/PDL: Previous Day High / Low sebagai level kunci
     """
-    if len(df_clean) < 5:
-        return {
-            'is_higher_low': False,
-            'is_lower_high': False,
-            'bos_bull_recent': False,
-            'bos_bear_recent': False,
-            'choch_bull_recent': False,
-            'choch_bear_recent': False,
-            'market_regime': 'SIDEWAYS',
-            'fibo_pos': 0.5,
-            'structure_desc': 'Data historis terbatas'
-        }
+    fallback = {
+        'is_higher_low': False,
+        'is_lower_high': False,
+        'bos_bull_recent': False,
+        'bos_bear_recent': False,
+        'choch_bull_recent': False,
+        'choch_bear_recent': False,
+        'market_regime': 'SIDEWAYS',
+        'fibo_pos': 0.5,
+        'structure_desc': 'Data historis terbatas',
+        'is_impulse_bear': False,
+        'is_impulse_bull': False,
+        'mss_bullish': False,
+        'mss_bearish': False,
+        'near_unfilled_fvg_bull': False,
+        'near_unfilled_fvg_bear': False,
+        'near_ob_bear_zone': False,
+        'pdh': 0.0,
+        'pdl': 0.0,
+        'dist_pdh_pct': 0.0,
+        'dist_pdl_pct': 0.0,
+    }
+    if len(df_clean) < 10:
+        return fallback
     
-    # Ambil 3 candle terakhir
+    # Ambil 5 candle terakhir
     c0_low  = float(df_clean['low'].iloc[-1])
     c1_low  = float(df_clean['low'].iloc[-2])
     c2_low  = float(df_clean['low'].iloc[-3])
+    c3_low  = float(df_clean['low'].iloc[-4])
+    c4_low  = float(df_clean['low'].iloc[-5])
     
     c0_high = float(df_clean['high'].iloc[-1])
     c1_high = float(df_clean['high'].iloc[-2])
     c2_high = float(df_clean['high'].iloc[-3])
+    c3_high = float(df_clean['high'].iloc[-4])
+    c4_high = float(df_clean['high'].iloc[-5])
     
     c0_close = float(df_clean['close'].iloc[-1])
     c1_close = float(df_clean['close'].iloc[-2])
+    c0_open  = float(df_clean['open'].iloc[-1])
     
     # 1. Pola Higher Low (HL): Low candle terbaru lebih tinggi, atau candle sebelumnya rebound
     is_higher_low = (c0_low > c1_low) or (c1_low > c2_low and c0_close > c1_close)
@@ -412,7 +448,7 @@ def detect_candle_structure(df_clean):
     choch_bear_recent = bool(df_clean['CHoCH_Bear'].iloc[-3:].max() == 1)
     
     # 4. Market Regime: Sideways vs Trending (via BB Bandwidth & Retur akumulatif)
-    # Deteksi Lilin Impulsif (Breakout / Breakdown News Momentum M15)
+    # Deteksi Lilin Impulsif (Breakout / Breakdown News Momentum)
     cur_range = (float(df_clean['high'].iloc[-1]) - float(df_clean['low'].iloc[-1])) + 1e-6
     cur_body  = abs(float(df_clean['close'].iloc[-1]) - float(df_clean['open'].iloc[-1]))
     body_ratio = cur_body / cur_range
@@ -431,8 +467,101 @@ def detect_candle_structure(df_clean):
         market_regime = 'TRENDING_BEAR'
     else:
         market_regime = 'SIDEWAYS_WIDE'
+    
+    # ===== FITUR BARU v3.7 =====
+    
+    # 5. MARKET STRUCTURE SHIFT (MSS): Perubahan karakter swing points
+    # Bullish MSS: Pola LH/LL berubah ke HL/HH (swing low terakhir > swing low sebelumnya + break high)
+    # Bearish MSS: Pola HH/HL berubah ke LH/LL (swing high terakhir < swing high sebelumnya + break low)
+    swing_lows_5 = [c4_low, c3_low, c2_low, c1_low, c0_low]
+    swing_highs_5 = [c4_high, c3_high, c2_high, c1_high, c0_high]
+    
+    # Bullish MSS: Sebelumnya LL (low semakin turun), sekarang HL (low naik) + close break above prev high
+    was_making_ll = (c3_low < c4_low) and (c2_low < c3_low)
+    now_making_hl = (c1_low > c2_low) or (c0_low > c1_low)
+    mss_bullish = bool(was_making_ll and now_making_hl and c0_close > c1_high)
+    
+    # Bearish MSS: Sebelumnya HH (high semakin naik), sekarang LH (high turun) + close break below prev low
+    was_making_hh = (c3_high > c4_high) and (c2_high > c3_high)
+    now_making_lh = (c1_high < c2_high) or (c0_high < c1_high)
+    mss_bearish = bool(was_making_hh and now_making_lh and c0_close < c1_low)
+    
+    # 6. FVG / IMBALANCE ZONE PROXIMITY (bukan hanya binary ada/tidak)
+    # Cari FVG terdekat yang belum terisi dalam 20 candle terakhir
+    near_unfilled_fvg_bull = False
+    near_unfilled_fvg_bear = False
+    try:
+        lookback_fvg = min(20, len(df_clean) - 3)
+        for i in range(2, lookback_fvg):
+            # Bullish FVG: gap antara candle[-i-2].high dan candle[-i].low
+            gap_low = float(df_clean['high'].iloc[-i-2])
+            gap_high = float(df_clean['low'].iloc[-i])
+            if gap_high > gap_low + 0.5:  # FVG zone exists (min $0.50 gap)
+                # Cek apakah harga saat ini mendekati zona FVG (dalam $3)
+                if gap_low - 3.0 <= c0_close <= gap_high + 1.0:
+                    near_unfilled_fvg_bull = True
+                    break
         
-    structure_desc = f"Regime: {market_regime} | HL: {is_higher_low} | LH: {is_lower_high} | Fibo: {fibo_pos*100:.1f}%"
+        for i in range(2, lookback_fvg):
+            # Bearish FVG: gap antara candle[-i].high dan candle[-i-2].low
+            gap_high_bear = float(df_clean['low'].iloc[-i-2])
+            gap_low_bear = float(df_clean['high'].iloc[-i])
+            if gap_high_bear > gap_low_bear + 0.5:  # Bearish FVG zone
+                if gap_low_bear - 1.0 <= c0_close <= gap_high_bear + 3.0:
+                    near_unfilled_fvg_bear = True
+                    break
+    except Exception:
+        pass
+    
+    # 7. BEARISH ORDER BLOCK PROXIMITY (candle bullish sebelum impulse turun)
+    near_ob_bear_zone = False
+    try:
+        for i in range(3, min(15, len(df_clean) - 3)):
+            ob_open = float(df_clean['open'].iloc[-i])
+            ob_close = float(df_clean['close'].iloc[-i])
+            ob_high = float(df_clean['high'].iloc[-i])
+            # Candle bullish (close > open) diikuti impulse turun besar
+            if ob_close > ob_open:
+                # Cek impulse down setelahnya (2 candle berikutnya drop signifikan)
+                if i >= 3:
+                    post_low = float(df_clean['low'].iloc[-i+1:-i+3].min())
+                    impulse_drop = ob_close - post_low
+                    if impulse_drop > 1.5 * (ob_high - float(df_clean['low'].iloc[-i])):
+                        # Zona Bearish OB = area dari open ke high candle bullish
+                        if ob_open <= c0_close <= ob_high + 2.0:
+                            near_ob_bear_zone = True
+                            break
+    except Exception:
+        pass
+    
+    # 8. PDH/PDL (Previous Day High / Low)
+    pdh = 0.0
+    pdl = 0.0
+    dist_pdh_pct = 0.0
+    dist_pdl_pct = 0.0
+    try:
+        if df_clean.index.dtype != 'datetime64[ns]':
+            dates = pd.to_datetime(df_clean.index)
+        else:
+            dates = df_clean.index
+        today = dates[-1].date()
+        prev_day_data = df_clean[dates.date < today]
+        if len(prev_day_data) > 0:
+            last_day = prev_day_data.index[-1]
+            if hasattr(last_day, 'date'):
+                last_day_date = last_day.date() if not isinstance(last_day, str) else pd.to_datetime(last_day).date()
+            else:
+                last_day_date = pd.to_datetime(last_day).date()
+            day_data = prev_day_data[pd.to_datetime(prev_day_data.index).date == last_day_date]
+            if len(day_data) > 0:
+                pdh = float(day_data['high'].max())
+                pdl = float(day_data['low'].min())
+                dist_pdh_pct = (pdh - c0_close) / c0_close if c0_close > 0 else 0.0
+                dist_pdl_pct = (c0_close - pdl) / c0_close if c0_close > 0 else 0.0
+    except Exception:
+        pass
+    
+    structure_desc = f"Regime: {market_regime} | HL: {is_higher_low} | LH: {is_lower_high} | Fibo: {fibo_pos*100:.1f}% | MSS: {'Bull' if mss_bullish else ('Bear' if mss_bearish else 'None')} | FVG: {'Bull' if near_unfilled_fvg_bull else ''}/{'Bear' if near_unfilled_fvg_bear else ''} | OB_Bear: {near_ob_bear_zone}"
     
     return {
         'is_higher_low': is_higher_low,
@@ -445,12 +574,23 @@ def detect_candle_structure(df_clean):
         'is_impulse_bull': is_impulse_bull,
         'market_regime': market_regime,
         'fibo_pos': fibo_pos,
-        'structure_desc': structure_desc
+        'structure_desc': structure_desc,
+        'mss_bullish': mss_bullish,
+        'mss_bearish': mss_bearish,
+        'near_unfilled_fvg_bull': near_unfilled_fvg_bull,
+        'near_unfilled_fvg_bear': near_unfilled_fvg_bear,
+        'near_ob_bear_zone': near_ob_bear_zone,
+        'pdh': pdh,
+        'pdl': pdl,
+        'dist_pdh_pct': dist_pdh_pct,
+        'dist_pdl_pct': dist_pdl_pct,
     }
+
 
 def analyze_market_and_predict():
     rates_m15 = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M15, 0, 1000)
     rates_h1  = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_H1, 0, 500)
+    rates_h4  = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_H4, 0, 100)
     
     fallback_struct = {
         'is_higher_low': False, 'is_lower_high': False,
@@ -472,6 +612,7 @@ def analyze_market_and_predict():
         mt5.initialize(path=MT5_PATH)
         rates_m15 = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M15, 0, 1000)
         rates_h1  = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_H1, 0, 500)
+        rates_h4  = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_H4, 0, 100)
         if rates_m15 is None or len(rates_m15) == 0:
             print("❌ Gagal menarik data dari MT5. Melewati candle ini...")
             fallback_channel = {'slope': 0.0, 'dyn_sup': 0.0, 'dyn_res': 0.0, 'dyn_support': 0.0, 'dyn_resistance': 0.0, 'channel_type': 'HORIZONTAL', 'dist_dyn_sup': 0.01, 'dist_dyn_res': 0.01}
@@ -495,6 +636,10 @@ def analyze_market_and_predict():
     df_h1['time'] = pd.to_datetime(df_h1['time'], unit='s')
     df_h1.set_index('time', inplace=True)
 
+    df_h4 = pd.DataFrame(rates_h4) if rates_h4 is not None and len(rates_h4) > 0 else df_h1.copy()
+    df_h4['time'] = pd.to_datetime(df_h4['time'], unit='s')
+    df_h4.set_index('time', inplace=True)
+
     # DXY 0-Delay dari MT5
     mt5.symbol_select('DXY', True)
     rates_dxy = mt5.copy_rates_from_pos('DXY', mt5.TIMEFRAME_M15, 0, 1000)
@@ -510,15 +655,18 @@ def analyze_market_and_predict():
             dxy_close.index = dxy_close.index.tz_localize(None)
 
     range_m15 = (df_m15['high'] - df_m15['low']) + 1e-6
-    df_m15['Body_M15'] = (df_m15['close'] - df_m15['open']).abs() / range_m15
-    df_m15['Lower_Wick_M15'] = (df_m15[['open', 'close']].min(axis=1) - df_m15['low']) / range_m15
-    df_m15['Upper_Wick_M15'] = (df_m15['high'] - df_m15[['open', 'close']].max(axis=1)) / range_m15
+    df_m15['Body_Ratio']       = (df_m15['close'] - df_m15['open']).abs() / range_m15
+    df_m15['Lower_Wick_Ratio'] = (df_m15[['open', 'close']].min(axis=1) - df_m15['low']) / range_m15
+    df_m15['Upper_Wick_Ratio'] = (df_m15['high'] - df_m15[['open', 'close']].max(axis=1)) / range_m15
+    df_m15['Body_M15']         = df_m15['Body_Ratio']
+    df_m15['Lower_Wick_M15']   = df_m15['Lower_Wick_Ratio']
+    df_m15['Upper_Wick_M15']   = df_m15['Upper_Wick_Ratio']
 
     # 1. FAIR VALUE GAP (FVG / IMBALANCE)
     df_m15['FVG_Bull'] = (df_m15['low'] > df_m15['high'].shift(2)).astype(int)
     df_m15['FVG_Bear'] = (df_m15['high'] < df_m15['low'].shift(2)).astype(int)
 
-    # 2. SUPPORT & RESISTANCE (SNR SWING HIGH/LOW 20 WINDOW UNTUK 28 FITUR MODEL)
+    # 2. SUPPORT & RESISTANCE (SNR SWING HIGH/LOW 20 WINDOW)
     df_m15['Swing_High_20'] = df_m15['high'].shift(1).rolling(20).max()
     df_m15['Swing_Low_20']  = df_m15['low'].shift(1).rolling(20).min()
     df_m15['Dist_Support']    = (df_m15['close'] - df_m15['Swing_Low_20']) / df_m15['close']
@@ -536,10 +684,13 @@ def analyze_market_and_predict():
     df_m15['Liquidity_Sweep_High'] = ((df_m15['high'] > df_m15['Swing_High_20']) & (df_m15['close'] < df_m15['Swing_High_20'])).astype(int)
     df_m15['Liquidity_Sweep_Low']  = ((df_m15['low'] < df_m15['Swing_Low_20']) & (df_m15['close'] > df_m15['Swing_Low_20'])).astype(int)
 
-    # 5. ORDER BLOCK PROXIMITY (OB)
-    is_bear_candle = df_m15['close'] < df_m15['open']
+    # 5. ORDER BLOCK PROXIMITY (Bullish & Bearish OB)
+    is_bear_c = df_m15['close'] < df_m15['open']
+    is_bull_c = df_m15['close'] > df_m15['open']
     impulse_up = (df_m15['close'].shift(-2) - df_m15['close']) > (1.5 * (df_m15['high'] - df_m15['low']))
-    df_m15['Order_Block_Bull'] = (is_bear_candle & impulse_up).astype(int)
+    impulse_dn = (df_m15['close'] - df_m15['close'].shift(-2)) > (1.5 * (df_m15['high'] - df_m15['low']))
+    df_m15['Order_Block_Bull'] = (is_bear_c & impulse_up).astype(int)
+    df_m15['Order_Block_Bear'] = (is_bull_c & impulse_dn).astype(int)
 
     # 6. FIBONACCI RETRACEMENT
     lookback_fibo = 100
@@ -556,31 +707,49 @@ def analyze_market_and_predict():
     df_m15['Fibo_Dist_500'] = (df_m15['close'] - fibo_500) / df_m15['close']
     df_m15['Fibo_Dist_618'] = (df_m15['close'] - fibo_618) / df_m15['close']
 
+    # 7. MOMENTUM & VOLATILITAS
     delta15 = df_m15['close'].diff()
     gain15 = (delta15.where(delta15 > 0, 0)).rolling(14).mean()
     loss15 = (-delta15.where(delta15 < 0, 0)).rolling(14).mean()
-    df_m15['RSI_M15'] = 100 - (100 / (1 + (gain15 / (loss15 + 1e-6))))
+    df_m15['RSI_14'] = 100 - (100 / (1 + (gain15 / (loss15 + 1e-6))))
+    df_m15['RSI_M15'] = df_m15['RSI_14']
 
-    df_m15['SMA_20_M15'] = df_m15['close'].rolling(20).mean()
-    df_m15['STD_20_M15'] = df_m15['close'].rolling(20).std()
-    df_m15['BB_Bandwidth'] = (4 * df_m15['STD_20_M15']) / df_m15['SMA_20_M15']
-    df_m15['BB_Pos'] = (df_m15['close'] - (df_m15['SMA_20_M15'] - 2*df_m15['STD_20_M15'])) / (4*df_m15['STD_20_M15'] + 1e-6)
+    df_m15['SMA_20'] = df_m15['close'].rolling(20).mean()
+    df_m15['STD_20'] = df_m15['close'].rolling(20).std()
+    df_m15['BB_Bandwidth'] = (4 * df_m15['STD_20']) / df_m15['SMA_20']
+    df_m15['BB_Pos'] = (df_m15['close'] - (df_m15['SMA_20'] - 2*df_m15['STD_20'])) / (4*df_m15['STD_20'] + 1e-6)
 
     df_m15['XAU_Return_1'] = df_m15['close'].pct_change(1)
     df_m15['XAU_Return_3'] = df_m15['close'].pct_change(3)
     df_m15['XAU_Return_5'] = df_m15['close'].pct_change(5)
 
+    # 8. DXY INTERMARKET & MAKROEKONOMI
     df_m15['DXY_Close'] = dxy_close.reindex(df_m15.index, method='ffill').bfill()
     df_m15['DXY_Return_1'] = df_m15['DXY_Close'].pct_change(1).fillna(0)
     df_m15['DXY_Return_3'] = df_m15['DXY_Close'].pct_change(3).fillna(0)
+    df_m15['DXY_Trend'] = (df_m15['DXY_Close'] > df_m15['DXY_Close'].rolling(20).mean()).astype(int)
+    df_m15['XAU_DXY_Ratio_Return'] = (df_m15['close'] / df_m15['DXY_Close']).pct_change(1).fillna(0)
 
+    dates = df_m15.index
+    df_m15['Is_NFP_Week'] = ((dates.day <= 7) & (dates.dayofweek >= 2) & (dates.dayofweek <= 4)).astype(int)
+    df_m15['Is_CPI_Day']  = ((dates.day >= 10) & (dates.day <= 15) & (dates.dayofweek < 5)).astype(int)
+    fomc_months = [1, 3, 5, 6, 7, 9, 11, 12]
+    df_m15['Is_FOMC_Week'] = ((dates.day >= 14) & (dates.day <= 22) & (dates.month.isin(fomc_months)) & (dates.dayofweek < 5)).astype(int)
+
+    # 9. MULTI-TIMEFRAME TREND (H1 & H4)
     df_h1['EMA_50_H1'] = df_h1['close'].ewm(span=50, adjust=False).mean()
     df_h1['EMA_200_H1'] = df_h1['close'].ewm(span=200, adjust=False).mean()
     df_h1['Trend_H1_Bull'] = (df_h1['close'] > df_h1['EMA_50_H1']).astype(int)
     df_h1['Trend_H1_Strong'] = (df_h1['EMA_50_H1'] > df_h1['EMA_200_H1']).astype(int)
-
     df_m15['Trend_H1_Bull'] = df_h1['Trend_H1_Bull'].reindex(df_m15.index, method='ffill').fillna(0)
     df_m15['Trend_H1_Strong'] = df_h1['Trend_H1_Strong'].reindex(df_m15.index, method='ffill').fillna(0)
+
+    df_h4['EMA_50_H4'] = df_h4['close'].ewm(span=50, adjust=False).mean()
+    df_h4['EMA_200_H4'] = df_h4['close'].ewm(span=200, adjust=False).mean()
+    df_h4['Trend_H4_Bull'] = (df_h4['close'] > df_h4['EMA_50_H4']).astype(int)
+    df_h4['Trend_H4_Strong'] = (df_h4['EMA_50_H4'] > df_h4['EMA_200_H4']).astype(int)
+    df_m15['Trend_H4_Bull'] = df_h4['Trend_H4_Bull'].reindex(df_m15.index, method='ffill').fillna(0)
+    df_m15['Trend_H4_Strong'] = df_h4['Trend_H4_Strong'].reindex(df_m15.index, method='ffill').fillna(0)
 
     df_m15['TR'] = np.maximum(
         df_m15['high'] - df_m15['low'],
@@ -593,19 +762,25 @@ def analyze_market_and_predict():
 
     df_clean = df_m15.dropna().copy()
     features = [
-        'Body_M15', 'Lower_Wick_M15', 'Upper_Wick_M15', 
+        'Body_Ratio', 'Lower_Wick_Ratio', 'Upper_Wick_Ratio', 
         'FVG_Bull', 'FVG_Bear', 'Dist_Support', 'Dist_Resistance',
         'BOS_Bull', 'BOS_Bear', 'CHoCH_Bull', 'CHoCH_Bear',
-        'Liquidity_Sweep_High', 'Liquidity_Sweep_Low', 'Order_Block_Bull',
+        'Liquidity_Sweep_High', 'Liquidity_Sweep_Low', 
+        'Order_Block_Bull', 'Order_Block_Bear',
         'Fibo_Pos_100', 'Fibo_Dist_382', 'Fibo_Dist_500', 'Fibo_Dist_618',
-        'RSI_M15', 'BB_Bandwidth', 'BB_Pos',
+        'RSI_14', 'BB_Bandwidth', 'BB_Pos',
         'XAU_Return_1', 'XAU_Return_3', 'XAU_Return_5',
-        'DXY_Return_1', 'DXY_Return_3',
-        'Trend_H1_Bull', 'Trend_H1_Strong'
+        'DXY_Return_1', 'DXY_Return_3', 'DXY_Trend', 'XAU_DXY_Ratio_Return',
+        'Is_NFP_Week', 'Is_CPI_Day', 'Is_FOMC_Week',
+        'Trend_H1_Bull', 'Trend_H1_Strong',
+        'Trend_H4_Bull', 'Trend_H4_Strong'
     ]
 
     latest_candle = df_clean[features].iloc[[-1]]
     latest_atr = df_clean['ATR_14'].iloc[-1]
+    
+    global last_features_dict
+    last_features_dict = latest_candle.iloc[0].to_dict()
     
     prob_up = model.predict_proba(latest_candle)[0][1] * 100
     prob_down = 100 - prob_up
@@ -655,11 +830,49 @@ def analyze_market_and_predict():
     # Deteksi Indikator Teknikal Lengkap (Stochastic RSI, RSI, BB, EMA)
     tech_data = calc_technical_indicators(df_m15)
 
-    return prob_up, prob_down, h1_bull, h1_strong_bull, latest_atr, live_ask, live_bid, dist_m15_sup, dist_m15_res, lower_wick, upper_wick, is_bull_candle, is_bear_candle, m15_sup, m15_res, struct_data, channel_data, pattern_data, tech_data
+    # ANALISIS KONTEKS H4 (FIX A)
+    h4_context = {
+        'h4_slope': 0.0, 'h4_upper': 9999.0, 'h4_lower': 0.0, 'h4_mid': cur_close,
+        'h4_position_pct': 50.0, 'h4_channel': 'UNKNOWN', 'h4_range_2d': 0.0,
+        'range_pos_pct': 50.0
+    }
+    try:
+        if rates_h4 is not None and len(rates_h4) >= 20:
+            df_h4 = pd.DataFrame(rates_h4)
+            df_h4['time'] = pd.to_datetime(df_h4['time'], unit='s')
+            h4_sub = df_h4.tail(20)
+            x_h4 = np.arange(len(h4_sub))
+            slope_h4_close, _ = np.polyfit(x_h4, h4_sub['close'].values, 1)
+            slope_h4_high, int_h4_high = np.polyfit(x_h4, h4_sub['high'].values, 1)
+            slope_h4_low, int_h4_low = np.polyfit(x_h4, h4_sub['low'].values, 1)
+            curr_x_h4 = len(h4_sub) - 1
+            h4_upper = float(slope_h4_high * curr_x_h4 + int_h4_high)
+            h4_lower = float(slope_h4_low * curr_x_h4 + int_h4_low)
+            h4_mid = (h4_upper + h4_lower) / 2.0
+            h4_range = max(1.0, h4_upper - h4_lower)
+            h4_position_pct = max(0.0, min(100.0, ((cur_close - h4_lower) / h4_range) * 100.0))
+            if slope_h4_close < -1.5:
+                h4_channel = 'DESCENDING_H4'
+            elif slope_h4_close > 1.5:
+                h4_channel = 'ASCENDING_H4'
+            else:
+                h4_channel = 'HORIZONTAL_H4'
+            h4_2d = df_h4.tail(12)
+            range_2d = float(h4_2d['high'].max()) - float(h4_2d['low'].min())
+            range_pos_pct = max(0.0, min(100.0, ((cur_close - float(h4_2d['low'].min())) / max(1.0, range_2d)) * 100.0))
+            h4_context = {
+                'h4_slope': float(slope_h4_close), 'h4_upper': h4_upper, 'h4_lower': h4_lower,
+                'h4_mid': h4_mid, 'h4_position_pct': h4_position_pct, 'h4_channel': h4_channel,
+                'h4_range_2d': range_2d, 'range_pos_pct': range_pos_pct
+            }
+    except Exception:
+        pass
 
-def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, atr_val, dist_sup, dist_res, lower_w, upper_w, is_bull_c, is_bear_c, m15_sup, m15_res, struct_data, channel_data=None, pattern_data=None, tech_data=None):
+    return prob_up, prob_down, h1_bull, h1_strong_bull, latest_atr, live_ask, live_bid, dist_m15_sup, dist_m15_res, lower_wick, upper_wick, is_bull_candle, is_bear_candle, m15_sup, m15_res, struct_data, channel_data, pattern_data, tech_data, h4_context
+
+def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, atr_val, dist_sup, dist_res, lower_w, upper_w, is_bull_c, is_bear_c, m15_sup, m15_res, struct_data, channel_data=None, pattern_data=None, tech_data=None, h4_context=None):
     """
-    Evaluasi Keputusan Multi-Zone Adaptive Entry M15 (Versi 3.3 - Technical Confluence Suite):
+    Evaluasi Keputusan Multi-Zone Adaptive Entry M15 (Versi 3.6 - H4 Context + Range Guard):
     - Konfluensi Lengkap: Stochastic RSI (14,14,3,3), RSI(14), Bollinger Bands, EMA 20/50
     - Anti-Oversold Guard: DILARANG SELL jika Stoch RSI <= 25% (Mencegah kerugian entry prematur di dasar)
     - Anti-Overbought Guard: DILARANG BUY jika Stoch RSI >= 75% (Mencegah beli di pucuk jenuh)
@@ -670,7 +883,7 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
     - Zona B: Proximity Opportunity (0.15% - 0.40%)
     - Zona C: High-Probability Trend (> 0.40%)
     """
-    base_sl = max(30.0, min(35.0, round(atr_val * 10.0 * 0.45, 0)))
+    base_sl = max(50.0, min(70.0, round(atr_val * 10.0 * 0.80, 0)))  # SL diperlebar: $5.00-$7.00 (ATR*0.80) agar wick normal tidak sweep
     
     slope = channel_data.get('slope', 0.0) if channel_data else 0.0
     dyn_sup = channel_data.get('dyn_sup', m15_sup) if channel_data else m15_sup
@@ -786,8 +999,8 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
                         dist_sup_pct = pattern_data.get('dist_near_sup', 0.0) * 100
                         sell_candidate = ("WAIT", "COLLISION", 0, 0, f"🛑 ANTI-COLLISION: SELL Zona B Dibatalkan! Terlalu Dekat Lantai Support (${near_sup_val:.2f}, Jarak {dist_sup_pct:.2f}%).")
                     else:
-                        sl = max(30.0, round(base_sl * 0.8, 0))
-                        tp = round(sl * 1.3, 0)
+                        sl = max(45.0, round(base_sl * 0.85, 0))
+                        tp = round(sl * 2.0, 0)
                         zone_tag = "B-Diag" if is_diag_res else "B-Horiz"
                         sell_candidate = ("SELL", zone_tag, sl, tp, f"🔴 ZONA B SELL (PROXIMITY): Struktur Lower High / Rejection Terkonfirmasi Dekat {res_label}{confluence_tag}! Prob {prob_down:.1f}%.")
                 else:
@@ -868,8 +1081,8 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
                         dist_res_pct = pattern_data.get('dist_near_res', 0.0) * 100
                         buy_candidate = ("WAIT", "COLLISION", 0, 0, f"🛑 ANTI-COLLISION: BUY Zona B Dibatalkan! Terlalu Dekat Atap Resisten (${near_res_val:.2f}, Jarak {dist_res_pct:.2f}%).")
                     else:
-                        sl = max(30.0, round(base_sl * 0.8, 0))
-                        tp = round(sl * 1.3, 0)
+                        sl = max(45.0, round(base_sl * 0.85, 0))
+                        tp = round(sl * 2.0, 0)
                         zone_tag = "B-Diag" if is_diag_sup else "B-Horiz"
                         buy_candidate = ("BUY", zone_tag, sl, tp, f"🟢 ZONA B BUY (PROXIMITY): Struktur Higher Low / Rebound Terkonfirmasi Dekat {sup_label}{confluence_tag}! Prob {prob_up:.1f}%.")
                 else:
@@ -881,16 +1094,26 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
     # C. SELEKSI KEPUTUSAN TERBAIK BERDASARKAN MODEL-BIASED PRIORITY
     # (Hanya return jika ADA SINYAL EKSEKUSI REAL. Jangan batalkan Zona C karena pesan WAIT!)
     # -----------------------------------------------------------------
+    def check_candidate_scenario(cand):
+        if not cand or cand[0] not in ["BUY", "SELL"]:
+            return cand
+        c_sig, c_zone, c_sl, c_tp, c_desc = cand
+        sc_key = f"M15_ZONA_{c_zone}_{c_sig}"
+        can_tr, sc_msg = scenario_eval.can_trade_scenario(sc_key, "M15")
+        if not can_tr:
+            return ("WAIT", "BLACKLIST", 0, 0, sc_msg)
+        return cand
+
     if prob_down >= prob_up:
         if sell_candidate and sell_candidate[0] == "SELL":
-            return sell_candidate
+            return check_candidate_scenario(sell_candidate)
         if buy_candidate and buy_candidate[0] == "BUY":
-            return buy_candidate
+            return check_candidate_scenario(buy_candidate)
     else:
         if buy_candidate and buy_candidate[0] == "BUY":
-            return buy_candidate
+            return check_candidate_scenario(buy_candidate)
         if sell_candidate and sell_candidate[0] == "SELL":
-            return sell_candidate
+            return check_candidate_scenario(sell_candidate)
 
     # -----------------------------------------------------------------
     # D. EVALUASI ZONA C: HIGH-PROBABILITY TREND / BREAKOUT (> 0.40%)
@@ -899,6 +1122,26 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
     min_c_buy  = 54.0 if (has_buy_confluence or 'BULLISH' in pattern_data.get('pattern_bias', '') or 'UPTREND' in channel_type) else ZONE_C_PROB_MIN
     min_c_sell = 54.0 if (has_sell_confluence or 'BEARISH' in pattern_data.get('pattern_bias', '') or 'BREAKOUT' in pattern_data.get('pattern_bias', '') or 'DOWNTREND' in channel_type) else ZONE_C_PROB_MIN
 
+    # -----------------------------------------------------------------
+    # D.0. SNIPER DIRECT ENTRY: Bypass semua filter saat AI >= 70%
+    #      Berdasarkan Layer 2 Backtest: WR 83.2%, PF 10.74 pada M15
+    #      Filter heuristik (candle, H1, structure) justru menghambat
+    #      entry dan menyebabkan bot masuk terlambat → kena SL.
+    # -----------------------------------------------------------------
+    if prob_up >= SNIPER_DIRECT_PROB_MIN and not is_tight:
+        sl = base_sl
+        tp = round(sl * RRR_RATIO, 0)
+        sniper_desc = f"🎯 SNIPER DIRECT BUY: AI Conviction Sangat Tinggi ({prob_up:.1f}% >= {SNIPER_DIRECT_PROB_MIN:.0f}%)! Bypass filter, langsung entry."
+        return check_candidate_scenario(("BUY", "C_SNIPER", sl, tp, sniper_desc))
+    elif prob_down >= SNIPER_DIRECT_PROB_MIN and not is_tight:
+        sl = base_sl
+        tp = round(sl * RRR_RATIO, 0)
+        sniper_desc = f"🎯 SNIPER DIRECT SELL: AI Conviction Sangat Tinggi ({prob_down:.1f}% >= {SNIPER_DIRECT_PROB_MIN:.0f}%)! Bypass filter, langsung entry."
+        return check_candidate_scenario(("SELL", "C_SNIPER", sl, tp, sniper_desc))
+
+    # -----------------------------------------------------------------
+    # D.1. ZONA C REGULER (dengan filter H1, Structure, Candle)
+    # -----------------------------------------------------------------
     if prob_up >= min_c_buy and not is_tight:
         if stoch_overbought:
             return "WAIT", "OVERBOUGHT", 0, 0, f"🛑 OVERBOUGHT FILTER: BUY Zona C Dibatalkan! Stoch RSI di puncak (%K={stoch_k:.1f} >= 75)."
@@ -1124,7 +1367,7 @@ def get_best_filling_mode(sym):
     else:
         return mt5.ORDER_FILLING_RETURN
 
-def execute_auto_trade(signal_type, entry_price, sl_pips, tp_pips, zone_type="A"):
+def execute_auto_trade(signal_type, entry_price, sl_pips, tp_pips, zone_type="A", prob_val=50.0, reason_str="", features_dict=None):
     all_positions = mt5.positions_get(symbol=symbol)
     positions = [p for p in (all_positions or []) if p.magic == MAGIC_NUMBER]
     if len(positions) > 0:
@@ -1142,7 +1385,7 @@ def execute_auto_trade(signal_type, entry_price, sl_pips, tp_pips, zone_type="A"
         tp = price - (tp_pips / 10.0)
         
     filling_mode = get_best_filling_mode(symbol)
-    order_comment_zone = f"M15 v3.5 Z-{zone_type}"
+    order_comment_zone = f"M15 v3.7 Z-{zone_type}"
         
     request = {
         "action": mt5.TRADE_ACTION_DEAL,
@@ -1164,6 +1407,29 @@ def execute_auto_trade(signal_type, entry_price, sl_pips, tp_pips, zone_type="A"
     result = mt5.order_send(request)
     if result and result.retcode == mt5.TRADE_RETCODE_DONE:
         print(f"{color_order}{COLOR_BOLD}🎉 ORDER {signal_type} (ZONA {zone_type}) BERHASIL DIEKSEKUSI OTOMATIS DENGAN PRESISI 0-DELAY! Order Ticket: #{result.order}{COLOR_RESET}")
+        try:
+            sc_key = f"M15_ZONA_{zone_type}_{signal_type}"
+            f_dict = features_dict if features_dict is not None else globals().get('last_features_dict', {})
+            h4_tr = "BULL" if ('h4_context' in globals() and globals()['h4_context'].get('h4_slope', 0) > 0) else "BEAR"
+            scenario_eval.record_entry_context(
+                ticket=result.order,
+                symbol=symbol,
+                timeframe="M15",
+                scenario_type=sc_key,
+                setup_details={
+                    'zone': f"Zona {zone_type}",
+                    'sl_pips': sl_pips,
+                    'tp_pips': tp_pips,
+                    'price': price,
+                    'action': signal_type,
+                    'model_prob': float(prob_val),
+                    'entry_reason': reason_str,
+                    'h4_trend': h4_tr
+                },
+                features_dict=f_dict
+            )
+        except Exception:
+            pass
     else:
         ret_code = result.retcode if result else 'NO_RESPONSE'
         comment = result.comment if result else 'Unknown error / None response'
@@ -1200,12 +1466,12 @@ def main():
     # Audit awal kondisi pasar & prediksi model saat pertama kali dibuka
     print(f"\n{COLOR_CYAN}🔍 MELAKUKAN AUDIT AWAL STRUKTUR SMC & PREDIKSI MODEL M15 SAAT INI...{COLOR_RESET}")
     res_audit = analyze_market_and_predict()
-    prob_up, prob_down, h1_bull, h1_strong_bull, atr_val, ask_p, bid_p, dist_sup, dist_res, lower_w, upper_w, is_bull_c, is_bear_c, m15_sup, m15_res, struct_data, channel_data, pattern_data, tech_data = res_audit
+    prob_up, prob_down, h1_bull, h1_strong_bull, atr_val, ask_p, bid_p, dist_sup, dist_res, lower_w, upper_w, is_bull_c, is_bear_c, m15_sup, m15_res, struct_data, channel_data, pattern_data, tech_data, h4_context = res_audit
     
     init_sig, init_zone, init_sl, init_tp, init_reason = evaluate_multi_zone_decision(
         prob_up, prob_down, h1_bull, h1_strong_bull, atr_val,
         dist_sup, dist_res, lower_w, upper_w, is_bull_c, is_bear_c,
-        m15_sup, m15_res, struct_data, channel_data=channel_data, pattern_data=pattern_data, tech_data=tech_data
+        m15_sup, m15_res, struct_data, channel_data=channel_data, pattern_data=pattern_data, tech_data=tech_data, h4_context=h4_context
     )
 
     slope_val = channel_data['slope']
@@ -1235,6 +1501,13 @@ def main():
 
     tf_min = 15
     last_analyzed_candle = None
+    
+    # Risk Management Tracking (FIX D)
+    daily_loss_count = 0
+    last_loss_time = 0
+    last_loss_price = 0.0
+    loss_cooldown_until = 0
+    today_date = datetime.now().date()
     prev_positions_count = 0
     last_periodic_sync = time.time()
     last_prob_refresh = time.time()
@@ -1257,7 +1530,12 @@ def main():
             print(f"   Alasan: {init_reason}")
             if AUTO_EXECUTE:
                 entry_p = ask_p if init_sig == "BUY" else bid_p
-                execute_auto_trade(init_sig, entry_p, init_sl, init_tp, zone_type=init_zone)
+                execute_auto_trade(
+                    init_sig, entry_p, init_sl, init_tp, zone_type=init_zone,
+                    prob_val=prob_up if init_sig == "BUY" else prob_down,
+                    reason_str=init_reason,
+                    features_dict=globals().get('last_features_dict', {})
+                )
                 last_analyzed_candle = current_candle_time
         elif init_sig in ["BUY", "SELL"]:
             print(f"ℹ️ Sinyal {init_sig} terdeteksi, namun candle sudah berjalan {minutes_past}m {now.second}s (>3 menit). Menunggu penutupan candle untuk presisi 0-delay.")
@@ -1281,6 +1559,23 @@ def main():
             cur_count = len(cur_positions)
 
             if prev_positions_count > 0 and cur_count == 0:
+                # FIX D: Cek apakah posisi terakhir ditutup dengan loss -> update cooldown
+                try:
+                    from datetime import timedelta as _td
+                    recent_deals = mt5.history_deals_get(datetime.now() - _td(minutes=5), datetime.now())
+                    if recent_deals:
+                        for deal in reversed(recent_deals):
+                            if deal.magic == MAGIC_NUMBER and deal.symbol == symbol and deal.profit != 0:
+                                if deal.profit < 0:
+                                    daily_loss_count += 1
+                                    last_loss_time = time.time()
+                                    last_loss_price = deal.price
+                                    loss_cooldown_until = time.time() + (LOSS_COOLDOWN_CANDLES * tf_min * 60)
+                                    print(f"\n{COLOR_RED}⚠️ [LOSS DETECTED M15] Loss ${deal.profit:.2f} terdeteksi! Loss hari ini: {daily_loss_count}/{MAX_DAILY_LOSSES}. Cooldown {LOSS_COOLDOWN_CANDLES} candle aktif.{COLOR_RESET}")
+                                break
+                except Exception:
+                    pass
+
                 print(f"\n{COLOR_CYAN}🔔 [DETEKSI EXIT]: Posisi M15 baru saja ditutup. Menyinkronkan update Win/Loss ke Excel...{COLOR_RESET}")
                 try:
                     sync_mt5_trades_to_excel(
@@ -1309,7 +1604,7 @@ def main():
                 last_prob_refresh = time.time()
                 try:
                     res_audit = analyze_market_and_predict()
-                    prob_up, prob_down, h1_bull, h1_strong_bull, atr_val, ask_p, bid_p, dist_sup, dist_res, lower_w, upper_w, is_bull_c, is_bear_c, m15_sup, m15_res, struct_data, channel_data, pattern_data, tech_data = res_audit
+                    prob_up, prob_down, h1_bull, h1_strong_bull, atr_val, ask_p, bid_p, dist_sup, dist_res, lower_w, upper_w, is_bull_c, is_bear_c, m15_sup, m15_res, struct_data, channel_data, pattern_data, tech_data, h4_context = res_audit
                 except Exception:
                     pass
             
@@ -1378,7 +1673,7 @@ def main():
                 print(f"⚡ CANDLE M15 MENJELANG TUTUP ({now.strftime('%H:%M:%S')})! EVALUASI MULTI-ZONE ADAPTIVE ENTRY:")
                 
                 res_audit = analyze_market_and_predict()
-                prob_up, prob_down, h1_bull, h1_strong_bull, atr_val, ask_p, bid_p, dist_sup, dist_res, lower_w, upper_w, is_bull_c, is_bear_c, m15_sup, m15_res, struct_data, channel_data, pattern_data, tech_data = res_audit
+                prob_up, prob_down, h1_bull, h1_strong_bull, atr_val, ask_p, bid_p, dist_sup, dist_res, lower_w, upper_w, is_bull_c, is_bear_c, m15_sup, m15_res, struct_data, channel_data, pattern_data, tech_data, h4_context = res_audit
                 
                 final_sig, final_zone, sl_pips, tp_pips, final_reason = evaluate_multi_zone_decision(
                     prob_up, prob_down, h1_bull, h1_strong_bull, atr_val,
@@ -1400,8 +1695,25 @@ def main():
                     color_sig = COLOR_GREEN if final_sig == "BUY" else COLOR_RED
                     print(f"{color_sig}{COLOR_BOLD}🎯 KEPUTUSAN {final_sig} (ZONA {final_zone}): {final_reason}{COLOR_RESET}")
                     entry_p = ask_p if final_sig == "BUY" else bid_p
-                    if AUTO_EXECUTE:
-                        execute_auto_trade(final_sig, entry_p, sl_pips, tp_pips, zone_type=final_zone)
+                    # Reset daily loss counter jika hari berganti
+                    if datetime.now().date() != today_date:
+                        today_date = datetime.now().date()
+                        daily_loss_count = 0
+                    
+                    if daily_loss_count >= MAX_DAILY_LOSSES:
+                        print(f"DAILY LOSS LIMIT: Sudah {daily_loss_count}x loss hari ini. Bot WAIT sisa hari!")
+                    elif time.time() < loss_cooldown_until:
+                        remaining = int(loss_cooldown_until - time.time())
+                        print(f"LOSS COOLDOWN: Menunggu {remaining}s lagi sebelum entry baru.")
+                    elif last_loss_price > 0 and abs(entry_p - last_loss_price) < AREA_LOCKOUT_RANGE and (time.time() - last_loss_time) < 3600:
+                        print(f"AREA LOCKOUT: Area ${last_loss_price:.2f} masih terkunci.")
+                    elif AUTO_EXECUTE:
+                        execute_auto_trade(
+                            final_sig, entry_p, sl_pips, tp_pips, zone_type=final_zone,
+                            prob_val=prob_up if final_sig == "BUY" else prob_down,
+                            reason_str=final_reason,
+                            features_dict=globals().get('last_features_dict', {})
+                        )
                 else:
                     print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN: {final_reason}{COLOR_RESET}")
                     

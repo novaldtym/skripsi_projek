@@ -58,3 +58,15 @@ $RECYCLE.BIN/
 
 # Local calendar cache
 economic_calendar_cache.json
+entry_context_cache.json
+matriks_performa_skenario.json
+public_url.txt
+
+# Log files
+*.log
+
+# Scratch and temporary scripts
+scratch_*.py
+_stitch_ui_extracted/
+stitch_ai_trading_bot_dashboard_ui.zip
+CD7F5500

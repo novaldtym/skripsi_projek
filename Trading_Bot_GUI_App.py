@@ -12,12 +12,17 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import MetaTrader5 as mt5
 import pandas as pd
+import webbrowser
+import socket
+from PIL import Image, ImageTk
+import qrcode
 
 # Path konfigurasi
 BASE_DIR = r"d:\SKRIPSI INFORMATIKA"
 PYTHON_EXE = sys.executable
 SCRIPT_M15 = os.path.join(BASE_DIR, "Eksekusi_Otomatis_Trading_Bot.py")
 SCRIPT_M5  = os.path.join(BASE_DIR, "Eksekusi_Otomatis_Trading_Bot_M5_Scalping.py")
+SCRIPT_WEB = os.path.join(BASE_DIR, "Web_Dashboard_Server.py")
 EXCEL_M15  = os.path.join(BASE_DIR, "Laporan_Forward_Testing_Model_Terbaru_SMC.xlsx")
 EXCEL_M5   = os.path.join(BASE_DIR, "Laporan_Forward_Testing_Model_M5_Scalping.xlsx")
 MT5_PATH   = r"C:\Program Files\MetaTrader 5 EXNESS\terminal64.exe"
@@ -40,10 +45,27 @@ RE_DYNAMIC_EXIT = re.compile(r'DYNAMIC EXIT', re.IGNORECASE)
 
 MAX_HISTORY_ROWS = 200
 
+def safe_load_excel_sheets(file_path):
+    """Membaca sheet Excel secara aman bahkan saat file sedang dibuka/dikunci di Microsoft Excel."""
+    if not os.path.exists(file_path):
+        return None, []
+    try:
+        xl = pd.ExcelFile(file_path)
+        return xl, list(xl.sheet_names)
+    except Exception:
+        try:
+            import tempfile, shutil
+            tmp_path = os.path.join(tempfile.gettempdir(), f"gui_read_{os.path.basename(file_path)}")
+            shutil.copyfile(file_path, tmp_path)
+            xl = pd.ExcelFile(tmp_path)
+            return xl, list(xl.sheet_names)
+        except Exception:
+            return None, []
+
 class TradingBotGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("⚡ AI Trading Bot Dashboard - SMC / LightGBM v3.3 Technical Confluence (M15 & M5)")
+        self.root.title("⚡ AI Trading Bot Dashboard - SMC / LightGBM v3.7 Sniper (M15 & M5)")
         self.root.geometry("1200x820")
         self.root.minsize(1050, 700)
         self.root.configure(bg="#0b0f19")
@@ -83,6 +105,7 @@ class TradingBotGUI:
         self.root.after(100, self.process_log_queues)
         self.root.after(1000, self.update_live_market_ticker)
         self.root.after(500, self.update_stopwatches)
+        self.root.after(3000, self.periodic_excel_rekap_refresh)
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def setup_styles(self):
@@ -130,21 +153,125 @@ class TradingBotGUI:
         title_box = tk.Frame(header_frame, bg="#111827")
         title_box.pack(side="left", padx=20, pady=12)
 
-        lbl_title = tk.Label(title_box, text="⚡ AI TRADING BOT DASHBOARD v3.3", font=("Segoe UI", 16, "bold"), fg="#38bdf8", bg="#111827")
+        lbl_title = tk.Label(title_box, text="⚡ AI TRADING BOT DASHBOARD v3.7", font=("Segoe UI", 16, "bold"), fg="#38bdf8", bg="#111827")
         lbl_title.pack(anchor="w")
 
-        lbl_sub = tk.Label(title_box, text="Multi-Indicator Technical Confluence (Stoch RSI, BB, EMA, SNR & Anti-Collision) | XAUUSD", font=("Segoe UI", 9), fg="#94a3b8", bg="#111827")
+        lbl_sub = tk.Label(title_box, text="LightGBM AI Engine (36 Fitur Makro+SMC+H4 & Sniper Direct Entry) | XAUUSD", font=("Segoe UI", 9), fg="#94a3b8", bg="#111827")
         lbl_sub.pack(anchor="w")
 
-        # Panel Kanan: Status MT5 & Live Ticker
+        # Panel Kanan: Web Monitor HP, Status MT5 & Live Ticker
         ticker_box = tk.Frame(header_frame, bg="#111827")
         ticker_box.pack(side="right", padx=20, pady=12)
 
-        self.lbl_mt5_status = tk.Label(ticker_box, text="● MEMERIKSA MT5...", font=("Segoe UI", 9, "bold"), fg="#f59e0b", bg="#1f2937", padx=10, pady=3)
-        self.lbl_mt5_status.pack(anchor="e")
+        top_right_row = tk.Frame(ticker_box, bg="#111827")
+        top_right_row.pack(anchor="e")
+
+        self.btn_web_mobile = tk.Button(
+            top_right_row,
+            text="📱 Web Monitor HP",
+            font=("Segoe UI", 9, "bold"),
+            bg="#0284c7",
+            fg="#ffffff",
+            activebackground="#0369a1",
+            activeforeground="#ffffff",
+            bd=0,
+            padx=10,
+            pady=2,
+            cursor="hand2",
+            command=self.open_web_mobile_dialog
+        )
+        self.btn_web_mobile.pack(side="left", padx=(0, 10))
+
+        self.lbl_mt5_status = tk.Label(top_right_row, text="● MEMERIKSA MT5...", font=("Segoe UI", 9, "bold"), fg="#f59e0b", bg="#1f2937", padx=10, pady=3)
+        self.lbl_mt5_status.pack(side="left")
 
         self.lbl_ticker = tk.Label(ticker_box, text="XAUUSD: Menghubungkan...", font=("Consolas", 11, "bold"), fg="#f8fafc", bg="#111827")
         self.lbl_ticker.pack(anchor="e", pady=(4, 0))
+
+    def open_web_mobile_dialog(self):
+        """Membuka dialog Web Monitoring HP dan menjalankan server jika belum aktif."""
+        # Pastikan server Web_Dashboard_Server.py berjalan di background
+        server_running = False
+        import psutil
+        for p in psutil.process_iter(['name', 'cmdline']):
+            try:
+                cmd = " ".join(p.info['cmdline'] or []).lower()
+                if "web_dashboard_server.py" in cmd:
+                    server_running = True
+                    break
+            except Exception:
+                pass
+
+        if not server_running:
+            try:
+                subprocess.Popen([PYTHON_EXE, SCRIPT_WEB], cwd=BASE_DIR, creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+                time.sleep(1.0)
+            except Exception as e:
+                messagebox.showerror("Error Server", f"Gagal menjalankan server web:\n{e}")
+
+        # Dapatkan IP Wi-Fi
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(('8.8.8.8', 80))
+            lan_ip = s.getsockname()[0]
+        except Exception:
+            lan_ip = '127.0.0.1'
+        finally:
+            s.close()
+
+        mobile_url = f"http://{lan_ip}:5000"
+
+        # Buka browser lokal
+        webbrowser.open("http://localhost:5000")
+
+        # Buat popup dialog QR Code di Tkinter
+        top = tk.Toplevel(self.root)
+        top.title("📱 Web Monitoring Trading Bot (Akses HP)")
+        top.geometry("420x530")
+        top.configure(bg="#0b0f19")
+        top.resizable(False, False)
+        top.grab_set()
+
+        lbl_t = tk.Label(top, text="📱 Buka Dashboard di HP", font=("Segoe UI", 14, "bold"), fg="#38bdf8", bg="#0b0f19")
+        lbl_t.pack(pady=(20, 5))
+
+        lbl_info = tk.Label(top, text="Pastikan HP terhubung ke Wi-Fi yang sama dengan PC.\nArahkan kamera HP ke QR Code berikut:", font=("Segoe UI", 9), fg="#94a3b8", bg="#0b0f19", justify="center")
+        lbl_info.pack(pady=(0, 15))
+
+        # Generate QR Code image in memory
+        try:
+            qr = qrcode.QRCode(box_size=6, border=2)
+            qr.add_data(mobile_url)
+            qr.make(fit=True)
+            pil_img = qr.make_image(fill_color="black", back_color="white")
+            qr_photo = ImageTk.PhotoImage(pil_img)
+            lbl_qr = tk.Label(top, image=qr_photo, bg="#ffffff", relief="solid", bd=1)
+            lbl_qr.image = qr_photo  # keep reference
+            lbl_qr.pack(pady=5)
+        except Exception as e:
+            lbl_qr = tk.Label(top, text=f"[QR Code Error: {e}]", fg="#f43f5e", bg="#0b0f19")
+            lbl_qr.pack(pady=10)
+
+        url_frame = tk.Frame(top, bg="#161f30", padx=10, pady=8, relief="solid", bd=1)
+        url_frame.pack(fill="x", padx=30, pady=15)
+
+        lbl_url_title = tk.Label(url_frame, text="URL Akses Wi-Fi:", font=("Segoe UI", 8, "bold"), fg="#64748b", bg="#161f30")
+        lbl_url_title.pack(anchor="w")
+
+        lbl_url = tk.Label(url_frame, text=mobile_url, font=("Consolas", 11, "bold"), fg="#06b6d4", bg="#161f30")
+        lbl_url.pack(anchor="w", pady=(2, 0))
+
+        def copy_url():
+            self.root.clipboard_clear()
+            self.root.clipboard_append(mobile_url)
+            btn_copy.config(text="✓ URL Berhasil Disalin!")
+            top.after(2000, lambda: btn_copy.config(text="Salin URL"))
+
+        btn_copy = tk.Button(top, text="Salin URL", font=("Segoe UI", 9, "bold"), bg="#1e293b", fg="#f8fafc", bd=0, padx=15, pady=6, cursor="hand2", command=copy_url)
+        btn_copy.pack(pady=(0, 10))
+
+        btn_close = tk.Button(top, text="Tutup", font=("Segoe UI", 9), bg="#334155", fg="#cbd5e1", bd=0, padx=20, pady=5, cursor="hand2", command=top.destroy)
+        btn_close.pack()
 
     def create_tabs(self):
         self.notebook = ttk.Notebook(self.root)
@@ -152,12 +279,12 @@ class TradingBotGUI:
 
         # TAB 1: BOT M15
         self.tab_m15 = tk.Frame(self.notebook, bg="#0b0f19")
-        self.notebook.add(self.tab_m15, text="  📊 Bot M15 (v3.3 Confluence)  ")
+        self.notebook.add(self.tab_m15, text="  📊 Bot M15 (v3.7 Sniper)  ")
         self.setup_m15_tab()
 
         # TAB 2: BOT M5
         self.tab_m5 = tk.Frame(self.notebook, bg="#0b0f19")
-        self.notebook.add(self.tab_m5, text="  ⚡ Bot M5 (v3.3 Confluence Scalper)  ")
+        self.notebook.add(self.tab_m5, text="  ⚡ Bot M5 (v3.7 Scalper)  ")
         self.setup_m5_tab()
 
         # TAB 3: REKAP EXCEL & PORTOFOLIO
@@ -239,7 +366,7 @@ class TradingBotGUI:
         row1 = tk.Frame(status_frame, bg="#111827")
         row1.pack(fill="x", padx=12, pady=(10, 4))
         
-        tf_label = "M15 v3.0 MULTI-ZONE" if bot_key == "m15" else "M5 v3.0 SCALPER"
+        tf_label = "M15 v3.7 SNIPER" if bot_key == "m15" else "M5 v3.7 SCALPER"
         tk.Label(row1, text=f"⏱️ MONITORING LIVE {tf_label}", font=("Segoe UI", 10, "bold"), fg=accent_color, bg="#111827").pack(side="left")
         
         timer_lbl = tk.Label(row1, text="00:00:00", font=("Consolas", 18, "bold"), fg="#f8fafc", bg="#111827")
@@ -407,11 +534,11 @@ class TradingBotGUI:
 
         params_text = (
             "• Timeframe       : M15 (15 Menit)\n"
-            "• Model AI        : LightGBM (28 Fitur SMC)\n"
-            "• Ambang Batas    : >= 60.0% Keyakinan\n"
-            "• Filter Tren     : Tren Makro H1 EMA 50\n"
-            "• Target TP / SL  : Dinamis ATR 14 (RRR 1:1.5)\n"
-            "• Proximity Guard : Aktif (Jarak >= 0.25%)\n"
+            "• Model AI        : LightGBM v3.7 (36 Fitur Makro+SMC+H4)\n"
+            "• Sniper Entry    : >= 70.0% Direct Execution\n"
+            "• Filter Standby  : Tren H1 EMA 50 (prob < 70%)\n"
+            "• Target TP / SL  : Dinamis ATR 14 (RRR 1:2.5)\n"
+            "• Proximity Guard : Aktif (Jarak >= 0.18%)\n"
             "• Magic Number    : 123230\n"
             "• Lot Size        : 0.01 Lot"
         )
@@ -465,14 +592,13 @@ class TradingBotGUI:
 
         params_text = (
             "• Timeframe       : M5 (Scalping Cepat)\n"
-            "• Strategi        : SMC Level Bounce & Wick\n"
-            "• Level Anchor    : Lantai/Atap M15 10-Jam\n"
-            "• Rejection Wick  : Minimal >= 35% Ekor\n"
-            "• Quick Scalp TP  : +$2.00 USD (+20 pips)\n"
-            "• Hard Cut-Loss   : -$1.80 USD (RRR 1:1)\n"
-            "• Trailing Lock   : Trigger $1.20, Lock $0.80\n"
-            "• Anti-Mid Trend  : Dilarang Entry di Tengah\n"
-            "• Magic Number    : 123235"
+            "• Model AI        : LightGBM v3.7 Scalper (36 Fitur)\n"
+            "• Sniper Entry    : >= 70.0% Direct Execution\n"
+            "• Target TP / SL  : Dinamis ATR 14 (RRR 1:2.0)\n"
+            "• Early Cut-Loss  : Dynamic Invalidation (>= 65%)\n"
+            "• Trailing Lock   : Trigger $1.50, Lock $0.80\n"
+            "• Magic Number    : 123236\n"
+            "• Lot Size        : 0.01 Lot"
         )
         tk.Label(info_box, text=params_text, font=("Consolas", 8), fg="#cbd5e1", bg="#161f30", justify="left").pack(anchor="w")
 
@@ -1083,6 +1209,18 @@ class TradingBotGUI:
         )
         self.render_table_rows()
 
+    def periodic_excel_rekap_refresh(self):
+        try:
+            self.update_portfolio_summary_labels()
+            if hasattr(self, 'notebook') and hasattr(self, 'tab_rekap'):
+                selected = self.notebook.select()
+                if selected == str(self.tab_rekap) and not self.search_var.get().strip():
+                    if self.current_rekap_mode in ["m15", "m5"]:
+                        self.load_excel_view(self.current_rekap_mode)
+        except Exception:
+            pass
+        self.root.after(3000, self.periodic_excel_rekap_refresh)
+
     def refresh_current_view(self):
         self.update_portfolio_summary_labels()
         self.load_excel_view(self.current_rekap_mode)
@@ -1090,37 +1228,57 @@ class TradingBotGUI:
     def refresh_rekap_data(self):
         # Dipanggil secara berkala untuk sinkronisasi otomatis
         self.update_portfolio_summary_labels()
-        if self.current_rekap_mode == "mt5":
+        if self.current_rekap_mode in ["m15", "m5"]:
+            self.load_excel_view(self.current_rekap_mode)
+        elif self.current_rekap_mode == "mt5":
             self.load_excel_view("mt5")
 
     def update_portfolio_summary_labels(self):
         # Update M15 dari file Excel
         if os.path.exists(EXCEL_M15):
             try:
-                df = pd.read_excel(EXCEL_M15, sheet_name="Trade Log Model Terbaru")
-                tot = len(df)
-                pnl = float(df["Profit ($ USD)"].sum()) if "Profit ($ USD)" in df else 0.0
-                wins = len(df[df["Hasil"] == "WIN"]) if "Hasil" in df else 0
-                loss = len(df[df["Hasil"] == "LOSS"]) if "Hasil" in df else 0
-                wr = (wins / tot * 100) if tot > 0 else 0.0
-                self.lbl_rekap_m15.config(
-                    text=f"Total Trade : {tot} Transaksi\nWin / Loss  : {wins} WIN / {loss} LOSS\nWin Rate    : {wr:.1f}%\nNet PnL     : ${pnl:+.2f} USD"
-                )
+                xl15, sheets15 = safe_load_excel_sheets(EXCEL_M15)
+                s_name = next((s for s in sheets15 if "v3.7" in s and "stat" not in s.lower()), None)
+                if not s_name:
+                    s_name = next((s for s in sheets15 if "v3.6" in s and "stat" not in s.lower()), None)
+                if not s_name and sheets15:
+                    s_name = sheets15[0]
+                if xl15 and s_name:
+                    df = xl15.parse(s_name)
+                    tot = len(df)
+                    pnl = float(df["Profit ($ USD)"].sum()) if "Profit ($ USD)" in df and not df.empty else 0.0
+                    wins = len(df[df["Hasil"] == "WIN"]) if "Hasil" in df and not df.empty else 0
+                    loss = len(df[df["Hasil"] == "LOSS"]) if "Hasil" in df and not df.empty else 0
+                    wr = (wins / tot * 100) if tot > 0 else 0.0
+                    saldo = 500.0 + pnl
+                    v_tag = "v3.7" if "v3.7" in s_name else "v3.6"
+                    self.lbl_rekap_m15.config(
+                        text=f"Total Trade : {tot} Transaksi ({v_tag})\nWin / Loss  : {wins} WIN / {loss} LOSS\nWin Rate    : {wr:.1f}%\nNet PnL     : ${pnl:+.2f} USD\nSaldo       : ${saldo:.2f} USD"
+                    )
             except Exception:
                 pass
 
         # Update M5 dari file Excel
         if os.path.exists(EXCEL_M5):
             try:
-                df = pd.read_excel(EXCEL_M5, sheet_name="Trade Log M5 Scalping")
-                tot = len(df)
-                pnl = float(df["Profit ($ USD)"].sum()) if "Profit ($ USD)" in df else 0.0
-                wins = len(df[df["Hasil"] == "WIN"]) if "Hasil" in df else 0
-                loss = len(df[df["Hasil"] == "LOSS"]) if "Hasil" in df else 0
-                wr = (wins / tot * 100) if tot > 0 else 0.0
-                self.lbl_rekap_m5.config(
-                    text=f"Total Trade : {tot} Transaksi\nWin / Loss  : {wins} WIN / {loss} LOSS\nWin Rate    : {wr:.1f}%\nNet PnL     : ${pnl:+.2f} USD"
-                )
+                xl5, sheets5 = safe_load_excel_sheets(EXCEL_M5)
+                s_name = next((s for s in sheets5 if "v3.7" in s and "stat" not in s.lower()), None)
+                if not s_name:
+                    s_name = next((s for s in sheets5 if "v3.6" in s and "stat" not in s.lower()), None)
+                if not s_name and sheets5:
+                    s_name = sheets5[0]
+                if xl5 and s_name:
+                    df = xl5.parse(s_name)
+                    tot = len(df)
+                    pnl = float(df["Profit ($ USD)"].sum()) if "Profit ($ USD)" in df and not df.empty else 0.0
+                    wins = len(df[df["Hasil"] == "WIN"]) if "Hasil" in df and not df.empty else 0
+                    loss = len(df[df["Hasil"] == "LOSS"]) if "Hasil" in df and not df.empty else 0
+                    wr = (wins / tot * 100) if tot > 0 else 0.0
+                    saldo = 500.0 + pnl
+                    v_tag = "v3.7" if "v3.7" in s_name else "v3.6"
+                    self.lbl_rekap_m5.config(
+                        text=f"Total Trade : {tot} Transaksi ({v_tag})\nWin / Loss  : {wins} WIN / {loss} LOSS\nWin Rate    : {wr:.1f}%\nNet PnL     : ${pnl:+.2f} USD\nSaldo       : ${saldo:.2f} USD"
+                    )
             except Exception:
                 pass
 
@@ -1138,7 +1296,7 @@ class TradingBotGUI:
         if mode in ["m15", "m5"]:
             self.filter_strip.pack(fill="x", pady=(0, 8))
 
-            cols = ("no", "ticket", "w_open", "w_close", "durasi", "tipe", "lot", "entry", "sl", "tp", "exit", "pips", "profit", "hasil", "alasan")
+            cols = ("no", "ticket", "w_open", "w_close", "durasi", "tipe", "lot", "entry", "sl", "tp", "exit", "pips", "profit", "saldo", "hasil", "alasan")
             self.tree["columns"] = cols
 
             col_defs = [
@@ -1155,6 +1313,7 @@ class TradingBotGUI:
                 ("exit", "Harga Exit", 95, "center"),
                 ("pips", "Pips", 70, "center"),
                 ("profit", "Profit (USD)", 95, "center"),
+                ("saldo", "Saldo ($)", 95, "center"),
                 ("hasil", "Hasil", 65, "center"),
                 ("alasan", "Alasan Exit / Keterangan", 220, "w"),
             ]
@@ -1163,13 +1322,22 @@ class TradingBotGUI:
                 self.tree.column(cid, width=width, anchor=anchor, stretch=(cid == "alasan"))
 
             target_excel = EXCEL_M15 if mode == "m15" else EXCEL_M5
-            sheet_name = "Trade Log Model Terbaru" if mode == "m15" else "Trade Log M5 Scalping"
-            model_label = "M15 Konservatif" if mode == "m15" else "M5 Scalper"
 
             if os.path.exists(target_excel):
                 try:
-                    df = pd.read_excel(target_excel, sheet_name=sheet_name)
+                    xl, avail_sheets = safe_load_excel_sheets(target_excel)
+                    sheet_name = next((s for s in avail_sheets if "v3.7" in s and "stat" not in s.lower()), None)
+                    if not sheet_name:
+                        sheet_name = next((s for s in avail_sheets if "v3.6" in s and "stat" not in s.lower()), None)
+                    if not sheet_name and avail_sheets:
+                        sheet_name = avail_sheets[0]
+
+                    v_tag = "v3.7" if (sheet_name and "v3.7" in sheet_name) else "v3.6"
+                    model_label = f"M15 Konservatif ({v_tag})" if mode == "m15" else f"M5 Scalper ({v_tag})"
+
+                    df = xl.parse(sheet_name) if (xl and sheet_name) else pd.DataFrame()
                     wins, loss, total_pnl = 0, 0, 0.0
+                    running_bal = 500.0
                     for _, r in df.iterrows():
                         pnl = float(r.get("Profit ($ USD)", 0.0))
                         total_pnl += pnl
@@ -1179,6 +1347,13 @@ class TradingBotGUI:
 
                         sl_val = r.get("Stop Loss (SL)")
                         tp_val = r.get("Take Profit (TP)")
+                        saldo_val = r.get("Saldo ($ USD)")
+                        if pd.notna(saldo_val):
+                            saldo_disp = f"${float(saldo_val):.2f}"
+                        else:
+                            running_bal += pnl
+                            saldo_disp = f"${running_bal:.2f}"
+
                         row_data = {
                             "vals": (
                                 int(r.get("Trade Ke-", 0)),
@@ -1194,6 +1369,7 @@ class TradingBotGUI:
                                 f"${float(r.get('Harga Exit', 0)):.2f}",
                                 f"{float(r.get('Pips (P/L)', 0)):+.1f}",
                                 f"${pnl:+.2f}",
+                                saldo_disp,
                                 hasil_str,
                                 str(r.get("Keterangan / Alasan Exit", ""))
                             ),
@@ -1208,7 +1384,7 @@ class TradingBotGUI:
                         fg="#38bdf8" if mode == "m15" else "#10b981"
                     )
                     self.lbl_table_subtitle.config(
-                        text=f"Total: {tot} Trade  |  {wins} WIN / {loss} LOSS (Win Rate: {wr:.1f}%)  |  Net PnL: ${total_pnl:+.2f} USD  |  File: {os.path.basename(target_excel)}"
+                        text=f"Total: {tot} Trade  |  {wins} WIN / {loss} LOSS (Win Rate: {wr:.1f}%)  |  Net PnL: ${total_pnl:+.2f} USD  |  Saldo: ${500.0 + total_pnl:.2f} USD  |  File: {os.path.basename(target_excel)}"
                     )
                 except Exception as e:
                     self.lbl_table_title.config(text=f"⚠️ GAGAL MEMBACA EXCEL {model_label.upper()}")
@@ -1229,12 +1405,25 @@ class TradingBotGUI:
             self.tree.column("m15_val", width=280, anchor="center")
             self.tree.column("m5_val", width=280, anchor="center")
 
-            self.lbl_table_title.config(text="📈 RINGKASAN STATISTIK & PERBANDINGAN MODEL M15 vs M5", fg="#818cf8")
+            self.lbl_table_title.config(text="📈 RINGKASAN STATISTIK & PERBANDINGAN MODEL M15 vs M5 (v3.7)", fg="#818cf8")
             self.lbl_table_subtitle.config(text="Perbandingan indikator kinerja forward testing langsung dari lembar Ringkasan Statistik Excel.")
 
             try:
-                s15 = pd.read_excel(EXCEL_M15, sheet_name="Ringkasan Statistik") if os.path.exists(EXCEL_M15) else pd.DataFrame()
-                s5 = pd.read_excel(EXCEL_M5, sheet_name="Ringkasan Statistik") if os.path.exists(EXCEL_M5) else pd.DataFrame()
+                xl15, sheets15 = safe_load_excel_sheets(EXCEL_M15)
+                s15_name = next((s for s in sheets15 if "v3.7" in s and "stat" in s.lower()), None)
+                if not s15_name:
+                    s15_name = next((s for s in sheets15 if "v3.6" in s and "stat" in s.lower()), None)
+                if not s15_name:
+                    s15_name = next((s for s in sheets15 if "stat" in s.lower()), None)
+                s15 = xl15.parse(s15_name) if (xl15 and s15_name) else pd.DataFrame()
+
+                xl5, sheets5 = safe_load_excel_sheets(EXCEL_M5)
+                s5_name = next((s for s in sheets5 if "v3.7" in s and "stat" in s.lower()), None)
+                if not s5_name:
+                    s5_name = next((s for s in sheets5 if "v3.6" in s and "stat" in s.lower()), None)
+                if not s5_name:
+                    s5_name = next((s for s in sheets5 if "stat" in s.lower()), None)
+                s5 = xl5.parse(s5_name) if (xl5 and s5_name) else pd.DataFrame()
 
                 if not s15.empty and not s5.empty:
                     merged = pd.merge(s15, s5, on="Metrik Evaluasi Forward Testing", suffixes=(" (M15)", " (M5)"), how="outer")
@@ -1255,8 +1444,10 @@ class TradingBotGUI:
                             "vals": (str(r.iloc[0]), "-", str(r.iloc[1])),
                             "hasil": "STAT"
                         })
+                else:
+                    self.lbl_table_subtitle.config(text="Belum ada data ringkasan statistik.")
             except Exception as e:
-                self.lbl_table_subtitle.config(text=f"Gagal memuat ringkasan statistik: {e}")
+                self.lbl_table_subtitle.config(text=f"Gagal memuat statistik: {e}")
 
         elif mode == "mt5":
             self.filter_strip.pack(fill="x", pady=(0, 8))
@@ -1388,17 +1579,23 @@ class TradingBotGUI:
         for tab in modal_nb.tabs():
             modal_nb.forget(tab)
 
-        tab1 = self.build_modal_excel_tab(modal_nb, EXCEL_M15, "Trade Log Model Terbaru", is_stats=False, model_name="M15 Konservatif")
-        modal_nb.add(tab1, text="  📊 Trade Log M15  ")
+        tab1 = self.build_modal_excel_tab(modal_nb, EXCEL_M15, "Trade Log Model Terbaru (v3.7)", is_stats=False, model_name="M15 v3.7")
+        modal_nb.add(tab1, text="  📊 Log M15 (v3.7)  ")
 
-        tab2 = self.build_modal_excel_tab(modal_nb, EXCEL_M5, "Trade Log M5 Scalping", is_stats=False, model_name="M5 Scalper")
-        modal_nb.add(tab2, text="  ⚡ Trade Log M5  ")
+        tab2 = self.build_modal_excel_tab(modal_nb, EXCEL_M5, "Trade Log M5 Scalping (v3.7)", is_stats=False, model_name="M5 v3.7")
+        modal_nb.add(tab2, text="  ⚡ Log M5 (v3.7)  ")
 
-        tab3 = self.build_modal_excel_tab(modal_nb, EXCEL_M15, "Ringkasan Statistik", is_stats=True, model_name="Statistik M15")
-        modal_nb.add(tab3, text="  📈 Ringkasan Statistik M15  ")
+        tab3 = self.build_modal_excel_tab(modal_nb, EXCEL_M15, "Ringkasan Statistik (v3.7)", is_stats=True, model_name="Statistik M15 v3.7")
+        modal_nb.add(tab3, text="  📈 Statistik M15 (v3.7)  ")
 
-        tab4 = self.build_modal_excel_tab(modal_nb, EXCEL_M5, "Ringkasan Statistik", is_stats=True, model_name="Statistik M5")
-        modal_nb.add(tab4, text="  📈 Ringkasan Statistik M5  ")
+        tab4 = self.build_modal_excel_tab(modal_nb, EXCEL_M5, "Ringkasan Statistik (v3.7)", is_stats=True, model_name="Statistik M5 v3.7")
+        modal_nb.add(tab4, text="  📈 Statistik M5 (v3.7)  ")
+
+        tab5 = self.build_modal_excel_tab(modal_nb, EXCEL_M15, "Trade Log Model Terbaru (v3.6)", is_stats=False, model_name="Arsip M15 v3.6")
+        modal_nb.add(tab5, text="  📁 Arsip M15 (v3.6)  ")
+
+        tab6 = self.build_modal_excel_tab(modal_nb, EXCEL_M5, "Trade Log M5 Scalping (v3.6)", is_stats=False, model_name="Arsip M5 v3.6")
+        modal_nb.add(tab6, text="  📁 Arsip M5 (v3.6)  ")
 
     def build_modal_excel_tab(self, parent, file_path, sheet_name, is_stats=False, model_name=""):
         frame = tk.Frame(parent, bg="#0b0f19")
@@ -1438,7 +1635,15 @@ class TradingBotGUI:
 
         if os.path.exists(file_path):
             try:
-                df = pd.read_excel(file_path, sheet_name=sheet_name)
+                xl, avail_sheets = safe_load_excel_sheets(file_path)
+                if xl and sheet_name in avail_sheets:
+                    df = xl.parse(sheet_name)
+                elif xl and avail_sheets:
+                    matched = next((s for s in avail_sheets if sheet_name.lower() in s.lower()), avail_sheets[0])
+                    df = xl.parse(matched)
+                else:
+                    df = pd.DataFrame()
+
                 if is_stats:
                     tree["columns"] = ("k", "v")
                     tree.heading("k", text="Metrik Evaluasi")
@@ -1451,7 +1656,7 @@ class TradingBotGUI:
 
                     info_lbl.config(text=f"📋 Ringkasan Statistik {model_name} ({len(df)} Indikator Evaluasi)")
                 else:
-                    cols = ("no", "ticket", "w_open", "w_close", "durasi", "tipe", "lot", "entry", "sl", "tp", "exit", "pips", "profit", "hasil", "alasan")
+                    cols = ("no", "ticket", "w_open", "w_close", "durasi", "tipe", "lot", "entry", "sl", "tp", "exit", "pips", "profit", "saldo", "hasil", "alasan")
                     tree["columns"] = cols
                     col_defs = [
                         ("no", "#", 50, "center"),
@@ -1467,6 +1672,7 @@ class TradingBotGUI:
                         ("exit", "Exit", 90, "center"),
                         ("pips", "Pips", 65, "center"),
                         ("profit", "Profit ($)", 90, "center"),
+                        ("saldo", "Saldo ($)", 90, "center"),
                         ("hasil", "Hasil", 65, "center"),
                         ("alasan", "Keterangan / Alasan Exit", 220, "w"),
                     ]
@@ -1475,6 +1681,7 @@ class TradingBotGUI:
                         tree.column(cid, width=w, anchor=a)
 
                     wins, loss, pnl_tot = 0, 0, 0.0
+                    running_bal = 500.0
                     for _, r in df.iterrows():
                         pnl = float(r.get("Profit ($ USD)", 0.0))
                         pnl_tot += pnl
@@ -1484,6 +1691,13 @@ class TradingBotGUI:
 
                         sl_val = r.get("Stop Loss (SL)")
                         tp_val = r.get("Take Profit (TP)")
+                        saldo_val = r.get("Saldo ($ USD)")
+                        if pd.notna(saldo_val):
+                            saldo_disp = f"${float(saldo_val):.2f}"
+                        else:
+                            running_bal += pnl
+                            saldo_disp = f"${running_bal:.2f}"
+
                         tag = "win" if h_str == "WIN" else ("loss" if h_str == "LOSS" else "normal")
                         vals = (
                             int(r.get("Trade Ke-", 0)),
@@ -1499,6 +1713,7 @@ class TradingBotGUI:
                             f"${float(r.get('Harga Exit', 0)):.2f}",
                             f"{float(r.get('Pips (P/L)', 0)):+.1f}",
                             f"${pnl:+.2f}",
+                            saldo_disp,
                             h_str,
                             str(r.get("Keterangan / Alasan Exit", ""))
                         )
@@ -1506,7 +1721,7 @@ class TradingBotGUI:
 
                     tot = len(df)
                     wr = (wins / tot * 100) if tot > 0 else 0.0
-                    info_lbl.config(text=f"📊 {model_name}: {tot} Trade | {wins} WIN / {loss} LOSS ({wr:.1f}%) | Net PnL: ${pnl_tot:+.2f} USD")
+                    info_lbl.config(text=f"📊 {model_name}: {tot} Trade | {wins} WIN / {loss} LOSS ({wr:.1f}%) | Net PnL: ${pnl_tot:+.2f} USD | Saldo: ${500.0 + pnl_tot:.2f}")
 
             except Exception as e:
                 info_lbl.config(text=f"⚠️ Gagal membaca sheet {sheet_name}: {e}")
