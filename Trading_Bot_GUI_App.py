@@ -1284,6 +1284,9 @@ class TradingBotGUI:
 
     def load_excel_view(self, mode="m15"):
         self.current_rekap_mode = mode
+        if hasattr(self, 'set_filter_status'):
+            # Reset filter status ke ALL saat berpindah tab agar tidak menyembunyikan data
+            self.set_filter_status("ALL")
 
         # Update visual tombol nav aktif
         self.btn_nav_m15.config(bg="#0284c7" if mode == "m15" else "#1e293b", fg="#ffffff" if mode == "m15" else "#94a3b8")
@@ -1518,11 +1521,12 @@ class TradingBotGUI:
             vals = item["vals"]
             hasil = item.get("hasil", "")
 
-            # Filter WIN/LOSS (jika bukan mode STAT)
-            if filter_st == "WIN" and hasil != "WIN":
-                continue
-            if filter_st == "LOSS" and hasil != "LOSS":
-                continue
+            # Filter WIN/LOSS (hanya untuk baris transaksi WIN/LOSS/BE, jangan filter baris STAT)
+            if hasil in ["WIN", "LOSS", "BE"]:
+                if filter_st == "WIN" and hasil != "WIN":
+                    continue
+                if filter_st == "LOSS" and hasil != "LOSS":
+                    continue
 
             # Filter search query
             if search_q:
