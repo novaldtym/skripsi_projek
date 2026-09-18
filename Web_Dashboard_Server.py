@@ -62,13 +62,28 @@ def get_running_bots():
     return {"m15_running": m15_active, "m5_running": m5_active}
 
 def get_portfolio_summary():
-    """Mengambil metrik ringkasan performa v3.7 dari MT5 & Excel"""
+    """Mengambil metrik ringkasan performa v3.7 dari MT5 & Excel (Khusus Skripsi: MURNI Model M15)"""
     summary = {
         "starting_balance": 500.00,
         "current_balance": 500.00,
         "equity": 500.00,
         "floating_profit": 0.00,
         "free_margin": 500.00,
+        # Metrik Skripsi (MURNI Model M15):
+        "skripsi_trades": 0,
+        "skripsi_wins": 0,
+        "skripsi_losses": 0,
+        "skripsi_win_rate": 0.0,
+        "skripsi_net_profit": 0.0,
+        "skripsi_roi_pct": 0.0,
+        # Metrik M5 (Eksperimen Tambahan / Non-Skripsi):
+        "m5_trades": 0,
+        "m5_wins": 0,
+        "m5_losses": 0,
+        "m5_win_rate": 0.0,
+        "m5_net_profit": 0.0,
+        "m5_roi_pct": 0.0,
+        # Progres Utama UI (sepenuhnya mengikuti Skripsi M15):
         "total_trades": 0,
         "win_trades": 0,
         "loss_trades": 0,
@@ -85,15 +100,10 @@ def get_portfolio_summary():
             summary["equity"] = round(acc.equity, 2)
             summary["floating_profit"] = round(acc.profit, 2)
             summary["free_margin"] = round(acc.margin_free, 2)
+            summary["current_balance"] = round(acc.balance, 2)
 
-    # Ambil akumulasi trade log v3.7 dari kedua Excel
-    tot_trades = 0
-    tot_wins = 0
-    tot_losses = 0
-    net_profit = 0.0
-
-    for path, sheet_name in [(EXCEL_M15_PATH, 'Ringkasan Statistik (v3.7)'), 
-                             (EXCEL_M5_PATH, 'Ringkasan Statistik (v3.7)')]:
+    def read_sheet_stats(path, sheet_name):
+        trades, wins, losses, profit = 0, 0, 0, 0.0
         if os.path.exists(path):
             try:
                 wb = openpyxl.load_workbook(path, data_only=True)
@@ -103,29 +113,50 @@ def get_portfolio_summary():
                         lbl = str(ws.cell(r, 1).value or '')
                         val = ws.cell(r, 2).value
                         if "Total Trade Otomatis Selesai" in lbl and val:
-                            try: tot_trades += int(str(val).replace('Trade', '').strip())
+                            try: trades = int(str(val).replace('Trade', '').strip())
                             except Exception: pass
                         elif "Jumlah Trade WIN" in lbl and val:
-                            try: tot_wins += int(str(val).replace('Trade', '').strip())
+                            try: wins = int(str(val).replace('Trade', '').strip())
                             except Exception: pass
                         elif "Jumlah Trade LOSS" in lbl and val:
-                            try: tot_losses += int(str(val).replace('Trade', '').strip())
+                            try: losses = int(str(val).replace('Trade', '').strip())
                             except Exception: pass
                         elif "Total Akumulasi Profit" in lbl and val:
                             try: 
                                 s_val = str(val).replace('$', '').replace('USD', '').replace('+', '').strip()
-                                net_profit += float(s_val)
+                                profit = float(s_val)
                             except Exception: pass
             except Exception as e:
                 print(f"Error reading {path}: {e}")
+        wr = round((wins / trades * 100), 2) if trades > 0 else 0.0
+        roi = round((profit / summary["starting_balance"] * 100), 2)
+        return trades, wins, losses, wr, round(profit, 2), roi
 
-    summary["total_trades"] = tot_trades
-    summary["win_trades"] = tot_wins
-    summary["loss_trades"] = tot_losses
-    summary["win_rate"] = round((tot_wins / tot_trades * 100), 2) if tot_trades > 0 else 0.0
-    summary["net_profit"] = round(net_profit, 2)
-    summary["current_balance"] = round(summary["starting_balance"] + net_profit, 2)
-    summary["roi_pct"] = round((net_profit / summary["starting_balance"] * 100), 2)
+    # 1. BACA KHUSUS M15 (FOKUS UTAMA SKRIPSI)
+    m15_t, m15_w, m15_l, m15_wr, m15_pnl, m15_roi = read_sheet_stats(EXCEL_M15_PATH, 'Ringkasan Statistik (v3.7)')
+    summary["skripsi_trades"] = m15_t
+    summary["skripsi_wins"] = m15_w
+    summary["skripsi_losses"] = m15_l
+    summary["skripsi_win_rate"] = m15_wr
+    summary["skripsi_net_profit"] = m15_pnl
+    summary["skripsi_roi_pct"] = m15_roi
+
+    # Target Skripsi (0 / 100 Trade) dan metrik utama hanya membaca M15!
+    summary["total_trades"] = m15_t
+    summary["win_trades"] = m15_w
+    summary["loss_trades"] = m15_l
+    summary["win_rate"] = m15_wr
+    summary["net_profit"] = m15_pnl
+    summary["roi_pct"] = m15_roi
+
+    # 2. BACA KHUSUS M5 (EKSPERIMEN TAMBAHAN / TIDAK DIHITUNG KE TARGET SKRIPSI)
+    m5_t, m5_w, m5_l, m5_wr, m5_pnl, m5_roi = read_sheet_stats(EXCEL_M5_PATH, 'Ringkasan Statistik (v3.7)')
+    summary["m5_trades"] = m5_t
+    summary["m5_wins"] = m5_w
+    summary["m5_losses"] = m5_l
+    summary["m5_win_rate"] = m5_wr
+    summary["m5_net_profit"] = m5_pnl
+    summary["m5_roi_pct"] = m5_roi
 
     return summary
 
@@ -173,8 +204,8 @@ def get_recent_trade_logs(limit=50):
     records = []
 
     configs = [
-        (EXCEL_M15_PATH, "Trade Log Model Terbaru (v3.7)", "M15 v3.7"),
-        (EXCEL_M5_PATH,  "Trade Log M5 Scalping (v3.7)",   "M5 v3.7")
+        (EXCEL_M15_PATH, "Trade Log Model Terbaru (v3.7)", "M15 v3.7 (Skripsi)"),
+        (EXCEL_M5_PATH,  "Trade Log M5 Scalping (v3.7)",   "M5 v3.7 (Non-Skripsi)")
     ]
 
     for path, sheet_name, model_tag in configs:

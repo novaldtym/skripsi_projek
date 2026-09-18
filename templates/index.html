@@ -102,38 +102,38 @@
             <!-- Quick Stats Row -->
             <div class="hero-stats-grid">
                 <div class="stat-item">
-                    <span class="stat-label">Ekuitas</span>
+                    <span class="stat-label">Ekuitas Akun</span>
                     <span id="val-equity" class="stat-value">$500.00</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">Floating</span>
+                    <span class="stat-label">Floating P/L</span>
                     <span id="val-floating" class="stat-value neutral">$0.00</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">Win Rate</span>
+                    <span class="stat-label">Win Rate (M15 Skripsi)</span>
                     <span id="val-winrate" class="stat-value">0%</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">Net P/L</span>
+                    <span class="stat-label">Net P/L (M15 Skripsi)</span>
                     <span id="val-netpl" class="stat-value neutral">$0.00</span>
                 </div>
             </div>
         </section>
 
-        <!-- 2. Target Skripsi Progress -->
+        <!-- 2. Target Skripsi Progress (Khusus Model M15) -->
         <section class="card card-progress">
             <div class="progress-header">
                 <div class="progress-title-group">
                     <i class="lucide-icon-sm" data-lucide="graduation-cap"></i>
-                    <h4>Target Skripsi</h4>
+                    <h4>Target Skripsi (Model M15)</h4>
                 </div>
-                <span id="progress-count" class="progress-badge">0 / 100 Trade</span>
+                <span id="progress-count" class="progress-badge">0 / 100 Trade M15</span>
             </div>
             <div class="progress-bar-track">
                 <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%"></div>
             </div>
             <div class="progress-footer">
-                <span class="label-muted">Status: Menunggu pemicu eksekusi</span>
+                <span id="progress-desc" class="label-muted">Pengujian Model M15 v3.7 Sniper (Objek Utama Skripsi)</span>
                 <span id="progress-pct" class="progress-pct">0.0%</span>
             </div>
         </section>
@@ -142,7 +142,10 @@
         <section class="bot-cards-grid">
             <article id="card-bot-m15" class="card card-bot">
                 <div class="bot-header">
-                    <span class="bot-name">M15 Swing</span>
+                    <div>
+                        <span class="bot-name">M15 Swing</span>
+                        <span style="font-size:10px;color:var(--accent);font-weight:700;margin-left:4px;">[MODEL SKRIPSI]</span>
+                    </div>
                     <span id="status-m15" class="status-badge checking">
                         <span class="status-dot"></span>
                         Memeriksa...
@@ -150,22 +153,25 @@
                 </div>
                 <div class="bot-stats">
                     <div>
-                        <span class="label-muted">Win Rate Historis</span>
-                        <span id="m15-winrate" class="bot-big-stat">—</span>
+                        <span class="label-muted">Win Rate (Skripsi)</span>
+                        <span id="m15-winrate" class="bot-big-stat">0%</span>
                     </div>
                     <div class="text-right">
-                        <span class="label-muted">Timeframe</span>
-                        <span class="bot-tf-badge">M15 TF</span>
+                        <span class="label-muted">Progres Selesai</span>
+                        <span id="m15-trade-count" class="bot-tf-badge">0 / 100 Trade</span>
                     </div>
                 </div>
                 <div class="bot-footer">
-                    <span class="label-muted">Pasangan:</span>
-                    <span class="bot-pair-badge">XAU/USD (Gold)</span>
+                    <span class="label-muted">Status:</span>
+                    <span class="bot-pair-badge">Objek Utama Penelitian</span>
                 </div>
             </article>
             <article id="card-bot-m5" class="card card-bot">
                 <div class="bot-header">
-                    <span class="bot-name">M5 Scalper</span>
+                    <div>
+                        <span class="bot-name">M5 Scalper</span>
+                        <span style="font-size:10px;color:var(--text-muted);margin-left:4px;">[NON-SKRIPSI]</span>
+                    </div>
                     <span id="status-m5" class="status-badge checking">
                         <span class="status-dot"></span>
                         Memeriksa...
@@ -173,17 +179,17 @@
                 </div>
                 <div class="bot-stats">
                     <div>
-                        <span class="label-muted">Win Rate Historis</span>
-                        <span id="m5-winrate" class="bot-big-stat">—</span>
+                        <span class="label-muted">Win Rate (Eksperimen)</span>
+                        <span id="m5-winrate" class="bot-big-stat">0%</span>
                     </div>
                     <div class="text-right">
-                        <span class="label-muted">Timeframe</span>
-                        <span class="bot-tf-badge">M5 High-Freq</span>
+                        <span class="label-muted">Total Trade</span>
+                        <span id="m5-trade-count" class="bot-tf-badge">0 Trade</span>
                     </div>
                 </div>
                 <div class="bot-footer">
-                    <span class="label-muted">Pasangan:</span>
-                    <span class="bot-pair-badge gold">XAU/USD (Gold)</span>
+                    <span class="label-muted">Status:</span>
+                    <span class="bot-pair-badge gold">Eksperimen Tambahan</span>
                 </div>
             </article>
         </section>
@@ -233,8 +239,8 @@
                 <!-- Filter Tabs -->
                 <div class="filter-tabs">
                     <button id="tab-all" class="tab-btn active" onclick="switchTab('all')">Semua</button>
-                    <button id="tab-m15" class="tab-btn" onclick="switchTab('m15')">M15</button>
-                    <button id="tab-m5" class="tab-btn" onclick="switchTab('m5')">M5</button>
+                    <button id="tab-m15" class="tab-btn" onclick="switchTab('m15')">M15 (Skripsi)</button>
+                    <button id="tab-m5" class="tab-btn" onclick="switchTab('m5')">M5 (Non-Skripsi)</button>
                 </div>
             </div>
             <div id="section-trades" class="trades-list">

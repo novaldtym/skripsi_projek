@@ -192,12 +192,26 @@ function updateSummary(data) {
     roiText.innerText = `${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%`;
     roiPill.className = 'roi-badge ' + (roi >= 0 ? 'positive' : 'negative');
 
-    // Progress bar
-    const totalTrades = data.total_trades || 0;
-    const pct = Math.min(100, (totalTrades / 100) * 100);
-    document.getElementById('progress-count').innerText = `${totalTrades} / 100 Trade`;
+    // Progress bar (Khusus M15 Skripsi)
+    const skripsiTrades = (data.skripsi_trades !== undefined) ? data.skripsi_trades : (data.total_trades || 0);
+    const pct = Math.min(100, (skripsiTrades / 100) * 100);
+    document.getElementById('progress-count').innerText = `${skripsiTrades} / 100 Trade M15`;
     document.getElementById('progress-bar-fill').style.width = `${Math.max(2, pct)}%`;
     document.getElementById('progress-pct').innerText = `${pct.toFixed(1)}%`;
+
+    // Bot Card Stats (M15 Skripsi vs M5 Non-Skripsi)
+    const m15Wr = (data.skripsi_win_rate !== undefined) ? data.skripsi_win_rate : wr;
+    const m15CountEl = document.getElementById('m15-trade-count');
+    if (m15CountEl) m15CountEl.innerText = `${skripsiTrades} / 100 Trade`;
+    const m15WrEl = document.getElementById('m15-winrate');
+    if (m15WrEl) m15WrEl.innerText = `${m15Wr.toFixed(0)}%`;
+
+    const m5Trades = data.m5_trades || 0;
+    const m5Wr = data.m5_win_rate || 0;
+    const m5CountEl = document.getElementById('m5-trade-count');
+    if (m5CountEl) m5CountEl.innerText = `${m5Trades} Trade`;
+    const m5WrEl = document.getElementById('m5-winrate');
+    if (m5WrEl) m5WrEl.innerText = `${m5Wr.toFixed(0)}%`;
 
     // Equity Curve Update
     updateEquityCurve(data.current_balance);
