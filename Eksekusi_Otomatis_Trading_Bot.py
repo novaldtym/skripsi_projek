@@ -76,14 +76,19 @@ ENABLE_AI_CUTLOSS      = True       # AI Early Cut-Loss jika sinyal candle M15 b
 AI_CUTLOSS_REV_PROB    = 65.0       # Ambang batas pembalikan arah AI untuk cut-loss dini
 
 # --- IDENTITAS VERSI DAN LOGGING ---
-BOT_VERSION            = "Versi 3.7 (Wide SL + High RRR + Sniper Entry + Smart Structure)"
-MODEL_LABEL_EXCEL      = "LightGBM M15 v3.7 (Wide SL + RRR 2.5 + Sniper)"
-THRESHOLD_LABEL_EXCEL  = "Versi 3.7 (Wide SL + RRR 2.5 + Sniper Entry)"
-ORDER_COMMENT          = "LightGBM M15 v3.7"
+BOT_VERSION            = "Versi 3.8 (Adaptive Hybrid Execution: Sniper 50% + Direct Momentum)"
+MODEL_LABEL_EXCEL      = "LightGBM M15 v3.8 (Adaptive Hybrid + Wide SL)"
+THRESHOLD_LABEL_EXCEL  = "Versi 3.8 (Adaptive Hybrid + Sniper 50%)"
+ORDER_COMMENT          = "LightGBM M15 v3.8"
 EXCEL_M15_PATH         = r"d:\SKRIPSI INFORMATIKA\Laporan_Forward_Testing_Model_Terbaru_SMC.xlsx"
 SHEET_TITLE_M15        = "Trade Log Model Terbaru (v3.7)"
 SUMMARY_TITLE_M15      = "Ringkasan Statistik (v3.7)"
 COLLISION_DISTANCE_MIN = 0.0018      # Jarak minimal 0.18% (~$8) dari Lantai Demand / Atap Supply Mayor
+
+# --- ADAPTIVE HYBRID EXECUTION CONFIGURATION ---
+ENABLE_ADAPTIVE_HYBRID_ENTRY  = True   # Mode hibrida: Limit Order 50% pada giant candle, Market Order pada normal candle
+GIANT_CANDLE_ATR_RATIO        = 1.35   # Ambang batas giant candle vs ATR (1.35x ATR)
+PENDING_ORDER_TIMEOUT_CANDLES = 3      # Batalkan pending limit jika tidak terjemput dalam 3 candle (45 menit)
 
 # --- RISK MANAGEMENT: LOSS COOLDOWN & DAILY LIMIT (REVISI v3.7) ---
 MAX_DAILY_LOSSES       = 5           # Maks 5x loss per hari (sesuai revisi user agar tidak membatasi peluang)
@@ -414,6 +419,12 @@ def detect_candle_structure(df_clean):
         'pdl': 0.0,
         'dist_pdh_pct': 0.0,
         'dist_pdl_pct': 0.0,
+        'c0_open': 0.0,
+        'c0_close': 0.0,
+        'c0_high': 0.0,
+        'c0_low': 0.0,
+        'cur_range': 0.0,
+        'cur_body': 0.0,
     }
     if len(df_clean) < 10:
         return fallback
@@ -584,6 +595,12 @@ def detect_candle_structure(df_clean):
         'pdl': pdl,
         'dist_pdh_pct': dist_pdh_pct,
         'dist_pdl_pct': dist_pdl_pct,
+        'c0_open': c0_open,
+        'c0_close': c0_close,
+        'c0_high': c0_high,
+        'c0_low': c0_low,
+        'cur_range': cur_range,
+        'cur_body': cur_body,
     }
 
 
@@ -596,7 +613,8 @@ def analyze_market_and_predict():
         'is_higher_low': False, 'is_lower_high': False,
         'bos_bull_recent': False, 'bos_bear_recent': False,
         'choch_bull_recent': False, 'choch_bear_recent': False,
-        'market_regime': 'SIDEWAYS', 'fibo_pos': 0.5, 'structure_desc': 'Fallback MT5 Disconnect'
+        'market_regime': 'SIDEWAYS', 'fibo_pos': 0.5, 'structure_desc': 'Fallback MT5 Disconnect',
+        'c0_open': 0.0, 'c0_close': 0.0, 'c0_high': 0.0, 'c0_low': 0.0, 'cur_range': 0.0, 'cur_body': 0.0
     }
     fallback_pattern = {
         'major_demand': 0.0, 'major_supply': 9999.0,
@@ -1367,32 +1385,101 @@ def get_best_filling_mode(sym):
     else:
         return mt5.ORDER_FILLING_RETURN
 
-def execute_auto_trade(signal_type, entry_price, sl_pips, tp_pips, zone_type="A", prob_val=50.0, reason_str="", features_dict=None):
+def manage_pending_orders(sym):
+    """
+    Memantau pending limit order M15:
+    Jika order tidak terjemput dalam PENDING_ORDER_TIMEOUT_CANDLES (45 menit),
+    batalkan order otomatis agar tidak tertinggal siklus pergerakan harga baru.
+    """
+    try:
+        pending_orders = mt5.orders_get(symbol=sym)
+        if not pending_orders:
+            return
+        now_ts = time.time()
+        max_lifetime_sec = PENDING_ORDER_TIMEOUT_CANDLES * 15 * 60
+        for o in pending_orders:
+            if o.magic == MAGIC_NUMBER:
+                order_age = now_ts - o.time_setup
+                if order_age > max_lifetime_sec:
+                    print(f"\n⏳ [TIMEOUT] Pending Order #{o.ticket} ({o.comment}) telah aktif {int(order_age/60)} menit (> {int(max_lifetime_sec/60)}m). Membatalkan order agar tidak tersangkut siklus lama...")
+                    req = {
+                        "action": mt5.TRADE_ACTION_REMOVE,
+                        "order": o.ticket,
+                    }
+                    res = mt5.order_send(req)
+                    if res and res.retcode == mt5.TRADE_RETCODE_DONE:
+                        print(f"✅ Pending Order #{o.ticket} berhasil dibatalkan otomatis.")
+                    else:
+                        c = res.comment if res else 'None'
+                        print(f"⚠️ Gagal membatalkan pending order #{o.ticket}: {c}")
+    except Exception:
+        pass
+
+def execute_auto_trade(signal_type, entry_price, sl_pips, tp_pips, zone_type="A", prob_val=50.0, reason_str="", features_dict=None, struct_data=None, atr_val=None):
     all_positions = mt5.positions_get(symbol=symbol)
     positions = [p for p in (all_positions or []) if p.magic == MAGIC_NUMBER]
     if len(positions) > 0:
         print(f"⚠️ Masih ada posisi aktif M15 (Ticket: {positions[0].ticket}). Menunggu trade selesai (No Over-Trading).")
         return
-        
+
+    all_pending = mt5.orders_get(symbol=symbol)
+    pending_orders = [o for o in (all_pending or []) if o.magic == MAGIC_NUMBER]
+    if len(pending_orders) > 0:
+        print(f"⚠️ Masih ada Pending Order aktif M15 (Ticket: #{pending_orders[0].ticket}). Menunggu terjemput atau kedaluwarsa.")
+        return
+
+    tick = mt5.symbol_info_tick(symbol)
+    if not tick:
+        print("❌ Gagal mengambil tick harga MT5 XAUUSD.")
+        return
+
+    # Evaluasi Mode Eksekusi Adaptif (Hybrid):
+    # Giant Candle (> 1.35 * ATR) -> Pending Limit Order di 50% Body Retracement
+    # Normal Candle (<= 1.35 * ATR) -> Market Order Instan (0-Delay)
+    use_pending_limit = False
+    exec_price = tick.ask if signal_type == "BUY" else tick.bid
     order_type = mt5.ORDER_TYPE_BUY if signal_type == "BUY" else mt5.ORDER_TYPE_SELL
-    price = mt5.symbol_info_tick(symbol).ask if signal_type == "BUY" else mt5.symbol_info_tick(symbol).bid
-    
+    order_action = mt5.TRADE_ACTION_DEAL
+    trade_mode_str = "MARKET ORDER INSTAN (Normal Momentum Candle)"
+    order_comment_zone = f"M15 v3.8 Z-{zone_type}"
+
+    if ENABLE_ADAPTIVE_HYBRID_ENTRY and struct_data and atr_val and atr_val > 0:
+        c_range = struct_data.get('cur_range', 0.0)
+        c_open  = struct_data.get('c0_open', 0.0)
+        c_close = struct_data.get('c0_close', 0.0)
+        
+        if c_range > (GIANT_CANDLE_ATR_RATIO * atr_val) and c_open > 0 and c_close > 0:
+            calc_50 = round((c_open + c_close) / 2.0, 3)
+            if signal_type == "BUY" and calc_50 < tick.ask:
+                use_pending_limit = True
+                exec_price = calc_50
+                order_action = mt5.TRADE_ACTION_PENDING
+                order_type = mt5.ORDER_TYPE_BUY_LIMIT
+                trade_mode_str = f"BUY LIMIT 50% RETRACEMENT (Giant Candle ${c_range:.2f} > {GIANT_CANDLE_ATR_RATIO}x ATR)"
+                order_comment_zone = f"M15 v3.8 Z-{zone_type}_50LMT"
+            elif signal_type == "SELL" and calc_50 > tick.bid:
+                use_pending_limit = True
+                exec_price = calc_50
+                order_action = mt5.TRADE_ACTION_PENDING
+                order_type = mt5.ORDER_TYPE_SELL_LIMIT
+                trade_mode_str = f"SELL LIMIT 50% RETRACEMENT (Giant Candle ${c_range:.2f} > {GIANT_CANDLE_ATR_RATIO}x ATR)"
+                order_comment_zone = f"M15 v3.8 Z-{zone_type}_50LMT"
+
     if signal_type == "BUY":
-        sl = price - (sl_pips / 10.0)
-        tp = price + (tp_pips / 10.0)
+        sl = exec_price - (sl_pips / 10.0)
+        tp = exec_price + (tp_pips / 10.0)
     else:
-        sl = price + (sl_pips / 10.0)
-        tp = price - (tp_pips / 10.0)
+        sl = exec_price + (sl_pips / 10.0)
+        tp = exec_price - (tp_pips / 10.0)
         
     filling_mode = get_best_filling_mode(symbol)
-    order_comment_zone = f"M15 v3.7 Z-{zone_type}"
         
     request = {
-        "action": mt5.TRADE_ACTION_DEAL,
+        "action": order_action,
         "symbol": symbol,
         "volume": LOT_SIZE,
         "type": order_type,
-        "price": price,
+        "price": exec_price,
         "sl": sl,
         "tp": tp,
         "deviation": 20,
@@ -1403,10 +1490,10 @@ def execute_auto_trade(signal_type, entry_price, sl_pips, tp_pips, zone_type="A"
     }
     
     color_order = COLOR_GREEN if signal_type == "BUY" else COLOR_RED
-    print(f"{color_order}{COLOR_BOLD}🚀 [OPEN {signal_type} - ZONA {zone_type}] MENGIRIM ORDER OTOMATIS KE MT5: {signal_type} {LOT_SIZE} Lot XAUUSD @ ${price:.2f} (SL: ${sl:.2f}, TP: ${tp:.2f} | {sl_pips}pips){COLOR_RESET}")
+    print(f"{color_order}{COLOR_BOLD}🚀 [OPEN {signal_type} - ZONA {zone_type} | {trade_mode_str}] MENGIRIM ORDER KE MT5: {signal_type} {LOT_SIZE} Lot XAUUSD @ ${exec_price:.2f} (SL: ${sl:.2f}, TP: ${tp:.2f} | {sl_pips}pips){COLOR_RESET}")
     result = mt5.order_send(request)
     if result and result.retcode == mt5.TRADE_RETCODE_DONE:
-        print(f"{color_order}{COLOR_BOLD}🎉 ORDER {signal_type} (ZONA {zone_type}) BERHASIL DIEKSEKUSI OTOMATIS DENGAN PRESISI 0-DELAY! Order Ticket: #{result.order}{COLOR_RESET}")
+        print(f"{color_order}{COLOR_BOLD}🎉 ORDER {signal_type} (ZONA {zone_type} | {trade_mode_str}) BERHASIL DIEKSEKUSI! Ticket: #{result.order}{COLOR_RESET}")
         try:
             sc_key = f"M15_ZONA_{zone_type}_{signal_type}"
             f_dict = features_dict if features_dict is not None else globals().get('last_features_dict', {})
@@ -1418,9 +1505,10 @@ def execute_auto_trade(signal_type, entry_price, sl_pips, tp_pips, zone_type="A"
                 scenario_type=sc_key,
                 setup_details={
                     'zone': f"Zona {zone_type}",
+                    'mode': trade_mode_str,
                     'sl_pips': sl_pips,
                     'tp_pips': tp_pips,
-                    'price': price,
+                    'price': exec_price,
                     'action': signal_type,
                     'model_prob': float(prob_val),
                     'entry_reason': reason_str,
@@ -1534,7 +1622,9 @@ def main():
                     init_sig, entry_p, init_sl, init_tp, zone_type=init_zone,
                     prob_val=prob_up if init_sig == "BUY" else prob_down,
                     reason_str=init_reason,
-                    features_dict=globals().get('last_features_dict', {})
+                    features_dict=globals().get('last_features_dict', {}),
+                    struct_data=struct_data,
+                    atr_val=atr_val
                 )
                 last_analyzed_candle = current_candle_time
         elif init_sig in ["BUY", "SELL"]:
@@ -1544,7 +1634,7 @@ def main():
 
     while True:
         try:
-            # 1. LOOP REAL-TIME: Pantau trailing lock, break-even, & AI cut-loss setiap detik
+            # 1. LOOP REAL-TIME: Pantau trailing lock, break-even, AI cut-loss, & pending order expiry setiap detik
             manage_open_positions(
                 prob_up, prob_down,
                 channel_data=channel_data,
@@ -1552,6 +1642,7 @@ def main():
                 struct_data=struct_data,
                 h1_bull=h1_bull
             )
+            manage_pending_orders(symbol)
 
             # Deteksi apakah ada posisi M15 yang baru saja tertutup (Hit SL/TP/BE/Cut-Loss)
             all_pos = mt5.positions_get(symbol=symbol)
@@ -1712,7 +1803,9 @@ def main():
                             final_sig, entry_p, sl_pips, tp_pips, zone_type=final_zone,
                             prob_val=prob_up if final_sig == "BUY" else prob_down,
                             reason_str=final_reason,
-                            features_dict=globals().get('last_features_dict', {})
+                            features_dict=globals().get('last_features_dict', {}),
+                            struct_data=struct_data,
+                            atr_val=atr_val
                         )
                 else:
                     print(f"{COLOR_YELLOW}⚠️ KEPUTUSAN DITAHAN: {final_reason}{COLOR_RESET}")
