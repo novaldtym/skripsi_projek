@@ -71,24 +71,24 @@ ENABLE_BREAKEVEN       = True       # Pindahkan SL ke Break-Even (+ $0.20) jika 
 ENABLE_TRAILING_LOCK   = True       # Kunci profit minimal jika floating profit pernah naik tinggi
 TRAILING_TRIGGER_USD   = 5.00       # Aktifkan trailing lock saat profit mencapai >= +$5.00 USD (dinaikkan agar tidak lock terlalu dini)
 TRAILING_LOCK_USD      = 3.50       # Kunci profit minimal +$3.50 USD (naik dari $2.50 agar profit pulang lebih besar)
-MAX_CUTLOSS_USD        = 6.00       # Batas risiko rugi terukur (naik dari $3.20 agar SL tidak terlalu tipis)
+MAX_CUTLOSS_USD        = 8.50       # Batas risiko rugi terukur diperlebar dari $6.00 ke $8.50 agar tidak terjilat wick normal XAUUSD
 ENABLE_AI_CUTLOSS      = True       # AI Early Cut-Loss jika sinyal candle M15 berbalik tajam >= 65%
 AI_CUTLOSS_REV_PROB    = 65.0       # Ambang batas pembalikan arah AI untuk cut-loss dini
 
 # --- IDENTITAS VERSI DAN LOGGING ---
-BOT_VERSION            = "Versi 3.8 (Adaptive Hybrid Execution: Sniper 50% + Direct Momentum)"
-MODEL_LABEL_EXCEL      = "LightGBM M15 v3.8 (Adaptive Hybrid + Wide SL)"
-THRESHOLD_LABEL_EXCEL  = "Versi 3.8 (Adaptive Hybrid + Sniper 50%)"
-ORDER_COMMENT          = "LightGBM M15 v3.8"
+BOT_VERSION            = "Versi 3.7 (Pure Market Order + Noise-Immune Wide SL + High RRR)"
+MODEL_LABEL_EXCEL      = "LightGBM M15 v3.7 (Wide SL + RRR 2.5 + Sniper)"
+THRESHOLD_LABEL_EXCEL  = "Versi 3.7 (Wide SL + RRR 2.5 + Sniper Entry)"
+ORDER_COMMENT          = "LightGBM M15 v3.7"
 EXCEL_M15_PATH         = r"d:\SKRIPSI INFORMATIKA\Laporan_Forward_Testing_Model_Terbaru_SMC.xlsx"
 SHEET_TITLE_M15        = "Trade Log Model Terbaru (v3.7)"
 SUMMARY_TITLE_M15      = "Ringkasan Statistik (v3.7)"
 COLLISION_DISTANCE_MIN = 0.0018      # Jarak minimal 0.18% (~$8) dari Lantai Demand / Atap Supply Mayor
 
-# --- ADAPTIVE HYBRID EXECUTION CONFIGURATION ---
-ENABLE_ADAPTIVE_HYBRID_ENTRY  = True   # Mode hibrida: Limit Order 50% pada giant candle, Market Order pada normal candle
-GIANT_CANDLE_ATR_RATIO        = 1.35   # Ambang batas giant candle vs ATR (1.35x ATR)
-PENDING_ORDER_TIMEOUT_CANDLES = 3      # Batalkan pending limit jika tidak terjemput dalam 3 candle (45 menit)
+# --- PURE MARKET ORDER CONFIGURATION (VERSI 3.7) ---
+ENABLE_ADAPTIVE_HYBRID_ENTRY  = False  # Set False untuk mempertahankan Pure Market Order 100% (Sinyal langsung dieksekusi)
+GIANT_CANDLE_ATR_RATIO        = 1.35   # Parameter fallback
+PENDING_ORDER_TIMEOUT_CANDLES = 3      # Parameter fallback
 
 # --- RISK MANAGEMENT: LOSS COOLDOWN & DAILY LIMIT (REVISI v3.7) ---
 MAX_DAILY_LOSSES       = 5           # Maks 5x loss per hari (sesuai revisi user agar tidak membatasi peluang)
@@ -901,7 +901,10 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
     - Zona B: Proximity Opportunity (0.15% - 0.40%)
     - Zona C: High-Probability Trend (> 0.40%)
     """
-    base_sl = max(50.0, min(70.0, round(atr_val * 10.0 * 0.80, 0)))  # SL diperlebar: $5.00-$7.00 (ATR*0.80) agar wick normal tidak sweep
+    # 🛡️ KALKULASI SL KEBAL WICK NOISE (REVISI v3.7 ANTI-SWEEP):
+    # Menggunakan 1.20x ATR (rentang $6.50 - $8.50 USD / 65-85 pips)
+    # Menjamin jarak SL berada di luar jangkauan noise wick normal M15 Gold (mencegah case Trade 3 tersapu dini)
+    base_sl = max(65.0, min(85.0, round(atr_val * 10.0 * 1.20, 0)))
     
     slope = channel_data.get('slope', 0.0) if channel_data else 0.0
     dyn_sup = channel_data.get('dyn_sup', m15_sup) if channel_data else m15_sup
@@ -1017,7 +1020,7 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
                         dist_sup_pct = pattern_data.get('dist_near_sup', 0.0) * 100
                         sell_candidate = ("WAIT", "COLLISION", 0, 0, f"🛑 ANTI-COLLISION: SELL Zona B Dibatalkan! Terlalu Dekat Lantai Support (${near_sup_val:.2f}, Jarak {dist_sup_pct:.2f}%).")
                     else:
-                        sl = max(45.0, round(base_sl * 0.85, 0))
+                        sl = max(55.0, round(base_sl * 0.90, 0))
                         tp = round(sl * 2.0, 0)
                         zone_tag = "B-Diag" if is_diag_res else "B-Horiz"
                         sell_candidate = ("SELL", zone_tag, sl, tp, f"🔴 ZONA B SELL (PROXIMITY): Struktur Lower High / Rejection Terkonfirmasi Dekat {res_label}{confluence_tag}! Prob {prob_down:.1f}%.")
@@ -1099,7 +1102,7 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
                         dist_res_pct = pattern_data.get('dist_near_res', 0.0) * 100
                         buy_candidate = ("WAIT", "COLLISION", 0, 0, f"🛑 ANTI-COLLISION: BUY Zona B Dibatalkan! Terlalu Dekat Atap Resisten (${near_res_val:.2f}, Jarak {dist_res_pct:.2f}%).")
                     else:
-                        sl = max(45.0, round(base_sl * 0.85, 0))
+                        sl = max(55.0, round(base_sl * 0.90, 0))
                         tp = round(sl * 2.0, 0)
                         zone_tag = "B-Diag" if is_diag_sup else "B-Horiz"
                         buy_candidate = ("BUY", zone_tag, sl, tp, f"🟢 ZONA B BUY (PROXIMITY): Struktur Higher Low / Rebound Terkonfirmasi Dekat {sup_label}{confluence_tag}! Prob {prob_up:.1f}%.")
@@ -1440,8 +1443,8 @@ def execute_auto_trade(signal_type, entry_price, sl_pips, tp_pips, zone_type="A"
     exec_price = tick.ask if signal_type == "BUY" else tick.bid
     order_type = mt5.ORDER_TYPE_BUY if signal_type == "BUY" else mt5.ORDER_TYPE_SELL
     order_action = mt5.TRADE_ACTION_DEAL
-    trade_mode_str = "MARKET ORDER INSTAN (Normal Momentum Candle)"
-    order_comment_zone = f"M15 v3.8 Z-{zone_type}"
+    trade_mode_str = "MARKET ORDER INSTAN (Pure Price Action v3.7)"
+    order_comment_zone = f"M15 v3.7 Z-{zone_type}"
 
     if ENABLE_ADAPTIVE_HYBRID_ENTRY and struct_data and atr_val and atr_val > 0:
         c_range = struct_data.get('cur_range', 0.0)
