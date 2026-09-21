@@ -317,6 +317,7 @@ def calc_technical_indicators(df_data):
             'is_ema_bull': True,
             'stoch_oversold': False, 'stoch_overbought': False,
             'stoch_bull_cross': False, 'stoch_bear_cross': False,
+            'bull_div': False, 'bear_div': False, 'div_desc': 'Data terbatas',
             'summary_desc': 'Data terbatas'
         }
     
@@ -362,10 +363,42 @@ def calc_technical_indicators(df_data):
     
     cur_rsi = float(rsi_series.iloc[-1]) if not pd.isna(rsi_series.iloc[-1]) else 50.0
     
+    # 5. Deteksi RSI Divergence (Regular Bullish & Bearish Divergence)
+    bull_div = False
+    bear_div = False
+    div_desc = "Netral"
+    
+    if len(df_data) >= 25 and 'low' in df_data.columns and 'high' in df_data.columns:
+        curr_low = float(df_data['low'].iloc[-1])
+        curr_high = float(df_data['high'].iloc[-1])
+        
+        # Ambil swing extrema 4 s/d 20 candle sebelumnya
+        prev_lows = df_data['low'].iloc[-20:-3]
+        prev_highs = df_data['high'].iloc[-20:-3]
+        
+        if len(prev_lows) > 0 and len(prev_highs) > 0:
+            min_prev_low = float(prev_lows.min())
+            min_prev_low_idx = prev_lows.idxmin()
+            rsi_at_prev_low = float(rsi_series.loc[min_prev_low_idx]) if min_prev_low_idx in rsi_series.index else 50.0
+            
+            max_prev_high = float(prev_highs.max())
+            max_prev_high_idx = prev_highs.idxmax()
+            rsi_at_prev_high = float(rsi_series.loc[max_prev_high_idx]) if max_prev_high_idx in rsi_series.index else 50.0
+            
+            # Regular Bullish Divergence: Harga Lower Low (atau retest dasar), tapi RSI naik (+3.0 pts) di area < 48
+            if (curr_low <= min_prev_low + 1.0) and (cur_rsi >= rsi_at_prev_low + 3.0) and (cur_rsi <= 48.0):
+                bull_div = True
+                div_desc = f"Bullish Div 🟢 (Low ${curr_low:.1f} vs ${min_prev_low:.1f} | RSI {cur_rsi:.1f} > {rsi_at_prev_low:.1f})"
+            # Regular Bearish Divergence: Harga Higher High (atau retest atap), tapi RSI turun (-3.0 pts) di area > 52
+            elif (curr_high >= max_prev_high - 1.0) and (cur_rsi <= rsi_at_prev_high - 3.0) and (cur_rsi >= 52.0):
+                bear_div = True
+                div_desc = f"Bearish Div 🔴 (High ${curr_high:.1f} vs ${max_prev_high:.1f} | RSI {cur_rsi:.1f} < {rsi_at_prev_high:.1f})"
+    
+    div_str = f" | {div_desc}" if div_desc != "Netral" else ""
     summary_desc = (
         f"Stoch RSI: %K={cur_k:.1f}, %D={cur_d:.1f} "
         f"({'OVERSOLD 🟢' if stoch_oversold else ('OVERBOUGHT 🔴' if stoch_overbought else 'NETRAL')}) | "
-        f"RSI: {cur_rsi:.1f} | BB Pos: {bb_pos*100:.1f}% | EMA20/50: {'BULL' if is_ema_bull else 'BEAR'}"
+        f"RSI: {cur_rsi:.1f}{div_str} | BB Pos: {bb_pos*100:.1f}% | EMA20/50: {'BULL' if is_ema_bull else 'BEAR'}"
     )
     
     return {
@@ -383,6 +416,9 @@ def calc_technical_indicators(df_data):
         'stoch_overbought': stoch_overbought,
         'stoch_bull_cross': stoch_bull_cross,
         'stoch_bear_cross': stoch_bear_cross,
+        'bull_div': bull_div,
+        'bear_div': bear_div,
+        'div_desc': div_desc,
         'summary_desc': summary_desc
     }
 
@@ -923,6 +959,9 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
     stoch_overbought = tech_data.get('stoch_overbought', False) if tech_data else False
     stoch_bull_cross = tech_data.get('stoch_bull_cross', False) if tech_data else False
     stoch_bear_cross = tech_data.get('stoch_bear_cross', False) if tech_data else False
+    bull_div = tech_data.get('bull_div', False) if tech_data else False
+    bear_div = tech_data.get('bear_div', False) if tech_data else False
+    div_desc = tech_data.get('div_desc', 'Netral') if tech_data else 'Netral'
     
     # 🛡️ KALENDER BERITA MAKROEKONOMI (NEWS GUARD M15)
     is_news_freeze, news_desc, _ = macro_news.check_news_guard(window_before_min=10, window_after_min=15)
@@ -932,8 +971,8 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
     is_strong_bull_trend = h1_bull or (slope > 0.08) or (channel_type == 'UPTREND_CHANNEL')
     is_strong_bear_trend = not h1_bull or (slope < -0.08) or (channel_type == 'DOWNTREND_CHANNEL')
 
-    has_sell_confluence = (stoch_overbought or stoch_bear_cross or (bb_pos >= 0.75) or ('BEARISH' in (pattern_data.get('pattern_bias', '') if pattern_data else ''))) and not is_strong_bull_trend
-    has_buy_confluence  = (stoch_oversold or stoch_bull_cross or (bb_pos <= 0.25) or ('BULLISH' in (pattern_data.get('pattern_bias', '') if pattern_data else ''))) and not is_strong_bear_trend
+    has_sell_confluence = (stoch_overbought or stoch_bear_cross or (bb_pos >= 0.75) or bear_div or ('BEARISH' in (pattern_data.get('pattern_bias', '') if pattern_data else ''))) and not is_strong_bull_trend
+    has_buy_confluence  = (stoch_oversold or stoch_bull_cross or (bb_pos <= 0.25) or bull_div or ('BULLISH' in (pattern_data.get('pattern_bias', '') if pattern_data else ''))) and not is_strong_bear_trend
     
     # 1. EVALUASI DUAL DEMAND/SUPPORT (BUY):
     if abs(slope) > 0.08 and dist_dyn_sup < dist_sup:
@@ -964,13 +1003,13 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
     # -----------------------------------------------------------------
     sell_candidate = None
     
-    # 🛡️ ANTI-OVERSOLD GUARD: Dilarang SELL jika Stoch RSI sudah di dasar jenuh jual (<= 25%)
-    # KECUALI jika terjadi Breakdown Impulsif / Tembus Level Mayor dengan lilin Marubozu solid!
-    if stoch_oversold and not (is_bear_c and (upper_w <= 0.15 or struct_data.get('is_impulse_bear', False))):
-        sell_candidate = ("WAIT", "OVERSOLD", 0, 0, f"🛑 OVERSOLD FILTER: SELL Dibatalkan! Stoch RSI di dasar (%K={stoch_k:.1f} <= 25). Risiko pantulan rebound tinggi!")
+    # 🛡️ ANTI-OVERSOLD / BULLISH DIVERGENCE GUARD: Dilarang SELL jika Stoch RSI oversold atau ada Bullish Divergence!
+    if (stoch_oversold or bull_div) and not (is_bear_c and (upper_w <= 0.15 or struct_data.get('is_impulse_bear', False))):
+        reason_div = f"Bullish Divergence aktif ({div_desc})" if bull_div else f"Stoch RSI di dasar (%K={stoch_k:.1f} <= 25)"
+        sell_candidate = ("WAIT", "OVERSOLD_OR_DIV", 0, 0, f"🛑 REVERSAL FILTER: SELL Dibatalkan! {reason_div}. Risiko pantulan rebound tinggi!")
     elif effective_dist_res <= ZONE_A_THRESHOLD:
-        has_sell_confluence = stoch_overbought or stoch_bear_cross or (bb_pos >= 0.75)
-        confluence_tag = f" [Stoch Overbought: %K={stoch_k:.1f}]" if stoch_overbought else (f" [Stoch Bear Cross]" if stoch_bear_cross else (f" [BB Atap: {bb_pos*100:.0f}%]" if bb_pos >= 0.75 else ""))
+        has_sell_confluence = stoch_overbought or stoch_bear_cross or (bb_pos >= 0.75) or bear_div
+        confluence_tag = f" [{div_desc}]" if bear_div else (f" [Stoch Overbought: %K={stoch_k:.1f}]" if stoch_overbought else (f" [Stoch Bear Cross]" if stoch_bear_cross else (f" [BB Atap: {bb_pos*100:.0f}%]" if bb_pos >= 0.75 else "")))
         
         if has_sell_confluence:
             min_p_sell = 50.0  # Konfluensi teknikal kuat di resisten! Model cukup konfirmasi >= 50%
@@ -998,8 +1037,8 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
             sell_candidate = ("WAIT", "A", 0, 0, f"Zona A {res_type}: Prob SELL ({prob_down:.1f}%) belum mencapai {min_p_sell:.0f}%")
 
     elif effective_dist_res <= ZONE_B_THRESHOLD:
-        has_sell_confluence = stoch_overbought or stoch_bear_cross or (bb_pos >= 0.75)
-        confluence_tag = f" [Stoch Overbought: %K={stoch_k:.1f}]" if stoch_overbought else (f" [Stoch Bear Cross]" if stoch_bear_cross else "")
+        has_sell_confluence = stoch_overbought or stoch_bear_cross or (bb_pos >= 0.75) or bear_div
+        confluence_tag = f" [{div_desc}]" if bear_div else (f" [Stoch Overbought: %K={stoch_k:.1f}]" if stoch_overbought else (f" [Stoch Bear Cross]" if stoch_bear_cross else ""))
         
         if has_sell_confluence:
             min_p_sell = 52.0
@@ -1034,13 +1073,13 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
     # -----------------------------------------------------------------
     buy_candidate = None
     
-    # 🛡️ ANTI-OVERBOUGHT GUARD: Dilarang BUY jika Stoch RSI sudah di pucuk jenuh beli (>= 75%)
-    # KECUALI jika terjadi Breakout Impulsif tembus atap mayor!
-    if stoch_overbought and not (is_bull_c and (lower_w <= 0.15 or struct_data.get('is_impulse_bull', False))):
-        buy_candidate = ("WAIT", "OVERBOUGHT", 0, 0, f"🛑 OVERBOUGHT FILTER: BUY Dibatalkan! Stoch RSI di puncak (%K={stoch_k:.1f} >= 75). Risiko pembalikan drop tinggi!")
+    # 🛡️ ANTI-OVERBOUGHT / BEARISH DIVERGENCE GUARD: Dilarang BUY jika Stoch RSI jenuh beli atau ada Bearish Divergence!
+    if (stoch_overbought or bear_div) and not (is_bull_c and (lower_w <= 0.15 or struct_data.get('is_impulse_bull', False))):
+        reason_div = f"Bearish Divergence aktif ({div_desc})" if bear_div else f"Stoch RSI di puncak (%K={stoch_k:.1f} >= 75)"
+        buy_candidate = ("WAIT", "OVERBOUGHT_OR_DIV", 0, 0, f"🛑 REVERSAL FILTER: BUY Dibatalkan! {reason_div}. Risiko pembalikan drop tinggi!")
     elif effective_dist_sup <= ZONE_A_THRESHOLD:
-        has_buy_confluence = stoch_oversold or stoch_bull_cross or (bb_pos <= 0.25)
-        confluence_tag = f" [Stoch Oversold: %K={stoch_k:.1f}]" if stoch_oversold else (f" [Stoch Bull Cross]" if stoch_bull_cross else (f" [BB Dasar: {bb_pos*100:.0f}%]" if bb_pos <= 0.25 else ""))
+        has_buy_confluence = stoch_oversold or stoch_bull_cross or (bb_pos <= 0.25) or bull_div
+        confluence_tag = f" [{div_desc}]" if bull_div else (f" [Stoch Oversold: %K={stoch_k:.1f}]" if stoch_oversold else (f" [Stoch Bull Cross]" if stoch_bull_cross else (f" [BB Dasar: {bb_pos*100:.0f}%]" if bb_pos <= 0.25 else "")))
         
         if has_buy_confluence:
             min_p_buy = 50.0  # Konfluensi teknikal kuat di support! Model cukup konfirmasi >= 50%
@@ -1074,8 +1113,8 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
             buy_candidate = ("WAIT", "A", 0, 0, f"Zona A {sup_type}: Prob BUY ({prob_up:.1f}%) belum mencapai {min_p_buy:.0f}%")
 
     elif effective_dist_sup <= ZONE_B_THRESHOLD:
-        has_buy_confluence = stoch_oversold or stoch_bull_cross or (bb_pos <= 0.25)
-        confluence_tag = f" [Stoch Oversold: %K={stoch_k:.1f}]" if stoch_oversold else (f" [Stoch Bull Cross]" if stoch_bull_cross else "")
+        has_buy_confluence = stoch_oversold or stoch_bull_cross or (bb_pos <= 0.25) or bull_div
+        confluence_tag = f" [{div_desc}]" if bull_div else (f" [Stoch Oversold: %K={stoch_k:.1f}]" if stoch_oversold else (f" [Stoch Bull Cross]" if stoch_bull_cross else ""))
         
         if has_buy_confluence:
             min_p_buy = 52.0
