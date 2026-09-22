@@ -186,8 +186,13 @@ def sync_mt5_trades_to_excel(
     if len(trade_records) > 0:
         try:
             import Scenario_Evaluator_Engine as scenario_eval
+            has_new_eval = False
             for tr_rec in trade_records:
-                scenario_eval.evaluate_and_record_trade(tr_rec)
+                res = scenario_eval.evaluate_and_record_trade(tr_rec, sync_excel=False)
+                if res is not None:
+                    has_new_eval = True
+            if has_new_eval:
+                scenario_eval.sync_scenario_evaluation_to_excel()
         except Exception:
             pass
 

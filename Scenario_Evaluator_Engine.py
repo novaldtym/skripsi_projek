@@ -171,17 +171,42 @@ def diagnose_trade_outcome(trade_record, entry_ctx=None):
     }
 
 
-def evaluate_and_record_trade(trade_record, orders_history=None):
+def evaluate_and_record_trade(trade_record, orders_history=None, sync_excel=True):
     """
     Mencatat hasil trade, menjalankan diagnosis mendalam, memperbarui matriks skenario,
     dan menyimpan ke Excel dan CSV.
     """
-    ticket = trade_record.get('Ticket Posisi', 0)
+    ticket_raw = trade_record.get('Ticket Posisi', 0)
+    ticket = str(ticket_raw).strip()
+    if not ticket or ticket in ['0', 'None', 'nan', '']:
+        return None
+
+    # Fast-path deduplikasi: Cek apakah tiket sudah dievaluasi sebelumnya dengan profit yang sama
+    if os.path.exists(CSV_EVAL_PATH):
+        try:
+            df_old_check = pd.read_csv(CSV_EVAL_PATH)
+            if 'Ticket Posisi' in df_old_check.columns:
+                existing_tickets = df_old_check['Ticket Posisi'].dropna().astype(str).str.strip().values
+                if ticket in existing_tickets:
+                    matching_rows = df_old_check[df_old_check['Ticket Posisi'].astype(str).str.strip() == ticket]
+                    if len(matching_rows) > 0:
+                        old_pnl = matching_rows.iloc[-1].get('Profit ($ USD)', None)
+                        new_pnl = trade_record.get('Profit ($ USD)', None)
+                        try:
+                            if old_pnl is not None and new_pnl is not None and abs(float(old_pnl) - float(new_pnl)) < 0.01:
+                                # Sudah ada dan tidak berubah -> Lewati evaluasi ulang
+                                return None
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
     entry_ctx = get_entry_context(ticket)
     diag = diagnose_trade_outcome(trade_record, entry_ctx)
     
     # Gabungkan data lengkap
     record_full = dict(trade_record)
+    record_full['Ticket Posisi'] = ticket
     record_full['Skenario Entry'] = diag['scenario']
     record_full['Zona Entry'] = diag['zone']
     record_full['Tren H4 Entry'] = diag['h4_trend']
@@ -192,11 +217,12 @@ def evaluate_and_record_trade(trade_record, orders_history=None):
     record_full['Evaluasi & Pembelajaran'] = diag['lesson_learned']
     record_full['Tanggal Evaluasi'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # 1. Simpan ke CSV Riwayat Trade Evaluasi
+    # 1. Simpan ke CSV Riwayat Trade Evaluasi secara aman dan ter-deduplikasi
     df_new = pd.DataFrame([record_full])
     if os.path.exists(CSV_EVAL_PATH):
         try:
             df_old = pd.read_csv(CSV_EVAL_PATH)
+            df_old['Ticket Posisi'] = df_old['Ticket Posisi'].astype(str).str.strip()
             if ticket not in df_old['Ticket Posisi'].values:
                 df_combined = pd.concat([df_old, df_new], ignore_index=True)
                 df_combined.to_csv(CSV_EVAL_PATH, index=False)
@@ -220,6 +246,7 @@ def evaluate_and_record_trade(trade_record, orders_history=None):
         if os.path.exists(CSV_ML_PATH):
             try:
                 df_ml_old = pd.read_csv(CSV_ML_PATH)
+                df_ml_old['Ticket'] = df_ml_old['Ticket'].astype(str).str.strip()
                 if ticket not in df_ml_old['Ticket'].values:
                     pd.concat([df_ml_old, df_ml], ignore_index=True).to_csv(CSV_ML_PATH, index=False)
             except Exception:
@@ -230,8 +257,9 @@ def evaluate_and_record_trade(trade_record, orders_history=None):
     # 3. Perbarui Matriks Evaluasi Skenario (5 - 10 kali pengujian)
     update_scenario_performance_matrix()
 
-    # 4. Tulis ke Excel Workbook yang Rapi
-    sync_scenario_evaluation_to_excel()
+    # 4. Tulis ke Excel Workbook hanya jika diminta (hindari freeze saat batch processing)
+    if sync_excel:
+        sync_scenario_evaluation_to_excel()
 
     return record_full
 
@@ -405,21 +433,27 @@ def sync_scenario_evaluation_to_excel():
             cell.font = header_font
             cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
+        align_center = Alignment(horizontal="center", vertical="center")
+        align_left = Alignment(horizontal="left", vertical="center")
+        font_unggul = Font(name="Calibri", size=10, bold=True, color="15803D")
+        font_hindar = Font(name="Calibri", size=10, bold=True, color="B91C1C")
+
         for r_idx, row in matrix_df.iterrows():
             current_row = 5 + r_idx
             for c_idx, val in enumerate(row, 1):
                 cell = ws_matrix.cell(row=current_row, column=c_idx, value=val)
                 cell.font = regular_font
                 cell.border = thin_border
-                cell.alignment = Alignment(horizontal="center" if c_idx in [2,3,4,5,6] else "left", vertical="center")
+                cell.alignment = align_center if c_idx in [2,3,4,5,6] else align_left
                 
-                if "UNGGULAN" in str(val):
+                val_str = str(val)
+                if "UNGGULAN" in val_str:
                     cell.fill = green_fill
-                    cell.font = Font(name="Calibri", size=10, bold=True, color="15803D")
-                elif "DIHINDARI" in str(val):
+                    cell.font = font_unggul
+                elif "DIHINDARI" in val_str:
                     cell.fill = red_fill
-                    cell.font = Font(name="Calibri", size=10, bold=True, color="B91C1C")
-                elif "PENGUJIAN" in str(val):
+                    cell.font = font_hindar
+                elif "PENGUJIAN" in val_str:
                     cell.fill = gray_fill
 
         ws_matrix.row_dimensions[4].height = 28
@@ -445,20 +479,27 @@ def sync_scenario_evaluation_to_excel():
             cell.font = header_font
             cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-        for r_idx, row in df_eval.iterrows():
+        align_left = Alignment(horizontal="left", vertical="center")
+        font_win = Font(name="Calibri", size=10, bold=True, color="15803D")
+        font_loss = Font(name="Calibri", size=10, bold=True, color="B91C1C")
+
+        # Batasi maksimal 200 trade terakhir untuk performa instan (< 0.1 detik)
+        df_eval_display = df_eval.tail(200) if len(df_eval) > 200 else df_eval
+        for r_idx, (_, row) in enumerate(df_eval_display.iterrows()):
             current_row = 5 + r_idx
             for c_idx, val in enumerate(row, 1):
                 cell = ws_log.cell(row=current_row, column=c_idx, value=val)
                 cell.font = regular_font
                 cell.border = thin_border
-                cell.alignment = Alignment(horizontal="left", vertical="center")
+                cell.alignment = align_left
                 
-                if str(val) == "WIN":
+                val_str = str(val)
+                if val_str == "WIN":
                     cell.fill = green_fill
-                    cell.font = Font(name="Calibri", size=10, bold=True, color="15803D")
-                elif str(val) == "LOSS":
+                    cell.font = font_win
+                elif val_str == "LOSS":
                     cell.fill = red_fill
-                    cell.font = Font(name="Calibri", size=10, bold=True, color="B91C1C")
+                    cell.font = font_loss
 
         ws_log.row_dimensions[4].height = 28
         for col in ws_log.columns:

@@ -1720,8 +1720,8 @@ def main():
 
             prev_positions_count = cur_count
 
-            # Sinkronisasi berkala ke Excel setiap 60 detik (Real-time safety, mode silent agar tidak merusak tampilan)
-            if time.time() - last_periodic_sync >= 60:
+            # Sinkronisasi berkala ke Excel setiap 180 detik (Real-time safety, mode silent agar tidak merusak tampilan)
+            if time.time() - last_periodic_sync >= 180:
                 last_periodic_sync = time.time()
                 try:
                     sync_mt5_trades_to_excel(

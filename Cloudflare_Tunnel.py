@@ -75,6 +75,9 @@ def run_tunnel_thread(port=5000):
                 except Exception:
                     pass
                 break
+        # Terus baca stderr di background agar pipe buffer Windows tidak penuh & freeze
+        for _ in CF_PROCESS.stderr:
+            pass
     except Exception as e:
         print(f"[Cloudflare] Error saat menjalankan tunnel: {e}")
 
