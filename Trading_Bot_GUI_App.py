@@ -17,16 +17,32 @@ import webbrowser
 import socket
 from PIL import Image, ImageTk
 import qrcode
+import psutil
+
+def is_mt5_running():
+    for p in psutil.process_iter(['name']):
+        try:
+            if 'terminal64' in (p.info['name'] or '').lower():
+                return True
+        except Exception:
+            pass
+    return False
 
 # Path konfigurasi & Standalone EXE Support
 import shutil
 if getattr(sys, 'frozen', False):
     exe_dir = os.path.dirname(sys.executable)
-    BASE_DIR = exe_dir if os.path.exists(os.path.join(exe_dir, "Eksekusi_Otomatis_Trading_Bot.py")) else r"d:\SKRIPSI INFORMATIKA"
-    PYTHON_EXE = shutil.which("python") or shutil.which("pythonw") or r"C:\Users\nouval\AppData\Local\Programs\Python\Python313\python.exe"
+    BASE_DIR = exe_dir if os.path.exists(os.path.join(exe_dir, "Eksekusi_Otomatis_Trading_Bot.py")) else os.path.dirname(os.path.abspath(__file__))
+    PYTHON_EXE = (
+        r"C:\Program Files\Python313\python.exe" if os.path.exists(r"C:\Program Files\Python313\python.exe")
+        else shutil.which("python") or shutil.which("pythonw") or sys.executable
+    )
 else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__)) if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "Eksekusi_Otomatis_Trading_Bot.py")) else r"d:\SKRIPSI INFORMATIKA"
-    PYTHON_EXE = sys.executable
+    PYTHON_EXE = (
+        r"C:\Program Files\Python313\python.exe" if os.path.exists(r"C:\Program Files\Python313\python.exe")
+        else sys.executable
+    )
 SCRIPT_M15 = os.path.join(BASE_DIR, "Eksekusi_Otomatis_Trading_Bot.py")
 SCRIPT_M5  = os.path.join(BASE_DIR, "Eksekusi_Otomatis_Trading_Bot_M5_Scalping.py")
 SCRIPT_WEB = os.path.join(BASE_DIR, "Web_Dashboard_Server.py")
@@ -1627,7 +1643,7 @@ class TradingBotGUI:
     # =========================================================================
     def update_live_market_ticker(self):
         try:
-            if not mt5.initialize(path=MT5_PATH):
+            if not (is_mt5_running() and (mt5.initialize() or mt5.initialize(path=MT5_PATH))):
                 self.lbl_mt5_status.config(text="● MT5 DISCONNECTED", fg="#ef4444", bg="#450a0a")
                 self.lbl_ticker.config(text="XAUUSD: MT5 Tidak Terhubung")
             else:
@@ -1942,7 +1958,7 @@ class TradingBotGUI:
             self.lbl_table_title.config(text="🔄 DAFTAR TRANSAKSI BROKER MT5 EXNESS (LIVE SYNC)", fg="#38bdf8")
             self.lbl_table_subtitle.config(text="Riwayat transaksi yang tersimpan langsung di server broker MetaTrader 5.")
 
-            if mt5.initialize(path=MT5_PATH):
+            if is_mt5_running() and (mt5.initialize() or mt5.initialize(path=MT5_PATH)):
                 deals = mt5.history_deals_get(datetime.now() - timedelta(days=7), datetime.now())
                 if deals:
                     deal_ins = {d.position_id: d for d in deals if d.entry == 0 and d.position_id != 0}

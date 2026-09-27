@@ -17,9 +17,10 @@ except Exception:
     pass
 
 # Path Excel Baru (Khusus Model Terbaru LightGBM SMC/ICT)
-EXCEL_PATH_NEW_MODEL = r"d:\SKRIPSI INFORMATIKA\Laporan_Forward_Testing_Model_Terbaru_SMC.xlsx"
-EXCEL_PATH_M5        = r"d:\SKRIPSI INFORMATIKA\Laporan_Forward_Testing_Model_M5_Scalping.xlsx"
-EXCEL_PATH_ARCHIVE   = r"d:\SKRIPSI INFORMATIKA\Laporan_Forward_Testing_100_Trade.xlsx"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+EXCEL_PATH_NEW_MODEL = os.path.join(BASE_DIR, "Laporan_Forward_Testing_Model_Terbaru_SMC.xlsx") if os.path.exists(os.path.join(BASE_DIR, "Laporan_Forward_Testing_Model_Terbaru_SMC.xlsx")) else r"d:\SKRIPSI INFORMATIKA\Laporan_Forward_Testing_Model_Terbaru_SMC.xlsx"
+EXCEL_PATH_M5        = os.path.join(BASE_DIR, "Laporan_Forward_Testing_Model_M5_Scalping.xlsx") if os.path.exists(os.path.join(BASE_DIR, "Laporan_Forward_Testing_Model_M5_Scalping.xlsx")) else r"d:\SKRIPSI INFORMATIKA\Laporan_Forward_Testing_Model_M5_Scalping.xlsx"
+EXCEL_PATH_ARCHIVE   = os.path.join(BASE_DIR, "Laporan_Forward_Testing_100_Trade.xlsx") if os.path.exists(os.path.join(BASE_DIR, "Laporan_Forward_Testing_100_Trade.xlsx")) else r"d:\SKRIPSI INFORMATIKA\Laporan_Forward_Testing_100_Trade.xlsx"
 
 MT5_PATH = r"C:\Program Files\MetaTrader 5 EXNESS\terminal64.exe"
 MAGIC_NEW_MODEL = 123230

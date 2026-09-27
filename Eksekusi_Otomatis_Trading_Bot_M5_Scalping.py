@@ -93,9 +93,10 @@ SHEET_TITLE_M5         = "Trade Log M5 Scalping (v4.0)"
 SUMMARY_TITLE_M5       = "Ringkasan Statistik (v4.0)"
 COLLISION_DISTANCE_MIN = 0.0018      # Jarak minimal 0.18% (~$8) dari Lantai Demand / Atap Supply Mayor
 
+BASE_DIR               = os.path.dirname(os.path.abspath(__file__))
 MT5_PATH               = r"C:\Program Files\MetaTrader 5 EXNESS\terminal64.exe"
-MODEL_FILE_PATH        = r"d:\SKRIPSI INFORMATIKA\model_lightgbm_xauusd_m5.pkl"
-EXCEL_M5_PATH          = r"d:\SKRIPSI INFORMATIKA\Laporan_Forward_Testing_Model_M5_Scalping.xlsx"
+MODEL_FILE_PATH        = os.path.join(BASE_DIR, "model_lightgbm_xauusd_m5.pkl") if os.path.exists(os.path.join(BASE_DIR, "model_lightgbm_xauusd_m5.pkl")) else r"d:\SKRIPSI INFORMATIKA\model_lightgbm_xauusd_m5.pkl"
+EXCEL_M5_PATH          = os.path.join(BASE_DIR, "Laporan_Forward_Testing_Model_M5_Scalping.xlsx") if os.path.exists(os.path.join(BASE_DIR, "Laporan_Forward_Testing_Model_M5_Scalping.xlsx")) else r"d:\SKRIPSI INFORMATIKA\Laporan_Forward_Testing_Model_M5_Scalping.xlsx"
 
 print("="*85)
 print(f"⚡ ROBOT TRADING M5 MULTI-ZONE SCALPER [{BOT_VERSION}]")

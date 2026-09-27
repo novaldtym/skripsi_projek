@@ -77,10 +77,9 @@ AI_CUTLOSS_REV_PROB    = 65.0       # Ambang batas pembalikan arah AI untuk cut-
 
 # --- IDENTITAS VERSI DAN LOGGING ---
 BOT_VERSION            = "Versi 4.1 (Structural RRR + 30D HTF Anchor + Adaptive Hybrid)"
-MODEL_LABEL_EXCEL      = "LightGBM M15 v4.1 (Structural RRR + 30D HTF)"
-THRESHOLD_LABEL_EXCEL  = "Versi 4.1 (Structural RRR + Adaptive Hybrid)"
-ORDER_COMMENT          = "LightGBM M15 v4.1"
-EXCEL_M15_PATH         = r"d:\SKRIPSI INFORMATIKA\Laporan_Forward_Testing_Model_Terbaru_SMC.xlsx"
+BASE_DIR               = os.path.dirname(os.path.abspath(__file__))
+MT5_PATH               = r"C:\Program Files\MetaTrader 5 EXNESS\terminal64.exe"
+EXCEL_M15_PATH         = os.path.join(BASE_DIR, "Laporan_Forward_Testing_Model_Terbaru_SMC.xlsx") if os.path.exists(os.path.join(BASE_DIR, "Laporan_Forward_Testing_Model_Terbaru_SMC.xlsx")) else r"d:\SKRIPSI INFORMATIKA\Laporan_Forward_Testing_Model_Terbaru_SMC.xlsx"
 SHEET_TITLE_M15        = "Trade Log Model Terbaru (v4.1)"
 SUMMARY_TITLE_M15      = "Ringkasan Statistik (v4.1)"
 COLLISION_DISTANCE_MIN = 0.0018      # Jarak minimal 0.18% (~$8) dari Lantai Demand / Atap Supply Mayor
@@ -98,8 +97,7 @@ LOSS_COOLDOWN_CANDLES  = 2           # Tunggu 2 candle M15 (30 menit) sebelum en
 AREA_LOCKOUT_RANGE     = 12.0        # Lockout area +/-$12 dari entry terakhir yang loss selama 30 menit
 MAX_BROKER_SL_USD      = 10.00       # Batas absolut SL broker M15
 
-MT5_PATH = r"C:\Program Files\MetaTrader 5 EXNESS\terminal64.exe"
-MODEL_FILE_PATH = r"d:\SKRIPSI INFORMATIKA\model_lightgbm_xauusd.pkl"
+MODEL_FILE_PATH = os.path.join(BASE_DIR, "model_lightgbm_xauusd.pkl") if os.path.exists(os.path.join(BASE_DIR, "model_lightgbm_xauusd.pkl")) else r"d:\SKRIPSI INFORMATIKA\model_lightgbm_xauusd.pkl"
 
 print("="*75)
 print(f"🤖 ROBOT TRADING OTOMATIS LIGHTGBM XAUUSD [{BOT_VERSION}]")

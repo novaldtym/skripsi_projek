@@ -55,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 3. Setup Recurring Polling
     setInterval(fetchLiveData, 2500);
+    setInterval(fetchPortfolioJourney, 10000);
     setInterval(updateClocksAndTimers, 1000);
 
     // 4. Global Click Listener to close open dropdowns & notification panel
@@ -524,6 +525,12 @@ async function fetchPortfolioJourney() {
         // Render Periods Performance Table in Dashboard
         if (data.periods) {
             updatePeriodsTable(data.periods);
+        }
+
+        // Update Profit Factor Badge in Dashboard
+        if (data.summary && data.summary.profit_factor !== undefined) {
+            const elPf = document.getElementById('dash-profit-factor');
+            if (elPf) elPf.innerText = data.summary.profit_factor.toFixed(1);
         }
 
         // Render Stepped Area Chart

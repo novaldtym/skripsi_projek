@@ -48,7 +48,10 @@ def ensure_server_running():
     except Exception as e:
         print(f"[Desktop App] Thread start fallback ke subprocess: {e}")
         import shutil
-        py_exec = shutil.which("pythonw") or shutil.which("python") or sys.executable
+        py_exec = (
+            r"C:\Program Files\Python313\python.exe" if os.path.exists(r"C:\Program Files\Python313\python.exe")
+            else shutil.which("pythonw") or shutil.which("python") or sys.executable
+        )
         proc = subprocess.Popen(
             [py_exec, SERVER_SCRIPT],
             cwd=BASE_DIR,

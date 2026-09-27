@@ -519,7 +519,7 @@ def create_bab1_document():
                 if is_current_study:
                     r.bold = (col_idx == 0 or col_idx == 3 or col_idx == 6)
 
-    # Concluding text
+    # Concluding text of 1.1 / State-of-the-Art
     add_body_p(
         "Berdasarkan pemetaan matriks penelitian terkait pada Tabel 1.1 di atas, tampak jelas bahwa penelitian ini "
         "menghadirkan terobosan metodologis yang komprehensif. Kebaruan (novelty) dan kontribusi utama penelitian ini "
@@ -530,9 +530,104 @@ def create_bab1_document():
         indent=True
     )
 
-    out_path = r"d:\SKRIPSI INFORMATIKA\DRAF_BAB_1_SKRIPSI_NOUVAL.docx"
+    # --- 1.6 TAHAPAN PENELITIAN ---
+    add_heading("1.6 Tahapan Penelitian")
+    add_body_p(
+        "Penelitian tugas akhir ini dilaksanakan melalui serangkaian tahapan sistematis yang mengadopsi kerangka kerja "
+        "standar industri CRISP-DM (Cross-Industry Standard Process for Data Mining) yang telah disesuaikan secara khusus "
+        "untuk domain komputasi rekayasa sistem perdagangan algoritmik finansial. Tahapan penelitian diuraikan sebagai berikut:",
+        indent=False
+    )
+    tahapan_items = [
+        "Fase Studi Literatur dan Identifikasi Masalah: Melakukan kajian teoritis mendalam terhadap literatur terkini mengenai "
+        "algoritma Gradient Boosting (LightGBM, XGBoost, Random Forest), mikrostruktur Smart Money Concepts (Order Block, FVG, BOS), "
+        "dinamika korelasi intermarket Indeks Dolar AS (DXY), transmisi guncangan kalender makroekonomi (NFP, CPI, FOMC), "
+        "serta manajemen risiko kuantitatif pada pasar derivatif.",
+        "Fase Pengumpulan Data (Data Collection): Mengumpulkan data primer penarikan candle real-time MetaTrader 5 broker teregulasi "
+        "pada instrumen emas XAUUSD untuk timeframe M15, M5, H1, dan H4. Selain itu, dihimpun pula data historis Indeks Dolar AS (DXY) "
+        "serta data rekaman jadwal rilis berita ekonomi berdampak tinggi dari kalender ekonomi global.",
+        "Fase Pra-pengolahan Data dan Rekayasa Fitur (Data Preparation & Feature Engineering): Membersihkan data dari anomali "
+        "dan missing values, menyelaraskan stempel waktu lintas-pasar, mengonstruksi 36 variabel fitur prediktif terstandarisasi, "
+        "melakukan pelabelan biner arah pergerakan harga 5 candle ke depan, serta membagi dataset secara kronologis (time-series split) "
+        "menjadi data latih (training), validasi, dan data uji (testing).",
+        "Fase Pemodelan dan Pelatihan Model (Modeling): Melatih model klasifikasi LightGBM dengan skema Leaf-wise Tree Growth, "
+        "menerapkan pembobotan kelas seimbang (balanced class weights), serta melakukan pencarian kombinasi hyperparameter optimal. "
+        "Model pembanding (XGBoost dan Random Forest) juga dilatih pada dataset yang identik untuk evaluasi komparatif.",
+        "Fase Pembangunan Sistem Eksekusi dan Antarmuka (System Development): Mengembangkan mesin eksekusi otomatis zero-delay "
+        "terintegrasi MetaTrader 5 Python API dengan modul mitigasi risiko terukur (Dynamic ATR Stop-Loss, Risk-to-Reward Ratio 1 : 2.5, "
+        "Max Daily Losses, dan jeda Cooldown). Dibangun pula antarmuka desktop modern (PyWebView/Flask) untuk memantau status sistem, "
+        "telemetri pasar, ekuitas akun, dan kurva portofolio secara real-time.",
+        "Fase Pengujian Forward Testing dan Evaluasi Pasca-Trade (Evaluation & Testing): Menjalankan pengujian operasional "
+        "pada pasar nyata (live forward testing) sebanyak 100 transaksi, mendokumentasikan log transaksi secara otomatis, "
+        "serta mendiagnosa akar penyebab keberhasilan (TP) maupun kegagalan (SL) setiap transaksi menggunakan Post-Trade Scenario Evaluator Engine.",
+        "Fase Dokumentasi dan Penyusunan Laporan: Menyusun laporan skripsi secara menyeluruh dan sistematis sesuai dengan format baku "
+        "yang berlaku di Program Studi Informatika, Fakultas Teknik Industri, Universitas Pembangunan Nasional 'Veteran' Yogyakarta."
+    ]
+    for i, item in enumerate(tahapan_items, 1):
+        p = doc.add_paragraph()
+        p.paragraph_format.line_spacing = 1.5
+        p.paragraph_format.left_indent = Inches(0.39)
+        p.paragraph_format.first_line_indent = Inches(-0.25)
+        p.paragraph_format.space_after = Pt(4)
+        run_num = p.add_run(f"{i}. ")
+        run_num.bold = True
+        run_num.font.name = 'Times New Roman'
+        run_num.font.size = Pt(12)
+        run_text = p.add_run(item)
+        run_text.font.name = 'Times New Roman'
+        run_text.font.size = Pt(12)
+
+    # --- 1.7 SISTEMATIKA PENULISAN ---
+    add_heading("1.7 Sistematika Penulisan")
+    add_body_p(
+        "Sistematika penulisan laporan tugas akhir ini disusun ke dalam lima bab utama sebagai berikut:",
+        indent=False
+    )
+    sistematika_items = [
+        "BAB I PENDAHULUAN: Bab ini memuat latar belakang masalah volatilitas harga emas dunia, kelemahan indikator teknikal lagging, "
+        "urgensi penerapan algoritma LightGBM dan Smart Money Concepts, rumusan masalah, batasan masalah, tujuan penelitian, "
+        "manfaat penelitian, tahapan metodologi penelitian, serta sistematika penulisan laporan tugas akhir.",
+        "BAB II TINJAUAN LITERATUR: Bab ini menyajikan landasan teori yang komprehensif mengenai komoditas emas spot XAUUSD, "
+        "intermarket Indeks Dolar AS (DXY), konsep mikrostruktur pasar Smart Money Concepts (Order Block, FVG, BOS, Liquidity Sweep), "
+        "teori matematis algoritma machine learning (LightGBM, XGBoost, Random Forest), metrik evaluasi klasifikasi statistik dan finansial, "
+        "serta telaah penelitian terdahulu yang relevan.",
+        "BAB III METODOLOGI PENELITIAN: Bab ini menguraikan secara mendalam rancangan alur penelitian, prosedur pengumpulan data multi-sumber, "
+        "formulasi rekayasa 36 variabel prediktif, arsitektur pelatihan model LightGBM, perancangan arsitektur integrasi MetaTrader 5 API zero-delay, "
+        "mekanisme manajemen risiko kuantitatif dinamis, serta desain arsitektur Post-Trade Scenario Evaluator Engine.",
+        "BAB IV HASIL PENGUJIAN DAN PEMBAHASAN: Bab ini menyajikan hasil eksperimen pelatihan model, perbandingan performa statistik "
+        "antara LightGBM, XGBoost, dan Random Forest, analisis kontribusi fitur prediktif terpenting, hasil evaluasi pengujian live forward testing "
+        "100 transaksi pasar riil, visualisasi kurva ekuitas portofolio (stepped equity curve), serta pembahasan mendalam mengenai diagnostik "
+        "skenario transaksi yang berhasil dan yang gagal.",
+        "BAB V KESIMPULAN DAN SARAN: Bab ini memuat kesimpulan akhir yang menjawab secara tuntas seluruh rumusan masalah penelitian "
+        "berdasarkan temuan empiris yang diperoleh, serta menyajikan saran-saran strategis bagi pengembangan sistem dan penelitian lanjutan "
+        "di masa mendatang."
+    ]
+    for i, item in enumerate(sistematika_items, 1):
+        p = doc.add_paragraph()
+        p.paragraph_format.line_spacing = 1.5
+        p.paragraph_format.left_indent = Inches(0.39)
+        p.paragraph_format.first_line_indent = Inches(-0.25)
+        p.paragraph_format.space_after = Pt(4)
+        run_num = p.add_run(f"{i}. ")
+        run_num.bold = True
+        run_num.font.name = 'Times New Roman'
+        run_num.font.size = Pt(12)
+        run_text = p.add_run(item)
+        run_text.font.name = 'Times New Roman'
+        run_text.font.size = Pt(12)
+
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    out_path = os.path.join(base_dir, "DRAF_BAB_1_SKRIPSI_NOUVAL_TERBARU_STANDAR_UPNVY.docx")
     doc.save(out_path)
     print(f"[SUCCESS] Document saved successfully to: {out_path}")
+    
+    # Also attempt to overwrite the old one if not locked
+    old_path = os.path.join(base_dir, "DRAF_BAB_1_SKRIPSI_NOUVAL.docx")
+    try:
+        doc.save(old_path)
+        print(f"[SUCCESS] Also updated: {old_path}")
+    except Exception:
+        print(f"[NOTE] {old_path} is currently open in Word, saved to {out_path}")
     return out_path
 
 if __name__ == '__main__':

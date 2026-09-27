@@ -1,8 +1,16 @@
 import MetaTrader5 as mt5
+import sys
+try:
+    if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
 
 MT5_PATH = r"C:\Program Files\MetaTrader 5 EXNESS\terminal64.exe"
 if not mt5.initialize(path=MT5_PATH):
-    print("❌ Gagal terhubung ke MT5")
+    print(f"❌ Gagal terhubung ke MT5. Error: {mt5.last_error()}")
     exit()
 
 account = mt5.account_info()

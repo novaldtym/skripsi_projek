@@ -13,8 +13,9 @@
     <!-- Tailwind CSS (for layout utilities) -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Chart.js for Stepped Area Equity Curve -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js for Stepped Area Equity Curve (Local + CDN Fallback) -->
+    <script src="/static/chart.min.js"></script>
+    <script>if (typeof Chart === 'undefined') { document.write('<script src="https://cdn.jsdelivr.net/npm/chart.js"><\/script>'); }</script>
 
     <!-- Favicon: QuantLGB Logo App -->
     <link rel="icon" type="image/png" href="/static/icons/LOGO APP.png" />

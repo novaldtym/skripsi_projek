@@ -20,9 +20,10 @@ try:
 except Exception:
     pass
 
-bundle_dir = sys._MEIPASS if (getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')) else r"d:\SKRIPSI INFORMATIKA"
-template_dir = os.path.join(bundle_dir, 'templates') if os.path.exists(os.path.join(bundle_dir, 'templates')) else os.path.join(r"d:\SKRIPSI INFORMATIKA", 'templates')
-static_dir = os.path.join(bundle_dir, 'static') if os.path.exists(os.path.join(bundle_dir, 'static')) else os.path.join(r"d:\SKRIPSI INFORMATIKA", 'static')
+current_dir = os.path.dirname(os.path.abspath(__file__))
+bundle_dir = sys._MEIPASS if (getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')) else current_dir
+template_dir = os.path.join(bundle_dir, 'templates') if os.path.exists(os.path.join(bundle_dir, 'templates')) else os.path.join(current_dir, 'templates')
+static_dir = os.path.join(bundle_dir, 'static') if os.path.exists(os.path.join(bundle_dir, 'static')) else os.path.join(current_dir, 'static')
 
 app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
@@ -34,19 +35,26 @@ def add_no_cache_headers(response):
     response.headers['Expires'] = '-1'
     return response
 
-BASE_DIR = r"d:\SKRIPSI INFORMATIKA"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__)) if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "Eksekusi_Otomatis_Trading_Bot.py")) else r"d:\SKRIPSI INFORMATIKA"
 import shutil
 if getattr(sys, 'frozen', False):
-    PYTHON_EXE = shutil.which("pythonw") or shutil.which("python") or r"C:\Users\nouval\AppData\Local\Programs\Python\Python313\python.exe"
+    PYTHON_EXE = (
+        r"C:\Program Files\Python313\python.exe" if os.path.exists(r"C:\Program Files\Python313\python.exe")
+        else shutil.which("pythonw") or shutil.which("python") or sys.executable
+    )
 else:
-    PYTHON_EXE = sys.executable
+    PYTHON_EXE = (
+        r"C:\Program Files\Python313\python.exe" if os.path.exists(r"C:\Program Files\Python313\python.exe")
+        else sys.executable
+    )
 
 SCRIPT_M15_PATH = os.path.join(BASE_DIR, "Eksekusi_Otomatis_Trading_Bot.py")
 SCRIPT_M5_PATH  = os.path.join(BASE_DIR, "Eksekusi_Otomatis_Trading_Bot_M5_Scalping.py")
 MT5_PATH = r"C:\Program Files\MetaTrader 5 EXNESS\terminal64.exe"
-EXCEL_M15_PATH = r"d:\SKRIPSI INFORMATIKA\Laporan_Forward_Testing_Model_Terbaru_SMC.xlsx"
-EXCEL_M5_PATH  = r"d:\SKRIPSI INFORMATIKA\Laporan_Forward_Testing_Model_M5_Scalping.xlsx"
-EXCEL_EVAL_PATH = r"d:\SKRIPSI INFORMATIKA\Evaluasi_Skenario_Trade.xlsx"
+EXCEL_M15_PATH = os.path.join(BASE_DIR, "Laporan_Forward_Testing_Model_Terbaru_SMC.xlsx")
+EXCEL_M5_PATH  = os.path.join(BASE_DIR, "Laporan_Forward_Testing_Model_M5_Scalping.xlsx")
+EXCEL_EVAL_PATH = os.path.join(BASE_DIR, "Evaluasi_Skenario_Trade.xlsx")
+CSV_EVAL_PATH   = os.path.join(BASE_DIR, "Evaluasi_Skenario_Trade.csv")
 
 MAGIC_M15 = 123230
 MAGIC_M5  = 123236
@@ -63,12 +71,21 @@ def get_lan_ip():
         s.close()
     return ip
 
+def is_mt5_process_running():
+    for p in psutil.process_iter(['name']):
+        try:
+            if 'terminal64' in (p.info['name'] or '').lower():
+                return True
+        except Exception:
+            pass
+    return False
+
 def init_mt5():
     try:
-        if mt5.initialize():
-            return True
-        if mt5.initialize(path=MT5_PATH):
-            return True
+        # Hanya sambungkan ke MT5 jika aplikasi desktop MT5 sudah dibuka
+        if is_mt5_process_running():
+            if mt5.initialize():
+                return True
     except Exception:
         pass
     return False
@@ -218,6 +235,11 @@ def get_portfolio_summary():
     summary["win_rate"] = m15_wr
     summary["net_profit"] = m15_pnl
     summary["roi_pct"] = m15_roi
+
+    # Jika MT5 belum terhubung, sesuaikan saldo dari total akumulasi profit
+    if not summary.get("mt5_connected"):
+        summary["current_balance"] = round(summary["starting_balance"] + summary["net_profit"], 2)
+        summary["equity"] = summary["current_balance"]
 
     # 2. BACA KHUSUS M5 (EKSPERIMEN TAMBAHAN / TIDAK DIHITUNG KE TARGET SKRIPSI)
     m5_t, m5_w, m5_l, m5_wr, m5_pnl, m5_roi = read_sheet_stats(EXCEL_M5_PATH, 'Ringkasan Statistik (v4.1)')
@@ -439,7 +461,7 @@ def get_recent_trade_logs(limit=100):
     return records[:limit]
 def get_portfolio_journey():
     """Menghitung metrik analitik portofolio lengkap, equity curve point-by-point, drawdown, dan performa per periode (Myfxbook Style)"""
-    CSV_EVAL = r"d:\SKRIPSI INFORMATIKA\Evaluasi_Skenario_Trade.csv"
+    CSV_EVAL = CSV_EVAL_PATH
     initial_balance = 500.00
     res = {
         "summary": {
@@ -507,16 +529,18 @@ def get_portfolio_journey():
         avg_win = round(float(wins['Profit_USD'].mean()), 2) if len(wins) > 0 else 0.0
         avg_loss = round(float(losses['Profit_USD'].mean()), 2) if len(losses) > 0 else 0.0
 
-        # Ambil equity live MT5 jika tersedia
+        # Ambil equity & balance live MT5 jika tersedia
         live_equity = cur_balance
+        live_balance = cur_balance
         if init_mt5():
             acc = mt5.account_info()
             if acc:
                 live_equity = round(acc.equity, 2)
+                live_balance = round(acc.balance, 2)
 
         res["summary"] = {
             "initial_balance": initial_balance,
-            "balance": cur_balance,
+            "balance": live_balance,
             "equity": live_equity,
             "total_pnl": total_pnl,
             "growth_pct": growth_pct,
@@ -633,7 +657,7 @@ def get_portfolio_journey():
 
 def get_trade_diagnostics(limit=50):
     """Mengambil riwayat diagnosa analisis mendalam (menang/kalah/faktor/pelajaran) dari CSV evaluasi"""
-    CSV_EVAL = r"d:\SKRIPSI INFORMATIKA\Evaluasi_Skenario_Trade.csv"
+    CSV_EVAL = CSV_EVAL_PATH
     diagnostics = []
     if os.path.exists(CSV_EVAL):
         try:
@@ -671,7 +695,7 @@ def get_trade_diagnostics(limit=50):
 
 def get_scenarios_evaluation():
     """Mengambil matriks evaluasi skenario dari Scenario_Evaluator_Engine / JSON / CSV"""
-    CSV_EVAL = r"d:\SKRIPSI INFORMATIKA\Evaluasi_Skenario_Trade.csv"
+    CSV_EVAL = CSV_EVAL_PATH
     scenarios = []
     if os.path.exists(CSV_EVAL):
         try:
