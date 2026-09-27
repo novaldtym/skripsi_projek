@@ -22,5 +22,5 @@ if not exist "%PYTHONW_EXE%" (
     )
 )
 
-start "" "%PYTHONW_EXE%" Trading_Bot_GUI_App.py
+start "" "%PYTHONW_EXE%" Desktop_App_Modern.py
 exit

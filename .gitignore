@@ -70,3 +70,8 @@ scratch_*.py
 _stitch_ui_extracted/
 stitch_ai_trading_bot_dashboard_ui.zip
 CD7F5500
+.obsidian_terminal_profile/
+*.zip
+stitch_reference/
+*_backup*.*
+

@@ -18,8 +18,8 @@ except Exception:
     pass
 
 print("="*85)
-print("🚀 PELATIHAN MODEL KHUSUS: LIGHTGBM XAUUSD TIMEFRAME M15 (VERSI 3.7)")
-print("34 Fitur Multi-Domain: Makroekonomi News + DXY Ratio + SMC Lengkap + H4 Anchor")
+print("🚀 PELATIHAN MODEL KHUSUS: LIGHTGBM XAUUSD TIMEFRAME M15 (VERSI 4.0)")
+print("44 Fitur Multi-Domain: Makroekonomi News + DXY Ratio + SMC Lengkap + H4 Anchor + ADX + Volume")
 print("="*85)
 
 MT5_PATH = r"C:\Program Files\MetaTrader 5 EXNESS\terminal64.exe"
@@ -75,9 +75,9 @@ else:
 print(f"✅ Data M15 Siap: {len(df_m15)} candle ({df_m15.index[0]} s/d {df_m15.index[-1]})")
 
 # =====================================================================
-# FEATURE ENGINEERING: 34 FITUR MULTI-DOMAIN
+# FEATURE ENGINEERING: 44 FITUR MULTI-DOMAIN (VERSI 4.0)
 # =====================================================================
-print("⚙️ Memproses 34 Fitur Multi-Domain (Makroekonomi + SMC + MTF H1/H4 + DXY)...")
+print("⚙️ Memproses 44 Fitur Multi-Domain (Makroekonomi + SMC + MTF H1/H4 + DXY + ADX + Volume)...")
 
 # 1. Geometri Candlestick
 range_m15 = (df_m15['high'] - df_m15['low']) + 1e-6
@@ -170,6 +170,69 @@ df_h4['Trend_H4_Strong'] = (df_h4['EMA_50_H4'] > df_h4['EMA_200_H4']).astype(int
 df_m15['Trend_H4_Bull'] = df_h4['Trend_H4_Bull'].reindex(df_m15.index, method='ffill').fillna(0)
 df_m15['Trend_H4_Strong'] = df_h4['Trend_H4_Strong'].reindex(df_m15.index, method='ffill').fillna(0)
 
+# 7. FITUR BARU v4.0: Jarak Numerik dari EMA (bukan binary!) — menangkap KEKUATAN tren
+df_h1['H1_Dist_EMA50_raw'] = (df_h1['close'] - df_h1['EMA_50_H1']) / df_h1['close']
+df_m15['H1_Dist_EMA50'] = df_h1['H1_Dist_EMA50_raw'].reindex(df_m15.index, method='ffill').fillna(0)
+
+df_h4['H4_Dist_EMA50_raw'] = (df_h4['close'] - df_h4['EMA_50_H4']) / df_h4['close']
+df_m15['H4_Dist_EMA50'] = df_h4['H4_Dist_EMA50_raw'].reindex(df_m15.index, method='ffill').fillna(0)
+
+# 8. FITUR BARU v4.0: Consecutive Bullish/Bearish Candle Count — menangkap momentum beruntun
+is_bull_seq = (df_m15['close'] > df_m15['open']).astype(int)
+is_bear_seq = (df_m15['close'] < df_m15['open']).astype(int)
+
+# Hitung jumlah candle bearish/bullish berturut-turut (streak counter)
+consec_bull = []
+consec_bear = []
+bull_count = 0
+bear_count = 0
+for i in range(len(df_m15)):
+    if is_bull_seq.iloc[i] == 1:
+        bull_count += 1
+        bear_count = 0
+    elif is_bear_seq.iloc[i] == 1:
+        bear_count += 1
+        bull_count = 0
+    else:
+        bull_count = 0
+        bear_count = 0
+    consec_bull.append(bull_count)
+    consec_bear.append(bear_count)
+df_m15['Consecutive_Bull'] = consec_bull
+df_m15['Consecutive_Bear'] = consec_bear
+
+# 9. FITUR BARU v4.0: ADX (Average Directional Index) — kekuatan tren 0-100
+tr_m15 = np.maximum(
+    df_m15['high'] - df_m15['low'],
+    np.maximum(
+        (df_m15['high'] - df_m15['close'].shift(1)).abs(),
+        (df_m15['low'] - df_m15['close'].shift(1)).abs()
+    )
+)
+plus_dm = np.where(
+    (df_m15['high'] - df_m15['high'].shift(1)) > (df_m15['low'].shift(1) - df_m15['low']),
+    np.maximum(df_m15['high'] - df_m15['high'].shift(1), 0), 0
+)
+minus_dm = np.where(
+    (df_m15['low'].shift(1) - df_m15['low']) > (df_m15['high'] - df_m15['high'].shift(1)),
+    np.maximum(df_m15['low'].shift(1) - df_m15['low'], 0), 0
+)
+atr_adx = pd.Series(tr_m15, index=df_m15.index).rolling(14).mean()
+plus_di = 100 * pd.Series(plus_dm, index=df_m15.index).rolling(14).mean() / (atr_adx + 1e-6)
+minus_di = 100 * pd.Series(minus_dm, index=df_m15.index).rolling(14).mean() / (atr_adx + 1e-6)
+dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di + 1e-6)
+df_m15['ADX_14'] = dx.rolling(14).mean()
+
+# 10. FITUR BARU v4.0: Volume Ratio — konfirmasi breakout/fakeout
+if 'tick_volume' in df_m15.columns:
+    df_m15['Volume_Ratio'] = df_m15['tick_volume'] / (df_m15['tick_volume'].rolling(20).mean() + 1e-6)
+else:
+    df_m15['Volume_Ratio'] = 1.0
+
+# 11. FITUR BARU v4.0: Medium/Long-term Returns — menangkap momentum jangka menengah
+df_m15['XAU_Return_10'] = df_m15['close'].pct_change(10)
+df_m15['XAU_Return_20'] = df_m15['close'].pct_change(20)
+
 # Target Horizon: 5 Candle M15 (75 Menit)
 FORWARD_CANDLES = 5
 df_m15['Target_Future'] = df_m15['close'].shift(-FORWARD_CANDLES)
@@ -187,7 +250,12 @@ features = [
     'DXY_Return_1', 'DXY_Return_3', 'DXY_Trend', 'XAU_DXY_Ratio_Return',
     'Is_NFP_Week', 'Is_CPI_Day', 'Is_FOMC_Week',
     'Trend_H1_Bull', 'Trend_H1_Strong',
-    'Trend_H4_Bull', 'Trend_H4_Strong'
+    'Trend_H4_Bull', 'Trend_H4_Strong',
+    # --- 8 FITUR BARU v4.0 (Trend Strength + Momentum + Volume) ---
+    'H1_Dist_EMA50', 'H4_Dist_EMA50',
+    'Consecutive_Bull', 'Consecutive_Bear',
+    'ADX_14', 'Volume_Ratio',
+    'XAU_Return_10', 'XAU_Return_20'
 ]
 
 print(f"Total Fitur yang Didaftarkan: {len(features)} Fitur")
@@ -205,15 +273,18 @@ X_test,  y_test  = test_df[features],  test_df['Target_Dir']
 
 print(f"📊 Dataset Siap: Total={len(df_clean)} | Train={len(X_train)} | Test={len(X_test)}")
 
-# Training LightGBM
-print("🔥 Melatih LightGBM Classifier M15...")
+# Training LightGBM v4.0 (Tuned Hyperparameters untuk generalisasi lebih baik)
+print("🔥 Melatih LightGBM Classifier M15 v4.0 (Tuned)...")
 lgb_m15 = LGBMClassifier(
-    n_estimators=500,
-    learning_rate=0.02,
-    max_depth=6,
-    num_leaves=31,
-    subsample=0.8,
-    colsample_bytree=0.8,
+    n_estimators=800,          # Naik dari 500 untuk lebih banyak boosting rounds
+    learning_rate=0.015,       # Turun dari 0.02 untuk konvergensi lebih halus
+    max_depth=5,               # Turun dari 6 untuk mencegah overfitting pada noise
+    num_leaves=24,             # Turun dari 31 untuk tree yang lebih general
+    subsample=0.75,            # Turun sedikit untuk regularisasi
+    colsample_bytree=0.75,     # Turun sedikit untuk regularisasi
+    min_child_samples=50,      # BARU: Minimal 50 sampel per leaf untuk mencegah overfitting
+    reg_alpha=0.1,             # BARU: L1 regularization
+    reg_lambda=1.0,            # BARU: L2 regularization
     random_state=42,
     n_jobs=-1,
     verbose=-1

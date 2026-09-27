@@ -76,19 +76,21 @@ ENABLE_AI_CUTLOSS      = True       # AI Early Cut-Loss jika sinyal candle M15 b
 AI_CUTLOSS_REV_PROB    = 65.0       # Ambang batas pembalikan arah AI untuk cut-loss dini
 
 # --- IDENTITAS VERSI DAN LOGGING ---
-BOT_VERSION            = "Versi 3.7 (Pure Market Order + Noise-Immune Wide SL + High RRR)"
-MODEL_LABEL_EXCEL      = "LightGBM M15 v3.7 (Wide SL + RRR 2.5 + Sniper)"
-THRESHOLD_LABEL_EXCEL  = "Versi 3.7 (Wide SL + RRR 2.5 + Sniper Entry)"
-ORDER_COMMENT          = "LightGBM M15 v3.7"
+BOT_VERSION            = "Versi 4.1 (Structural RRR + 30D HTF Anchor + Adaptive Hybrid)"
+MODEL_LABEL_EXCEL      = "LightGBM M15 v4.1 (Structural RRR + 30D HTF)"
+THRESHOLD_LABEL_EXCEL  = "Versi 4.1 (Structural RRR + Adaptive Hybrid)"
+ORDER_COMMENT          = "LightGBM M15 v4.1"
 EXCEL_M15_PATH         = r"d:\SKRIPSI INFORMATIKA\Laporan_Forward_Testing_Model_Terbaru_SMC.xlsx"
-SHEET_TITLE_M15        = "Trade Log Model Terbaru (v3.7)"
-SUMMARY_TITLE_M15      = "Ringkasan Statistik (v3.7)"
+SHEET_TITLE_M15        = "Trade Log Model Terbaru (v4.1)"
+SUMMARY_TITLE_M15      = "Ringkasan Statistik (v4.1)"
 COLLISION_DISTANCE_MIN = 0.0018      # Jarak minimal 0.18% (~$8) dari Lantai Demand / Atap Supply Mayor
 
-# --- PURE MARKET ORDER CONFIGURATION (VERSI 3.7) ---
-ENABLE_ADAPTIVE_HYBRID_ENTRY  = False  # Set False untuk mempertahankan Pure Market Order 100% (Sinyal langsung dieksekusi)
-GIANT_CANDLE_ATR_RATIO        = 1.35   # Parameter fallback
-PENDING_ORDER_TIMEOUT_CANDLES = 3      # Parameter fallback
+# --- ADAPTIVE HYBRID ENTRY & STRUCTURAL RRR CONFIGURATION (VERSI 4.1) ---
+ENABLE_ADAPTIVE_HYBRID_ENTRY  = True   # Aktifkan Hybrid: Market normal + 50% Body Limit Order pada Giant Sweep Candle
+GIANT_CANDLE_ATR_RATIO        = 1.35   # Candle > 1.35x ATR memicu pending limit
+PENDING_ORDER_TIMEOUT_CANDLES = 3      # Batalkan otomatis jika 45 menit tidak terjemput
+ENABLE_STRUCTURAL_RRR         = True   # TP dinamis di area kunci Supply/Demand, SL proporsional
+MIN_STRUCTURAL_RRR            = 1.8    # Filter kelayakan: minimal RRR 1:1.8
 
 # --- RISK MANAGEMENT: LOSS COOLDOWN & DAILY LIMIT (REVISI v3.7) ---
 MAX_DAILY_LOSSES       = 5           # Maks 5x loss per hari (sesuai revisi user agar tidak membatasi peluang)
@@ -223,6 +225,30 @@ def detect_multi_horizon_snr_and_patterns(df_data, lookback_multiday=300, lookba
         sups_below.append(struct_sup_cand)
     if struct_res_cand > curr_close + 1.0:
         res_above.append(struct_res_cand)
+
+    # 1.b. Inject Memori HTF 30-Hari (Daily Pivots & Monthly Major Demand/Supply - Institutional Anchors)
+    try:
+        sym_name = symbol if 'symbol' in globals() else 'XAUUSD'
+        rates_d1 = mt5.copy_rates_from_pos(sym_name, mt5.TIMEFRAME_D1, 0, 35)
+        if rates_d1 is not None and len(rates_d1) > 0:
+            df_d1 = pd.DataFrame(rates_d1)
+            monthly_demand = float(df_d1['low'].min())
+            monthly_supply = float(df_d1['high'].max())
+            if monthly_demand < curr_close - 1.0:
+                sups_below.append(monthly_demand)
+            if monthly_supply > curr_close + 1.0:
+                res_above.append(monthly_supply)
+                
+            d_lows = df_d1['low'].rolling(3, center=True).min()
+            d_highs = df_d1['high'].rolling(3, center=True).max()
+            for ds in df_d1[df_d1['low'] == d_lows]['low'].dropna().values:
+                if float(ds) < curr_close - 1.0:
+                    sups_below.append(float(ds))
+            for dr in df_d1[df_d1['high'] == d_highs]['high'].dropna().values:
+                if float(dr) > curr_close + 1.0:
+                    res_above.append(float(dr))
+    except Exception:
+        pass
         
     nearest_sup = max(sups_below) if len(sups_below) > 0 else major_demand
     nearest_res = min(res_above) if len(res_above) > 0 else major_supply
@@ -814,6 +840,58 @@ def analyze_market_and_predict():
     )
     df_m15['ATR_14'] = df_m15['TR'].rolling(14).mean()
 
+    # --- 8 FITUR BARU v4.0: Trend Strength + Momentum + Volume ---
+    # 7. Jarak Numerik dari EMA (menangkap KEKUATAN tren, bukan sekedar binary)
+    df_m15['H1_Dist_EMA50'] = ((df_h1['close'] - df_h1['EMA_50_H1']) / df_h1['close']).reindex(df_m15.index, method='ffill').fillna(0)
+    df_m15['H4_Dist_EMA50'] = ((df_h4['close'] - df_h4['EMA_50_H4']) / df_h4['close']).reindex(df_m15.index, method='ffill').fillna(0)
+
+    # 8. Consecutive Bullish/Bearish Candle Count (streak counter)
+    is_bull_seq = (df_m15['close'] > df_m15['open']).astype(int)
+    is_bear_seq = (df_m15['close'] < df_m15['open']).astype(int)
+    consec_bull = []
+    consec_bear = []
+    bull_count = 0
+    bear_count = 0
+    for i in range(len(df_m15)):
+        if is_bull_seq.iloc[i] == 1:
+            bull_count += 1
+            bear_count = 0
+        elif is_bear_seq.iloc[i] == 1:
+            bear_count += 1
+            bull_count = 0
+        else:
+            bull_count = 0
+            bear_count = 0
+        consec_bull.append(bull_count)
+        consec_bear.append(bear_count)
+    df_m15['Consecutive_Bull'] = consec_bull
+    df_m15['Consecutive_Bear'] = consec_bear
+
+    # 9. ADX (Average Directional Index) — kekuatan tren 0-100
+    plus_dm = np.where(
+        (df_m15['high'] - df_m15['high'].shift(1)) > (df_m15['low'].shift(1) - df_m15['low']),
+        np.maximum(df_m15['high'] - df_m15['high'].shift(1), 0), 0
+    )
+    minus_dm = np.where(
+        (df_m15['low'].shift(1) - df_m15['low']) > (df_m15['high'] - df_m15['high'].shift(1)),
+        np.maximum(df_m15['low'].shift(1) - df_m15['low'], 0), 0
+    )
+    atr_adx = pd.Series(df_m15['TR'].values, index=df_m15.index).rolling(14).mean()
+    plus_di = 100 * pd.Series(plus_dm, index=df_m15.index).rolling(14).mean() / (atr_adx + 1e-6)
+    minus_di = 100 * pd.Series(minus_dm, index=df_m15.index).rolling(14).mean() / (atr_adx + 1e-6)
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di + 1e-6)
+    df_m15['ADX_14'] = dx.rolling(14).mean()
+
+    # 10. Volume Ratio — konfirmasi breakout/fakeout
+    if 'tick_volume' in df_m15.columns:
+        df_m15['Volume_Ratio'] = df_m15['tick_volume'] / (df_m15['tick_volume'].rolling(20).mean() + 1e-6)
+    else:
+        df_m15['Volume_Ratio'] = 1.0
+
+    # 11. Medium/Long-term Returns
+    df_m15['XAU_Return_10'] = df_m15['close'].pct_change(10)
+    df_m15['XAU_Return_20'] = df_m15['close'].pct_change(20)
+
     df_clean = df_m15.dropna().copy()
     features = [
         'Body_Ratio', 'Lower_Wick_Ratio', 'Upper_Wick_Ratio', 
@@ -827,7 +905,12 @@ def analyze_market_and_predict():
         'DXY_Return_1', 'DXY_Return_3', 'DXY_Trend', 'XAU_DXY_Ratio_Return',
         'Is_NFP_Week', 'Is_CPI_Day', 'Is_FOMC_Week',
         'Trend_H1_Bull', 'Trend_H1_Strong',
-        'Trend_H4_Bull', 'Trend_H4_Strong'
+        'Trend_H4_Bull', 'Trend_H4_Strong',
+        # --- 8 FITUR BARU v4.0 ---
+        'H1_Dist_EMA50', 'H4_Dist_EMA50',
+        'Consecutive_Bull', 'Consecutive_Bear',
+        'ADX_14', 'Volume_Ratio',
+        'XAU_Return_10', 'XAU_Return_20'
     ]
 
     latest_candle = df_clean[features].iloc[[-1]]
@@ -905,9 +988,9 @@ def analyze_market_and_predict():
             h4_mid = (h4_upper + h4_lower) / 2.0
             h4_range = max(1.0, h4_upper - h4_lower)
             h4_position_pct = max(0.0, min(100.0, ((cur_close - h4_lower) / h4_range) * 100.0))
-            if slope_h4_close < -1.5:
+            if slope_h4_close < -0.3:
                 h4_channel = 'DESCENDING_H4'
-            elif slope_h4_close > 1.5:
+            elif slope_h4_close > 0.3:
                 h4_channel = 'ASCENDING_H4'
             else:
                 h4_channel = 'HORIZONTAL_H4'
@@ -924,23 +1007,74 @@ def analyze_market_and_predict():
 
     return prob_up, prob_down, h1_bull, h1_strong_bull, latest_atr, live_ask, live_bid, dist_m15_sup, dist_m15_res, lower_wick, upper_wick, is_bull_candle, is_bear_candle, m15_sup, m15_res, struct_data, channel_data, pattern_data, tech_data, h4_context
 
+def calc_structural_dynamic_sl_tp(signal_type, cur_close, base_sl, pattern_data, m15_sup, m15_res):
+    """
+    Kalkulasi Target TP Struktural (Nearest Key Level SMC) & SL Proporsional Dinamis:
+    - User Rule: TP diletakkan di Supply/Resisten terdekat (untuk BUY) atau Demand/Support terdekat (untuk SELL).
+    - SL disesuaikan secara proporsional dengan Risk Reward Ratio (RRR >= 1.8 s/d 1:2.5).
+    - Jika ruang menuju TP terlalu sempit (TP < 1.8 * SL), entry ditolak (BAD_RRR_FILTER).
+    - SL diperlebar secara proporsional jika ruang TP besar, dengan batas atas wajar.
+    """
+    if not ENABLE_STRUCTURAL_RRR or not pattern_data or cur_close <= 0:
+        sl = base_sl
+        tp = round(sl * RRR_RATIO, 0)
+        return sl, tp, f"Fixed RRR 1:{RRR_RATIO:.1f}"
+
+    if signal_type == "BUY":
+        target_res = pattern_data.get('nearest_res', m15_res)
+        if target_res <= cur_close + 1.0:
+            target_res = max(cur_close + 10.0, pattern_data.get('major_supply', cur_close + 15.0))
+        
+        tp_price = target_res - 0.25
+        tp_pts = round((tp_price - cur_close) * 10.0, 1)
+
+        min_allowed_tp_pts = base_sl * MIN_STRUCTURAL_RRR
+        if tp_pts < min_allowed_tp_pts:
+            return None, None, f"Ruang ke target resisten ${target_res:.2f} (${tp_pts/10:.2f} USD) terlalu sempit (< {MIN_STRUCTURAL_RRR}x SL ${base_sl/10:.2f})"
+
+        prop_sl = round(tp_pts / 2.2, 0)
+        sl_pts = max(base_sl, min(120.0, prop_sl))
+        actual_rrr = tp_pts / sl_pts if sl_pts > 0 else 2.0
+        return sl_pts, tp_pts, f"Structural RRR 1:{actual_rrr:.1f} (TP @ ${tp_price:.2f}, SL ${sl_pts/10:.2f})"
+
+    elif signal_type == "SELL":
+        target_sup = pattern_data.get('nearest_sup', m15_sup)
+        if target_sup >= cur_close - 1.0:
+            target_sup = min(cur_close - 10.0, pattern_data.get('major_demand', cur_close - 15.0))
+
+        tp_price = target_sup + 0.25
+        tp_pts = round((cur_close - tp_price) * 10.0, 1)
+
+        min_allowed_tp_pts = base_sl * MIN_STRUCTURAL_RRR
+        if tp_pts < min_allowed_tp_pts:
+            return None, None, f"Ruang ke target demand ${target_sup:.2f} (${tp_pts/10:.2f} USD) terlalu sempit (< {MIN_STRUCTURAL_RRR}x SL ${base_sl/10:.2f})"
+
+        prop_sl = round(tp_pts / 2.2, 0)
+        sl_pts = max(base_sl, min(120.0, prop_sl))
+        actual_rrr = tp_pts / sl_pts if sl_pts > 0 else 2.0
+        return sl_pts, tp_pts, f"Structural RRR 1:{actual_rrr:.1f} (TP @ ${tp_price:.2f}, SL ${sl_pts/10:.2f})"
+
+    return base_sl, round(base_sl * RRR_RATIO, 0), "Fallback"
+
 def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, atr_val, dist_sup, dist_res, lower_w, upper_w, is_bull_c, is_bear_c, m15_sup, m15_res, struct_data, channel_data=None, pattern_data=None, tech_data=None, h4_context=None):
     """
-    Evaluasi Keputusan Multi-Zone Adaptive Entry M15 (Versi 3.6 - H4 Context + Range Guard):
+    Evaluasi Keputusan Multi-Zone Adaptive Entry M15 (Versi 4.1 - Structural SMC & Dynamic RRR):
     - Konfluensi Lengkap: Stochastic RSI (14,14,3,3), RSI(14), Bollinger Bands, EMA 20/50
     - Anti-Oversold Guard: DILARANG SELL jika Stoch RSI <= 25% (Mencegah kerugian entry prematur di dasar)
     - Anti-Overbought Guard: DILARANG BUY jika Stoch RSI >= 75% (Mencegah beli di pucuk jenuh)
     - Confluence Booster: Turunkan ambang AI ke >= 50% saat Stoch Overbought di resisten atau Oversold di support
-    - Multi-Horizon SNR (2-4 Hari) + Chart Patterns (Wedge/Channels)
+    - Multi-Horizon SNR (2-4 Hari & 30-Hari HTF) + Chart Patterns (Wedge/Channels)
+    - Dynamic Structural RRR: TP diletakkan di Supply/Demand terdekat, SL proporsional (RRR >= 1.8)
     - Anti-Collision Guard: DILARANG SELL mepet Lantai Demand (<= 0.18%), DILARANG BUY mepet Atap Supply (<= 0.18%)
     - Zona A: Boundary Bounce (<= 0.15% dari Support/Resisten)
     - Zona B: Proximity Opportunity (0.15% - 0.40%)
     - Zona C: High-Probability Trend (> 0.40%)
     """
-    # 🛡️ KALKULASI SL KEBAL WICK NOISE (REVISI v3.7 ANTI-SWEEP):
-    # Menggunakan 1.20x ATR (rentang $6.50 - $8.50 USD / 65-85 pips)
-    # Menjamin jarak SL berada di luar jangkauan noise wick normal M15 Gold (mencegah case Trade 3 tersapu dini)
+    # 🛡️ KALKULASI BASE SL KEBAL WICK NOISE:
     base_sl = max(65.0, min(85.0, round(atr_val * 10.0 * 1.20, 0)))
+    cur_close = struct_data.get('c0_close', 0.0) if struct_data else 0.0
+    if cur_close <= 0 and pattern_data:
+        cur_close = (m15_sup + m15_res) / 2.0
     
     slope = channel_data.get('slope', 0.0) if channel_data else 0.0
     dyn_sup = channel_data.get('dyn_sup', m15_sup) if channel_data else m15_sup
@@ -967,6 +1101,19 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
     is_news_freeze, news_desc, _ = macro_news.check_news_guard(window_before_min=10, window_after_min=15)
     if is_news_freeze:
         return "WAIT", "NEWS_FREEZE", 0, 0, news_desc
+
+    # 🛡️ FAKTOR MAKROEKONOMI DINAMIS (COUNTDOWN & EXPECTATION BIAS)
+    macro_factors = macro_news.get_dynamic_macro_factors()
+    mins_to_news = macro_factors.get('minutes_to_high_news', 9999.0)
+    macro_bias = macro_factors.get('macro_expectation_bias', 0)
+    macro_weight = macro_factors.get('news_impact_weight', 0)
+    news_title = macro_factors.get('nearest_event_title', 'None')
+    is_pre_news_caution = (0 <= mins_to_news <= 35.0) and (macro_weight >= 3)
+
+    # 🛡️ H4 CONTEXT GUARD v4.0: Ekstraksi variabel H4 untuk Sniper Guard
+    h4_pos_pct = h4_context.get('h4_position_pct', 50.0) if h4_context else 50.0
+    h4_channel_type = h4_context.get('h4_channel', 'UNKNOWN') if h4_context else 'UNKNOWN'
+    h4_slope_val = h4_context.get('h4_slope', 0.0) if h4_context else 0.0
 
     is_strong_bull_trend = h1_bull or (slope > 0.08) or (channel_type == 'UPTREND_CHANNEL')
     is_strong_bear_trend = not h1_bull or (slope < -0.08) or (channel_type == 'DOWNTREND_CHANNEL')
@@ -1027,10 +1174,12 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
                     dist_sup_pct = pattern_data.get('dist_near_sup', 0.0) * 100
                     sell_candidate = ("WAIT", "COLLISION", 0, 0, f"🛑 ANTI-COLLISION: SELL Zona A Dibatalkan! Terlalu Dekat Lantai Support (${near_sup_val:.2f}, Jarak {dist_sup_pct:.2f}% <= {COLLISION_DISTANCE_MIN*100:.2f}%). Risiko Pantulan Kuat!")
                 else:
-                    sl = base_sl
-                    tp = round(sl * RRR_RATIO, 0)
-                    zone_tag = "A-Diag" if is_diag_res else "A-Horiz"
-                    sell_candidate = ("SELL", zone_tag, sl, tp, f"🔴 ZONA A SELL: Penolakan Valid di {res_label}{confluence_tag} (Kanal {channel_type}, Slope ${slope:.2f})! Ekor {upper_w*100:.1f}%, Prob {prob_down:.1f}%.")
+                    sl, tp, rrr_info = calc_structural_dynamic_sl_tp("SELL", cur_close, base_sl, pattern_data, m15_sup, m15_res)
+                    if sl is None:
+                        sell_candidate = ("WAIT", "BAD_RRR", 0, 0, f"🛑 RRR FILTER: SELL Zona A Dibatalkan! {rrr_info}")
+                    else:
+                        zone_tag = "A-Diag" if is_diag_res else "A-Horiz"
+                        sell_candidate = ("SELL", zone_tag, sl, tp, f"🔴 ZONA A SELL: Penolakan Valid di {res_label}{confluence_tag} [{rrr_info}] (Kanal {channel_type}, Slope ${slope:.2f})! Ekor {upper_w*100:.1f}%, Prob {prob_down:.1f}%.")
             else:
                 sell_candidate = ("WAIT", "A", 0, 0, f"Zona A {res_type}: Menunggu Ekor Rejection Atas ({upper_w*100:.1f}% < 20%)")
         else:
@@ -1059,10 +1208,13 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
                         dist_sup_pct = pattern_data.get('dist_near_sup', 0.0) * 100
                         sell_candidate = ("WAIT", "COLLISION", 0, 0, f"🛑 ANTI-COLLISION: SELL Zona B Dibatalkan! Terlalu Dekat Lantai Support (${near_sup_val:.2f}, Jarak {dist_sup_pct:.2f}%).")
                     else:
-                        sl = max(55.0, round(base_sl * 0.90, 0))
-                        tp = round(sl * 2.0, 0)
-                        zone_tag = "B-Diag" if is_diag_res else "B-Horiz"
-                        sell_candidate = ("SELL", zone_tag, sl, tp, f"🔴 ZONA B SELL (PROXIMITY): Struktur Lower High / Rejection Terkonfirmasi Dekat {res_label}{confluence_tag}! Prob {prob_down:.1f}%.")
+                        b_base_sl = max(55.0, round(base_sl * 0.90, 0))
+                        sl, tp, rrr_info = calc_structural_dynamic_sl_tp("SELL", cur_close, b_base_sl, pattern_data, m15_sup, m15_res)
+                        if sl is None:
+                            sell_candidate = ("WAIT", "BAD_RRR", 0, 0, f"🛑 RRR FILTER: SELL Zona B Dibatalkan! {rrr_info}")
+                        else:
+                            zone_tag = "B-Diag" if is_diag_res else "B-Horiz"
+                            sell_candidate = ("SELL", zone_tag, sl, tp, f"🔴 ZONA B SELL (PROXIMITY): Struktur Lower High / Rejection Terkonfirmasi Dekat {res_label}{confluence_tag} [{rrr_info}]! Prob {prob_down:.1f}%.")
                 else:
                     sell_candidate = ("WAIT", "B", 0, 0, f"Zona B {res_type}: Menunggu konfirmasi pola candle / Lower High (Ekor {upper_w*100:.1f}% < 15%)")
         else:
@@ -1103,10 +1255,12 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
                     dist_res_pct = pattern_data.get('dist_near_res', 0.0) * 100
                     buy_candidate = ("WAIT", "COLLISION", 0, 0, f"🛑 ANTI-COLLISION: BUY Zona A Dibatalkan! Terlalu Dekat Atap Resisten (${near_res_val:.2f}, Jarak {dist_res_pct:.2f}% <= {COLLISION_DISTANCE_MIN*100:.2f}%). Risiko Benturan Plafon!")
                 else:
-                    sl = base_sl
-                    tp = round(sl * RRR_RATIO, 0)
-                    zone_tag = "A-Diag" if is_diag_sup else "A-Horiz"
-                    buy_candidate = ("BUY", zone_tag, sl, tp, f"🟢 ZONA A BUY: Pantulan Valid di {sup_label}{confluence_tag} (Kanal {channel_type}, Slope +${slope:.2f})! Ekor {lower_w*100:.1f}%, Prob {prob_up:.1f}%.")
+                    sl, tp, rrr_info = calc_structural_dynamic_sl_tp("BUY", cur_close, base_sl, pattern_data, m15_sup, m15_res)
+                    if sl is None:
+                        buy_candidate = ("WAIT", "BAD_RRR", 0, 0, f"🛑 RRR FILTER: BUY Zona A Dibatalkan! {rrr_info}")
+                    else:
+                        zone_tag = "A-Diag" if is_diag_sup else "A-Horiz"
+                        buy_candidate = ("BUY", zone_tag, sl, tp, f"🟢 ZONA A BUY: Pantulan Valid di {sup_label}{confluence_tag} [{rrr_info}] (Kanal {channel_type}, Slope +${slope:.2f})! Ekor {lower_w*100:.1f}%, Prob {prob_up:.1f}%.")
             else:
                 buy_candidate = ("WAIT", "A", 0, 0, f"Zona A {sup_type}: Menunggu Ekor Rejection Bawah ({lower_w*100:.1f}% < 20%)")
         else:
@@ -1141,10 +1295,13 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
                         dist_res_pct = pattern_data.get('dist_near_res', 0.0) * 100
                         buy_candidate = ("WAIT", "COLLISION", 0, 0, f"🛑 ANTI-COLLISION: BUY Zona B Dibatalkan! Terlalu Dekat Atap Resisten (${near_res_val:.2f}, Jarak {dist_res_pct:.2f}%).")
                     else:
-                        sl = max(55.0, round(base_sl * 0.90, 0))
-                        tp = round(sl * 2.0, 0)
-                        zone_tag = "B-Diag" if is_diag_sup else "B-Horiz"
-                        buy_candidate = ("BUY", zone_tag, sl, tp, f"🟢 ZONA B BUY (PROXIMITY): Struktur Higher Low / Rebound Terkonfirmasi Dekat {sup_label}{confluence_tag}! Prob {prob_up:.1f}%.")
+                        b_base_sl = max(55.0, round(base_sl * 0.90, 0))
+                        sl, tp, rrr_info = calc_structural_dynamic_sl_tp("BUY", cur_close, b_base_sl, pattern_data, m15_sup, m15_res)
+                        if sl is None:
+                            buy_candidate = ("WAIT", "BAD_RRR", 0, 0, f"🛑 RRR FILTER: BUY Zona B Dibatalkan! {rrr_info}")
+                        else:
+                            zone_tag = "B-Diag" if is_diag_sup else "B-Horiz"
+                            buy_candidate = ("BUY", zone_tag, sl, tp, f"🟢 ZONA B BUY (PROXIMITY): Struktur Higher Low / Rebound Terkonfirmasi Dekat {sup_label}{confluence_tag} [{rrr_info}]! Prob {prob_up:.1f}%.")
                 else:
                     buy_candidate = ("WAIT", "B", 0, 0, f"Zona B {sup_type}: Menunggu konfirmasi pola candle / Higher Low (Ekor {lower_w*100:.1f}% < 15%)")
         else:
@@ -1158,6 +1315,18 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
         if not cand or cand[0] not in ["BUY", "SELL"]:
             return cand
         c_sig, c_zone, c_sl, c_tp, c_desc = cand
+
+        # 🛡️ PRE-NEWS CAUTION GUARD: Tahan entry non-sniper saat 35 menit sebelum berita High Impact
+        if is_pre_news_caution and c_zone not in ["A", "C_SNIPER"]:
+            return ("WAIT", "PRE_NEWS_CAUTION", 0, 0, f"⚠️ PRE-NEWS CAUTION: Berita {news_title} rilis dalam {int(mins_to_news)}m! Entry Zona {c_zone} ditahan demi keamanan modal.")
+
+        # 🛡️ MACRO EXPECTATION BIAS FILTER: Cegah entry melawan bias sentimen konsensus kuat
+        if c_zone not in ["C_SNIPER"]:
+            if c_sig == "BUY" and macro_bias == -1:
+                return ("WAIT", "MACRO_BIAS_BLOCK", 0, 0, f"🛑 MACRO BIAS: BUY Zona {c_zone} ditolak karena konsensus ekonom {news_title} memicu penguatan Dolar / penekanan Emas.")
+            elif c_sig == "SELL" and macro_bias == 1:
+                return ("WAIT", "MACRO_BIAS_BLOCK", 0, 0, f"🛑 MACRO BIAS: SELL Zona {c_zone} ditolak karena konsensus ekonom {news_title} memicu pelemahan Dolar / penguatan Emas.")
+
         sc_key = f"M15_ZONA_{c_zone}_{c_sig}"
         can_tr, sc_msg = scenario_eval.can_trade_scenario(sc_key, "M15")
         if not can_tr:
@@ -1184,19 +1353,22 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
 
     # -----------------------------------------------------------------
     # D.0. SNIPER DIRECT ENTRY: Bypass semua filter saat AI >= 70%
-    #      Berdasarkan Layer 2 Backtest: WR 83.2%, PF 10.74 pada M15
-    #      Filter heuristik (candle, H1, structure) justru menghambat
-    #      entry dan menyebabkan bot masuk terlambat → kena SL.
     # -----------------------------------------------------------------
     if prob_up >= SNIPER_DIRECT_PROB_MIN and not is_tight:
-        sl = base_sl
-        tp = round(sl * RRR_RATIO, 0)
-        sniper_desc = f"🎯 SNIPER DIRECT BUY: AI Conviction Sangat Tinggi ({prob_up:.1f}% >= {SNIPER_DIRECT_PROB_MIN:.0f}%)! Bypass filter, langsung entry."
+        if h4_channel_type == 'DESCENDING_H4' and h4_pos_pct > 60.0:
+            return "WAIT", "SNIPER_H4_BLOCK", 0, 0, f"🛑 SNIPER GUARD: BUY Sniper ({prob_up:.1f}%) DIBLOKIR! H4 Descending Channel (Slope: {h4_slope_val:.2f}, Pos: {h4_pos_pct:.0f}%). Risiko counter-trend tinggi!"
+        sl, tp, rrr_info = calc_structural_dynamic_sl_tp("BUY", cur_close, base_sl, pattern_data, m15_sup, m15_res)
+        if sl is None:
+            sl, tp, rrr_info = base_sl, round(base_sl * RRR_RATIO, 0), f"Fixed 1:{RRR_RATIO:.1f}"
+        sniper_desc = f"🎯 SNIPER DIRECT BUY: AI Conviction Sangat Tinggi ({prob_up:.1f}% >= {SNIPER_DIRECT_PROB_MIN:.0f}%) [{rrr_info}]! Bypass filter, langsung entry."
         return check_candidate_scenario(("BUY", "C_SNIPER", sl, tp, sniper_desc))
     elif prob_down >= SNIPER_DIRECT_PROB_MIN and not is_tight:
-        sl = base_sl
-        tp = round(sl * RRR_RATIO, 0)
-        sniper_desc = f"🎯 SNIPER DIRECT SELL: AI Conviction Sangat Tinggi ({prob_down:.1f}% >= {SNIPER_DIRECT_PROB_MIN:.0f}%)! Bypass filter, langsung entry."
+        if h4_channel_type == 'ASCENDING_H4' and h4_pos_pct < 40.0:
+            return "WAIT", "SNIPER_H4_BLOCK", 0, 0, f"🛑 SNIPER GUARD: SELL Sniper ({prob_down:.1f}%) DIBLOKIR! H4 Ascending Channel (Slope: {h4_slope_val:.2f}, Pos: {h4_pos_pct:.0f}%). Risiko counter-trend tinggi!"
+        sl, tp, rrr_info = calc_structural_dynamic_sl_tp("SELL", cur_close, base_sl, pattern_data, m15_sup, m15_res)
+        if sl is None:
+            sl, tp, rrr_info = base_sl, round(base_sl * RRR_RATIO, 0), f"Fixed 1:{RRR_RATIO:.1f}"
+        sniper_desc = f"🎯 SNIPER DIRECT SELL: AI Conviction Sangat Tinggi ({prob_down:.1f}% >= {SNIPER_DIRECT_PROB_MIN:.0f}%) [{rrr_info}]! Bypass filter, langsung entry."
         return check_candidate_scenario(("SELL", "C_SNIPER", sl, tp, sniper_desc))
 
     # -----------------------------------------------------------------
@@ -1215,9 +1387,10 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
             if pattern_data and not pattern_data.get('can_buy_safely', True):
                 near_res_val = pattern_data.get('nearest_res', m15_res)
                 return "WAIT", "COLLISION", 0, 0, f"🛑 ANTI-COLLISION: BUY Zona C Dibatalkan! Terlalu Dekat Atap Resisten (${near_res_val:.2f})."
-            sl = base_sl
-            tp = round(sl * 1.5, 0)
-            return "BUY", "C", sl, tp, f"🟢 ZONA C BUY (TREND): Keyakinan AI Sangat Kuat ({prob_up:.1f}%) + Tren Makro H1 Bullish + Validasi Structure/EMA!"
+            sl, tp, rrr_info = calc_structural_dynamic_sl_tp("BUY", cur_close, base_sl, pattern_data, m15_sup, m15_res)
+            if sl is None:
+                return "WAIT", "BAD_RRR", 0, 0, f"🛑 BAD RRR: BUY Zona C Dibatalkan! {rrr_info}"
+            return "BUY", "C", sl, tp, f"🟢 ZONA C BUY (TREND): Keyakinan AI Sangat Kuat ({prob_up:.1f}%) + Tren Makro H1 Bullish [{rrr_info}]!"
         else:
             return "WAIT", "C", 0, 0, f"Zona C Mid: BUY {prob_up:.1f}% menunggu konfirmasi candle/tren H1"
 
@@ -1234,9 +1407,10 @@ def evaluate_multi_zone_decision(prob_up, prob_down, h1_bull, h1_strong_bull, at
             if pattern_data and not pattern_data.get('can_sell_safely', True):
                 near_sup_val = pattern_data.get('nearest_sup', m15_sup)
                 return "WAIT", "COLLISION", 0, 0, f"🛑 ANTI-COLLISION: SELL Zona C Dibatalkan! Terlalu Dekat Lantai Support (${near_sup_val:.2f})."
-            sl = base_sl
-            tp = round(sl * 1.5, 0)
-            return "SELL", "C", sl, tp, f"🔴 ZONA C SELL (TREND): Keyakinan AI Sangat Kuat ({prob_down:.1f}%) + Tren Makro H1 Bearish + Validasi Structure/EMA!"
+            sl, tp, rrr_info = calc_structural_dynamic_sl_tp("SELL", cur_close, base_sl, pattern_data, m15_sup, m15_res)
+            if sl is None:
+                return "WAIT", "BAD_RRR", 0, 0, f"🛑 BAD RRR: SELL Zona C Dibatalkan! {rrr_info}"
+            return "SELL", "C", sl, tp, f"🔴 ZONA C SELL (TREND): Keyakinan AI Sangat Kuat ({prob_down:.1f}%) + Tren Makro H1 Bearish [{rrr_info}]!"
         else:
             return "WAIT", "C", 0, 0, f"Zona C Mid: SELL {prob_down:.1f}% menunggu konfirmasi candle/tren H1"
 
@@ -1482,8 +1656,8 @@ def execute_auto_trade(signal_type, entry_price, sl_pips, tp_pips, zone_type="A"
     exec_price = tick.ask if signal_type == "BUY" else tick.bid
     order_type = mt5.ORDER_TYPE_BUY if signal_type == "BUY" else mt5.ORDER_TYPE_SELL
     order_action = mt5.TRADE_ACTION_DEAL
-    trade_mode_str = "MARKET ORDER INSTAN (Pure Price Action v3.7)"
-    order_comment_zone = f"M15 v3.7 Z-{zone_type}"
+    trade_mode_str = "MARKET ORDER INSTAN (Pure Price Action v4.1)"
+    order_comment_zone = f"M15 v4.1 Z-{zone_type}"
 
     if ENABLE_ADAPTIVE_HYBRID_ENTRY and struct_data and atr_val and atr_val > 0:
         c_range = struct_data.get('cur_range', 0.0)
@@ -1498,14 +1672,14 @@ def execute_auto_trade(signal_type, entry_price, sl_pips, tp_pips, zone_type="A"
                 order_action = mt5.TRADE_ACTION_PENDING
                 order_type = mt5.ORDER_TYPE_BUY_LIMIT
                 trade_mode_str = f"BUY LIMIT 50% RETRACEMENT (Giant Candle ${c_range:.2f} > {GIANT_CANDLE_ATR_RATIO}x ATR)"
-                order_comment_zone = f"M15 v3.8 Z-{zone_type}_50LMT"
+                order_comment_zone = f"M15 v4.1 Z-{zone_type}_50LMT"
             elif signal_type == "SELL" and calc_50 > tick.bid:
                 use_pending_limit = True
                 exec_price = calc_50
                 order_action = mt5.TRADE_ACTION_PENDING
                 order_type = mt5.ORDER_TYPE_SELL_LIMIT
                 trade_mode_str = f"SELL LIMIT 50% RETRACEMENT (Giant Candle ${c_range:.2f} > {GIANT_CANDLE_ATR_RATIO}x ATR)"
-                order_comment_zone = f"M15 v3.8 Z-{zone_type}_50LMT"
+                order_comment_zone = f"M15 v4.1 Z-{zone_type}_50LMT"
 
     if signal_type == "BUY":
         sl = exec_price - (sl_pips / 10.0)
@@ -1567,14 +1741,37 @@ def execute_auto_trade(signal_type, entry_price, sl_pips, tp_pips, zone_type="A"
 
 def main():
     global _lock_socket
-    # Proteksi Single Instance: Mencegah 2 script berjalan sekaligus
+    # Proteksi Single Instance: Mencegah 2 script berjalan sekaligus dengan auto-reuse
     try:
         _lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        _lock_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         _lock_socket.bind(("127.0.0.1", 41230))
     except socket.error:
-        print("\n❌ [SINGLE INSTANCE PROTECTION] Bot M15 sudah berjalan di proses lain!")
-        print("Mencegah eksekusi ganda yang dapat menyebabkan over-trading.")
-        sys.exit(0)
+        # Cek apakah proses lain benar-benar aktif atau hanya port TIME_WAIT sesaat
+        import psutil
+        curr_pid = os.getpid()
+        other_running = False
+        for p in psutil.process_iter(['pid', 'cmdline']):
+            try:
+                if p.info['pid'] != curr_pid and p.info['cmdline']:
+                    cmd_s = " ".join(p.info['cmdline']).lower()
+                    if "eksekusi_otomatis_trading_bot.py" in cmd_s and "m5" not in cmd_s:
+                        other_running = True
+                        break
+            except Exception:
+                pass
+        if other_running:
+            print("\n❌ [SINGLE INSTANCE PROTECTION] Bot M15 sudah berjalan di proses lain!")
+            print("Mencegah eksekusi ganda yang dapat menyebabkan over-trading.")
+            sys.exit(0)
+        else:
+            time.sleep(1)
+            try:
+                _lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                _lock_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                _lock_socket.bind(("127.0.0.1", 41230))
+            except Exception:
+                pass
 
     print("\n" + "="*75)
     print(f"🤖 ROBOT TRADING M15 MULTI-ZONE ADAPTIVE [{BOT_VERSION}]")
@@ -1796,8 +1993,38 @@ def main():
 
             stoch_k_val = tech_data.get('stoch_k', 50.0) if tech_data else 50.0
             stoch_disp = f"Stoch:{stoch_k_val:.0f}"
-            sys.stdout.write(f"\r⏳ [{CHOSEN_TF}]: {mins:02d}m {secs:02d}s | {prob_display} | {stoch_disp} | Status: {status_str}   ")
+            sys.stdout.write(f"\r⏳ [{CHOSEN_TF}]: {mins:02d}m {secs:02d}s | {prob_display} | {stoch_disp} | Status: {status_str}   \n")
             sys.stdout.flush()
+
+            # --- SINKRONISASI TELEMETRI REAL-TIME KE GUI DESKTOP & WEB MONITOR (1 DETIK) ---
+            try:
+                import json
+                clean_status = re.sub(r'\033\[[0-9;]*m', '', status_str).strip()
+                t_data = {
+                    "timeframe": CHOSEN_TF,
+                    "prob_buy": round(float(prob_up), 1),
+                    "prob_sell": round(float(prob_down), 1),
+                    "h1_trend": "BULLISH" if h1_bull else "BEARISH",
+                    "mins_left": int(mins),
+                    "secs_left": int(secs),
+                    "seconds_left": int(seconds_left),
+                    "status_str": clean_status,
+                    "stoch_k": round(float(stoch_k_val), 1),
+                    "ask_p": round(float(ask_p), 2),
+                    "bid_p": round(float(bid_p), 2),
+                    "m15_sup": round(float(m15_sup), 2),
+                    "m15_res": round(float(m15_res), 2),
+                    "holding_trades": cur_count,
+                    "floating_pnl": round(float(live_pnl), 2),
+                    "timestamp": time.time()
+                }
+                t_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "telemetry_m15.json")
+                t_tmp = t_path + ".tmp"
+                with open(t_tmp, "w", encoding="utf-8") as f:
+                    json.dump(t_data, f)
+                os.replace(t_tmp, t_path)
+            except Exception:
+                pass
             
             # 2. TRIGGER CANDLE: Tepat 5 detik sebelum tutup candle M15 (0-delay)
             if seconds_left <= 5 and last_analyzed_candle != current_candle_time:

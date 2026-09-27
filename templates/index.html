@@ -1,300 +1,956 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bot Trading AI — Dashboard v3.7</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>QuantLGB — AI Trading Bot Dashboard</title>
 
-    <!-- PWA & Mobile Web App Meta -->
-    <meta name="theme-color" content="#090D14">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Bot Trading AI">
-    <meta name="description" content="Dashboard Monitoring Real-Time Robot Trading LightGBM XAUUSD Skripsi Informatika">
+    <!-- Google Fonts Poppins Wajib -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
 
-    <!-- PWA Manifest & Icons -->
-    <link rel="manifest" href="/manifest.json">
-    <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="icon" type="image/png" href="/static/icon-192.png">
+    <!-- Tailwind CSS (for layout utilities) -->
+    <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chart.js for Stepped Area Equity Curve -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Favicon: QuantLGB Logo App -->
+    <link rel="icon" type="image/png" href="/static/icons/LOGO APP.png" />
+    <link rel="shortcut icon" href="/static/icons/LOGO APP.png" />
 
-    <link rel="stylesheet" href="/static/style.css">
+    <!-- QuantLGB Glassmorphism Pure Poppins Stylesheet -->
+    <link rel="stylesheet" href="/static/style.css?v=4.4.2" />
 </head>
-<body class="theme-dark">
-    <!-- Offline Snapshot Banner -->
-    <div id="offline-banner" class="offline-banner hidden">
-        <span class="offline-icon">📡</span>
-        <div class="offline-text">
-            <strong>MODE OFFLINE — PC TIDAK TERHUBUNG</strong>
-            <p>Menampilkan snapshot data terakhir yang tersimpan di HP.</p>
-        </div>
+<body class="light-mode">
+
+    <div id="app-layout">
+        <!-- =========================================================================
+             SIDEBAR (EXACT FIGMA ICONS & MENU)
+             ========================================================================= -->
+        <aside id="app-sidebar">
+            <div class="flex flex-col gap-8">
+                <!-- Brand Logo: QuantLGB with Candlestick Mark -->
+                <div class="flex items-center gap-3 px-2 pt-1 cursor-pointer" onclick="switchTab('dashboard')">
+                    <img src="/static/icons/LOGO APP.png" class="w-8 h-8 object-contain" alt="QuantLGB Logo" />
+                    <span class="text-xl font-bold tracking-tight text-[var(--text-primary)]">QuantLGB</span>
+                </div>
+
+                <!-- Navigation Group: Engine -->
+                <div class="flex flex-col gap-1.5">
+                    <span class="nav-group-title">Engine</span>
+                    <a class="nav-link-item active" data-tab="dashboard" onclick="switchTab('dashboard')">
+                        <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M4 4h7v7H4V4zm9 0h7v7h-7V4zm-9 9h7v7H4v-7zm9 0h7v7h-7v-7z"/>
+                        </svg>
+                        <span>Dashboard</span>
+                    </a>
+                    <a class="nav-link-item" data-tab="m15" onclick="switchTab('m15')">
+                        <img src="/static/icons/LOGO M15 DAN M5 BOT MENU BAR.png" class="w-5 h-5 object-contain flex-shrink-0 nav-icon-img" alt="M15 Bot" />
+                        <span>M15 Bot</span>
+                    </a>
+                    <a class="nav-link-item" data-tab="m5" onclick="switchTab('m5')">
+                        <img src="/static/icons/LOGO M15 DAN M5 BOT MENU BAR.png" class="w-5 h-5 object-contain flex-shrink-0 nav-icon-img" alt="M5 Bot" />
+                        <span>M5 Bot</span>
+                    </a>
+                </div>
+
+                <!-- Navigation Group: Menu -->
+                <div class="flex flex-col gap-1.5">
+                    <span class="nav-group-title">Menu</span>
+                    <a class="nav-link-item" data-tab="rekap" onclick="switchTab('rekap')">
+                        <img src="/static/icons/LOGO RECAP TRANSAKSI.png" class="w-5 h-5 object-contain flex-shrink-0 nav-icon-img" alt="Recap Transaksi" />
+                        <span>Recap Transaksi</span>
+                    </a>
+                    <a class="nav-link-item" data-tab="eval" onclick="switchTab('eval')">
+                        <img src="/static/icons/LOGO EVALUASI W L.png" class="w-5 h-5 object-contain flex-shrink-0 nav-icon-img" alt="Evaluasi W/L" />
+                        <span>Evaluasi W/L</span>
+                    </a>
+                    <a class="nav-link-item" data-tab="about" onclick="switchTab('about')">
+                        <img src="/static/icons/LOGO ABOUT.png" class="w-5 h-5 object-contain flex-shrink-0 nav-icon-img" alt="About" />
+                        <span>About</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Sidebar Footer: Light / Dark Mode Slide Toggle Switch -->
+            <div class="pt-4 border-t border-[var(--card-border)] flex items-center justify-between">
+                <div class="theme-switch-container" id="theme-toggle-btn" onclick="toggleTheme()" title="Beralih Mode Light / Dark">
+                    <div class="theme-switch-knob">
+                        <!-- Sun Icon (LOGO MATAHARI.png) / Moon Icon (LOGO MOON DARK MODE.png) -->
+                        <img id="theme-icon-sun" src="/static/icons/LOGO MATAHARI.png" class="w-4 h-4 object-contain" alt="Light" />
+                        <img id="theme-icon-moon" src="/static/icons/LOGO MOON DARK MODE.png" class="w-4 h-4 object-contain hidden" alt="Dark" />
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="mt5-status-indicator" class="pulse-dot pulse-dot-green"></span>
+                    <span id="mt5-status-text" class="text-xs font-semibold text-[var(--text-secondary)]">MT5 LIVE</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- =========================================================================
+             MAIN VIEWPORT CONTAINER
+             ========================================================================= -->
+        <main id="app-main">
+            <!-- Top Right Notification Bell Pill with Slide Down Panel -->
+            <div class="w-full flex justify-end px-8 pt-6 pb-2 pointer-events-none relative z-50">
+                <div class="relative pointer-events-auto">
+                    <button id="notification-bell-btn" class="w-11 h-11 rounded-full bg-[var(--card-bg)] shadow-md border border-[var(--card-border)] flex items-center justify-center cursor-pointer hover:shadow-lg transition-all" onclick="toggleNotificationPanel()" title="Notifikasi Aktivitas Bot">
+                        <img src="/static/icons/LOGO NOTIF.png" class="w-5 h-5 object-contain" alt="Notifikasi" />
+                        <span id="notif-badge-dot" class="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[var(--card-bg)] animate-pulse"></span>
+                    </button>
+
+                    <!-- Smooth Slide Down Notification Panel -->
+                    <div id="notification-dropdown-panel" class="notification-dropdown-panel">
+                        <div class="p-4 border-b border-[var(--card-border)] flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-sm text-[var(--text-primary)]">Notifikasi Aktivitas Bot</span>
+                                <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 text-[10px] font-bold tracking-wider uppercase">Live Feed</span>
+                            </div>
+                            <button class="text-[11px] font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)] px-2 py-1 rounded bg-[var(--pill-bg)] transition-colors" onclick="clearNotifications()">Bersihkan</button>
+                        </div>
+                        
+                        <!-- Quick Audio Test Bar -->
+                        <div class="px-4 py-2 bg-[var(--pill-bg)]/60 border-b border-[var(--card-border)] flex items-center justify-between text-[11px]">
+                            <span class="text-[var(--text-muted)] font-medium">Tes Suara:</span>
+                            <div class="flex items-center gap-1.5">
+                                <button class="px-2 py-0.5 rounded bg-[#007a4d] text-white font-semibold text-[10px] hover:bg-[#005a38] transition-colors" onclick="playCheerfulTpSound()">🎉 Ceria (TP)</button>
+                                <button class="px-2 py-0.5 rounded bg-[#b91c1c] text-white font-semibold text-[10px] hover:bg-[#991b1b] transition-colors" onclick="playSadSlSound()">💔 Sad (SL)</button>
+                                <button class="px-2 py-0.5 rounded bg-[#2563eb] text-white font-semibold text-[10px] hover:bg-[#1d4ed8] transition-colors" onclick="playOpenPosisiSound()">📡 Radar (Open)</button>
+                            </div>
+                        </div>
+
+                        <!-- Notification Alert List -->
+                        <div id="notification-items-container" class="max-h-80 overflow-y-auto p-3 flex flex-col gap-2.5 text-xs">
+                            <!-- Live alerts rendered here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scrollable Content Area -->
+            <div id="main-scroll-area">
+
+                <!-- ═════════════════════════════════════════════════════════════════
+                     PAGE 1: DASHBOARD (FIGMA 1:1 REVISED 2-COLUMN ASYMMETRIC GRID)
+                     ═════════════════════════════════════════════════════════════════ -->
+                <section id="view-dashboard" class="tab-view block space-y-6">
+                    <h1 class="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Dashboard</h1>
+
+                    <!-- TOP FULL CARD: PORTOFOLIO & STEPPED EQUITY CURVE -->
+                    <div class="ui-card">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                            <div class="flex flex-col">
+                                <h2 class="text-xl font-bold text-[var(--text-primary)]">Portofolio</h2>
+                                <span class="text-xs text-[var(--text-muted)] font-medium">Equity Curve</span>
+                            </div>
+                            <!-- Date & Granularity Filters -->
+                            <div class="flex flex-wrap items-center gap-2.5 relative">
+                                <!-- Date Dropdown -->
+                                <div class="relative">
+                                    <button class="pill-dropdown-btn flex items-center gap-1.5" onclick="toggleDropdown('dropdown-date')">
+                                        <img src="/static/icons/LOGO KALENDER.png" class="w-4 h-4 object-contain flex-shrink-0" alt="Kalender" />
+                                        <span id="label-date-filter">1 Sept – 30 Sept</span>
+                                        <span class="text-xs">▼</span>
+                                    </button>
+                                    <div id="dropdown-date" class="dropdown-menu-floating">
+                                        <button class="dropdown-menu-item" onclick="applyDateFilter('1 Sept – 30 Sept')">1 Sept – 30 Sept (Default)</button>
+                                        <button class="dropdown-menu-item" onclick="applyDateFilter('Hari Ini')">Hari Ini (Today)</button>
+                                        <button class="dropdown-menu-item" onclick="applyDateFilter('Minggu Ini')">Minggu Ini (This Week)</button>
+                                        <button class="dropdown-menu-item" onclick="applyDateFilter('Bulan Ini')">Bulan Ini (This Month)</button>
+                                        <button class="dropdown-menu-item" onclick="applyDateFilter('Sepanjang Waktu')">Sepanjang Waktu (All Time)</button>
+                                    </div>
+                                </div>
+
+                                <!-- Granularity Dropdown -->
+                                <div class="relative">
+                                    <button class="pill-dropdown-btn" onclick="toggleDropdown('dropdown-interval')">
+                                        <span id="label-interval-filter">Daily</span>
+                                        <span class="text-xs">▼</span>
+                                    </button>
+                                    <div id="dropdown-interval" class="dropdown-menu-floating">
+                                        <button class="dropdown-menu-item" onclick="applyIntervalFilter('Per Jam')">Per Jam (Hourly)</button>
+                                        <button class="dropdown-menu-item" onclick="applyIntervalFilter('Daily')">Harian (Daily)</button>
+                                        <button class="dropdown-menu-item" onclick="applyIntervalFilter('Mingguan')">Mingguan (Weekly)</button>
+                                        <button class="dropdown-menu-item" onclick="applyIntervalFilter('Bulanan')">Bulanan (Monthly)</button>
+                                    </div>
+                                </div>
+
+                                <!-- Gain & Drawdown Toggle Buttons -->
+                                <button id="btn-toggle-gain" class="badge-pill bg-[#007a4d] text-white px-3 py-1.5 cursor-pointer shadow-sm font-semibold" onclick="toggleChartSeries('gain')">
+                                    Gain ▲
+                                </button>
+                                <button id="btn-toggle-dd" class="badge-pill bg-[#7f1d1d] text-white px-3 py-1.5 cursor-pointer shadow-sm font-semibold" onclick="toggleChartSeries('drawdown')">
+                                    Drawdown ▼
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Stepped Area Chart Canvas Container with Custom Glass Tooltip -->
+                        <div class="relative w-full h-72 md:h-80">
+                            <canvas id="equityChartCanvas"></canvas>
+                            <!-- Custom Frosted Glass Hover Tooltip with Pointer Arrow -->
+                            <div id="custom-glass-tooltip" class="chart-glass-tooltip">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-black font-bold text-xs">➤</span>
+                                    <span id="tooltip-trade" class="font-bold text-[var(--text-primary)]">Trade 2</span>
+                                    <span class="text-[var(--text-muted)]">|</span>
+                                    <span id="tooltip-balance" class="text-[var(--text-secondary)]">Balance: $550</span>
+                                    <span class="text-[var(--text-muted)]">|</span>
+                                    <span id="tooltip-pnl" class="text-red-500 font-semibold">PnL: -$50</span>
+                                    <span id="tooltip-pct" class="badge-pill badge-loss text-[11px]">▼ 1.2%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- =========================================================================
+                         EXACT FIGMA 2-COLUMN ASYMMETRIC GRID (KOLOM KIRI ~60% | KOLOM KANAN ~40%)
+                         ========================================================================= -->
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        
+                        <!-- KOLOM KIRI (7 out of 12 cols): BALANCED + PNL, PROGRESS, BOT OVERVIEW -->
+                        <div class="lg:col-span-7 flex flex-col gap-6">
+                            <!-- Baris 1: Balanced & Total PnL side-by-side (50:50) -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <!-- Card Balanced (Solid Green Gradient) -->
+                                <div class="card-balanced-gradient flex flex-col justify-between p-5 rounded-2xl shadow-md min-h-[165px]">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                                            <img src="/static/icons/LOGO DOMPET.png" class="w-5 h-5 object-contain brightness-0 invert" alt="Balanced" />
+                                        </div>
+                                        <span class="text-sm font-semibold tracking-wide uppercase text-white/95">Balanced</span>
+                                    </div>
+                                    <div class="flex items-baseline justify-between mt-3">
+                                        <span class="text-4xl lg:text-5xl font-bold tracking-tight text-white" id="dash-balance">$500</span>
+                                        <span class="badge-pill bg-white/25 text-white text-xs font-bold px-3 py-1" id="dash-growth">▲ 10%</span>
+                                    </div>
+                                </div>
+
+                                <!-- Card Total PnL -->
+                                <div class="ui-card flex flex-col justify-between p-5 min-h-[165px]">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-full bg-[var(--text-primary)] flex items-center justify-center">
+                                            <img src="/static/icons/LOGO PNL.png" class="w-4 h-4 object-contain theme-icon-light" alt="Total PnL" />
+                                            <img src="/static/icons/LOGO PNL DARK.png" class="w-4 h-4 object-contain theme-icon-dark" alt="Total PnL" />
+                                        </div>
+                                        <span class="text-sm font-bold text-[var(--text-secondary)] uppercase">Total PnL</span>
+                                    </div>
+                                    <div class="mt-1">
+                                        <span class="text-4xl lg:text-5xl font-bold tracking-tight text-[#d32f2f]" id="dash-total-pnl">$-5,02</span>
+                                    </div>
+                                    <div class="flex items-center justify-between pt-3 border-t border-[var(--table-border)] mt-2">
+                                        <span class="font-bold text-[var(--text-primary)] text-sm">Profit Factor</span>
+                                        <div class="w-10 h-10 rounded-full bg-[#2563eb] text-white flex items-center justify-center font-bold text-sm shadow-md" id="dash-profit-factor">
+                                            1.4
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Baris 2: Proggres Trade (Spans full width of left column) -->
+                            <div class="ui-card flex flex-col gap-3 p-5">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-7 h-7 rounded-full bg-[var(--text-primary)] flex items-center justify-center">
+                                            <img src="/static/icons/LOGO PROGGRES WHITE.png" class="w-4 h-4 object-contain theme-icon-light" alt="Proggres Trade" />
+                                            <img src="/static/icons/LOGO PROGGRES DARK.png" class="w-4 h-4 object-contain theme-icon-dark" alt="Proggres Trade" />
+                                        </div>
+                                        <h3 class="font-bold text-[var(--text-primary)] text-base">Proggres Trade</h3>
+                                    </div>
+                                    <span class="text-xs font-semibold text-[var(--text-muted)]" id="dash-progress-text">55 of 100</span>
+                                </div>
+                                <div class="w-full h-2.5 rounded-full bg-[var(--pill-bg)] overflow-hidden mt-1">
+                                    <div class="h-full bg-[var(--accent-green)] rounded-full transition-all duration-700" id="dash-progress-bar" style="width: 55%;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Baris 3: Bot Overview (Spans full width of left column) -->
+                            <div class="ui-card flex flex-col gap-4 p-5">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="font-bold text-[var(--text-primary)] text-base">Bot Overview</h3>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xs font-bold text-[var(--text-secondary)]">MT 5</span>
+                                        <span class="pulse-dot pulse-dot-green"></span>
+                                        <span class="text-[11px] font-semibold text-[var(--text-muted)]">CONNECTED</span>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <!-- M15 Pod -->
+                                    <div class="flex items-center gap-3.5 p-3.5 rounded-2xl bg-[var(--pill-bg)] cursor-pointer hover:bg-[var(--pill-hover)] transition-all" onclick="switchTab('m15')">
+                                        <div class="w-12 h-12 rounded-full bg-[#007a4d] flex items-center justify-center shadow-sm">
+                                            <img src="/static/icons/LOGO M15 DAN M5.png" class="w-6 h-6 object-contain brightness-0 invert" alt="M15 Pod" />
+                                        </div>
+                                        <div class="flex flex-col">
+                                            <span class="font-bold text-base text-[var(--text-primary)]">M15</span>
+                                            <span class="text-xs font-semibold text-[#007a4d]" id="dash-m15-pod-status">ACTIVE</span>
+                                        </div>
+                                    </div>
+                                    <!-- M5 Pod -->
+                                    <div class="flex items-center gap-3.5 p-3.5 rounded-2xl bg-[var(--pill-bg)] cursor-pointer hover:bg-[var(--pill-hover)] transition-all" onclick="switchTab('m5')">
+                                        <div class="w-12 h-12 rounded-full bg-gray-400 flex items-center justify-center shadow-sm" id="dash-m5-pod-circle">
+                                            <img src="/static/icons/LOGO M15 DAN M5.png" class="w-6 h-6 object-contain brightness-0 invert" alt="M5 Pod" />
+                                        </div>
+                                        <div class="flex flex-col">
+                                            <span class="font-bold text-base text-[var(--text-primary)]">M5</span>
+                                            <span class="text-xs font-semibold text-[var(--text-muted)]" id="dash-m5-pod-status">NON - ACTIVE</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- KOLOM KANAN (5 out of 12 cols): WIN RATE, PERFORMA PERIODE, XAUUSD -->
+                        <div class="lg:col-span-5 flex flex-col gap-6">
+                            <!-- Baris 1: Win Rate -->
+                            <div class="ui-card flex flex-col justify-between p-5 min-h-[165px]">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-8 h-8 rounded-full bg-[var(--text-primary)] flex items-center justify-center">
+                                        <img src="/static/icons/LOGO WIN RATE DAN PERFORMA PERIODE.png" class="w-4 h-4 object-contain theme-icon-light" alt="Win Rate" />
+                                        <img src="/static/icons/LOGO WIN RATE DARK.png" class="w-4 h-4 object-contain theme-icon-dark" alt="Win Rate" />
+                                    </div>
+                                    <span class="text-sm font-bold text-[var(--text-secondary)] uppercase">Win Rate</span>
+                                </div>
+                                <div class="flex items-center gap-4 my-2">
+                                    <span class="text-5xl font-bold tracking-tight text-[var(--text-muted)] opacity-60" id="dash-win-rate">75%</span>
+                                    <div class="h-10 w-[2px] bg-[var(--table-border)]"></div>
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-2xl font-bold text-[#007a4d]" id="dash-win-count">15W</span>
+                                        <span class="text-2xl font-bold text-[#b91c1c]" id="dash-loss-count">5L</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between text-xs font-semibold text-[var(--text-muted)] pt-2 border-t border-[var(--table-border)]">
+                                    <span>Total Trade</span>
+                                    <span class="text-[var(--text-primary)] font-bold" id="dash-total-trades">20 Trades</span>
+                                </div>
+                            </div>
+
+                            <!-- Baris 2: Perfoma Periode -->
+                            <div class="ui-card flex flex-col gap-3 p-5">
+                                <div class="flex items-center gap-2.5 mb-1">
+                                    <div class="w-8 h-8 rounded-full bg-[var(--text-primary)] flex items-center justify-center">
+                                        <img src="/static/icons/LOGO WIN RATE DAN PERFORMA PERIODE.png" class="w-4 h-4 object-contain theme-icon-light" alt="Performa Periode" />
+                                        <img src="/static/icons/LOGO WIN RATE DARK.png" class="w-4 h-4 object-contain theme-icon-dark" alt="Performa Periode" />
+                                    </div>
+                                    <h3 class="font-bold text-[var(--text-primary)] text-base">Perfoma Periode</h3>
+                                </div>
+                                <table class="w-full text-xs">
+                                    <thead>
+                                        <tr class="text-[var(--text-muted)] font-semibold border-b border-[var(--table-border)]">
+                                            <th class="py-2 text-left">Periode</th>
+                                            <th class="py-2 text-center">Gain</th>
+                                            <th class="py-2 text-right">Trade</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-[var(--table-border)] font-medium">
+                                        <tr>
+                                            <td class="py-2 text-[var(--text-secondary)]">This Day</td>
+                                            <td class="py-2 text-center text-red-500 font-bold" id="perf-day-gain">-0.50%</td>
+                                            <td class="py-2 text-right text-[var(--text-secondary)]" id="perf-day-trade">2 Trade</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-2 text-[var(--text-secondary)]">This Week</td>
+                                            <td class="py-2 text-center text-[#007a4d] font-bold" id="perf-week-gain">+5.00%</td>
+                                            <td class="py-2 text-right text-[var(--text-secondary)]" id="perf-week-trade">25 Trade</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-2 text-[var(--text-secondary)]">This Month</td>
+                                            <td class="py-2 text-center text-[#007a4d] font-bold" id="perf-month-gain">+8.00%</td>
+                                            <td class="py-2 text-right text-[var(--text-secondary)]" id="perf-month-trade">40 Trade</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-2 text-[var(--text-secondary)]">All Time</td>
+                                            <td class="py-2 text-center text-[#007a4d] font-bold" id="perf-all-gain">+102.00%</td>
+                                            <td class="py-2 text-right text-[var(--text-secondary)]" id="perf-all-trade">70 Trade</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Baris 3: XAUUSD Live Ticker -->
+                            <div class="ui-card flex items-center justify-between p-5">
+                                <span class="text-2xl font-bold tracking-tight text-[var(--text-primary)]">XAUUSD</span>
+                                <div class="flex flex-col text-right text-xs gap-0.5">
+                                    <span class="text-[var(--text-muted)] font-medium">BID <strong class="text-[var(--text-primary)] ml-1" id="dash-bid">$4276.6</strong></span>
+                                    <span class="text-[var(--text-muted)] font-medium">ASK <strong class="text-[var(--text-primary)] ml-1" id="dash-ask">$4276.8</strong></span>
+                                    <span class="text-[var(--text-muted)] font-semibold">SPREAD <span class="text-[#007a4d] font-bold ml-1" id="dash-spread">1.6 pips</span></span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+
+                <!-- ═════════════════════════════════════════════════════════════════
+                     PAGE 2: M15 BOT VIEW (WITH CUSTOM TRADE TOGGLE & SCATTER STREAM)
+                     ═════════════════════════════════════════════════════════════════ -->
+                <section id="view-m15" class="tab-view hidden space-y-6">
+                    <h1 class="text-3xl font-bold tracking-tight text-[var(--text-primary)]">M15 Bot View</h1>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        <!-- LEFT COLUMN -->
+                        <div class="lg:col-span-5 flex flex-col gap-6">
+                            <!-- Card 1: Probabilitas & Donut Gauge -->
+                            <div class="ui-card flex flex-col items-center p-6">
+                                <div class="relative w-48 h-48 flex items-center justify-center my-2">
+                                    <svg class="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+                                        <circle class="donut-circle-track" cx="60" cy="60" r="48" stroke-width="12" fill="none" />
+                                        <circle id="m15-donut-buy" class="donut-circle-buy" cx="60" cy="60" r="48" stroke-width="12" fill="none"
+                                            stroke-dasharray="301.59" stroke-dashoffset="150" stroke-linecap="round" />
+                                    </svg>
+                                    <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                                        <span class="text-4xl font-bold tracking-tight text-[var(--text-primary)]" id="m15-gauge-pct">50%</span>
+                                        <span class="text-sm font-semibold text-[var(--text-muted)]" id="m15-gauge-bias">Netral</span>
+                                    </div>
+                                </div>
+
+                                <h3 class="text-base font-bold text-[var(--text-primary)] mt-3 mb-4">Probabilitas</h3>
+                                <div class="w-full flex flex-col gap-3">
+                                    <div class="flex flex-col gap-1">
+                                        <div class="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)]">
+                                            <span>Buy</span>
+                                            <span id="m15-buy-pct">50%</span>
+                                        </div>
+                                        <div class="prob-bar-container">
+                                            <div id="m15-buy-bar" class="prob-bar-fill-buy" style="width: 50%;"></div>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <div class="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)]">
+                                            <span>Sell</span>
+                                            <span id="m15-sell-pct">50%</span>
+                                        </div>
+                                        <div class="prob-bar-container">
+                                            <div id="m15-sell-bar" class="prob-bar-fill-sell" style="width: 50%;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card 2: Makroekonomi Analytic (Dynamic Data Conclusion) -->
+                            <div class="ui-card flex flex-col gap-3 p-5">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="text-base font-bold text-[var(--text-primary)]">Makroekonomi Analytic</h3>
+                                    <img src="/static/icons/LOGO NEWS.png" class="h-5 object-contain" alt="News" />
+                                </div>
+                                <p class="text-xs leading-relaxed text-[var(--text-secondary)]" id="m15-macro-text">
+                                    Memuat kesimpulan makroekonomi dan sentimen fundamental live...
+                                </p>
+                            </div>
+
+                            <!-- Card 3: Custom Trade (With Interactive ON/OFF Radio Toggle) -->
+                            <div class="ui-card flex flex-col gap-3 p-5" id="m15-custom-trade-card">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="text-base font-bold text-[var(--text-primary)]">Custom Trade</h3>
+                                    <!-- Radio Toggle Button -->
+                                    <button id="m15-custom-trade-toggle" class="custom-trade-radio-btn" onclick="toggleCustomTrade('m15')" title="Aktifkan/Nonaktifkan Custom Trade">
+                                        <span class="radio-dot"></span>
+                                    </button>
+                                </div>
+                                <div id="m15-custom-trade-inputs" class="flex flex-col gap-2.5 text-xs transition-opacity duration-300 disabled-inputs">
+                                    <div class="flex items-center gap-3">
+                                        <span class="w-16 font-semibold text-[var(--text-secondary)]">Volume :</span>
+                                        <input type="text" id="m15-input-volume" value="0.02 lot" class="pill-input" disabled />
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <span class="w-16 font-semibold text-[var(--text-secondary)]">TP :</span>
+                                        <input type="text" id="m15-input-tp" value="$ 30" class="pill-input" disabled />
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <span class="w-16 font-semibold text-[var(--text-secondary)]">SL :</span>
+                                        <input type="text" id="m15-input-sl" value="$ 10" class="pill-input" disabled />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RIGHT COLUMN -->
+                        <div class="lg:col-span-7 flex flex-col gap-6">
+                            <!-- Hero Banner (Green Mesh Gradient) -->
+                            <div class="hero-banner-green flex flex-col justify-between gap-6 p-6">
+                                <div class="flex flex-wrap items-center justify-between gap-4">
+                                    <div class="flex items-center gap-2">
+                                        <span id="m15-hero-dot" class="pulse-dot pulse-dot-green"></span>
+                                        <span class="text-sm font-semibold opacity-90">Durasi Sesi Bot</span>
+                                        <span class="text-xs opacity-75" id="m15-hero-status-sub">(Actived)</span>
+                                    </div>
+                                    <span class="text-3xl md:text-5xl font-bold tracking-tight" id="m15-session-duration">01:24:08</span>
+                                </div>
+                                <div class="flex flex-wrap items-baseline justify-between gap-4 pt-4 border-t border-white/20">
+                                    <span class="text-3xl md:text-5xl font-bold tracking-tight" id="m15-live-clock">14:59:20</span>
+                                    <div class="text-right">
+                                        <span class="text-base md:text-lg font-bold">Candel Close: </span>
+                                        <span class="text-sm font-medium opacity-90" id="m15-candle-countdown">09m 24s</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Keputusan Terakhir & Giant ON/OFF Slide Toggle Switch -->
+                            <div class="ui-card flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5">
+                                <div class="flex flex-col">
+                                    <h3 class="text-base font-bold text-[var(--text-primary)]">Keputusan Terakhir</h3>
+                                    <span class="text-xs text-[var(--text-muted)] font-medium">Keputusan Terakhir : <strong class="text-[var(--text-primary)]" id="m15-last-decision-text">STANDBY</strong></span>
+                                </div>
+                                <div id="m15-bot-toggle" class="bot-toggle-wrapper on" onclick="toggleBotExecution('m15')">
+                                    <div class="toggle-knob">ON</div>
+                                    <span class="toggle-label-text toggle-label-off">Off</span>
+                                </div>
+                            </div>
+
+                            <!-- History Decision Bot (Scatter Stream & Table Matching Figma) -->
+                            <div class="ui-card flex flex-col gap-4 p-5">
+                                <div class="flex items-center justify-between flex-wrap gap-2">
+                                    <h3 class="text-base font-bold text-[var(--text-primary)]">History Decision Bot</h3>
+                                    <div class="flex items-center gap-2">
+                                        <!-- Filter Dropdown Buy / Sell -->
+                                        <div class="relative">
+                                            <button class="pill-dropdown-btn py-1 px-3 text-xs" onclick="toggleDropdown('dropdown-m15-action-filter')">
+                                                <span id="m15-filter-btn-label">Semua Aksi</span> ▼
+                                            </button>
+                                            <div id="dropdown-m15-action-filter" class="dropdown-menu-floating text-xs">
+                                                <button class="dropdown-menu-item" onclick="filterBotDecisionLogs('m15', 'ALL')">Semua Aksi</button>
+                                                <button class="dropdown-menu-item" onclick="filterBotDecisionLogs('m15', 'BUY')">BUY Saja</button>
+                                                <button class="dropdown-menu-item" onclick="filterBotDecisionLogs('m15', 'SELL')">SELL Saja</button>
+                                                <button class="dropdown-menu-item" onclick="filterBotDecisionLogs('m15', 'STANDBY')">STANDBY Saja</button>
+                                            </div>
+                                        </div>
+                                        <button class="pill-dropdown-btn py-1 px-3 text-xs flex items-center gap-1" onclick="clearDecisionLogsUI('m15')">
+                                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12z"/></svg>
+                                            Clean
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Decision History Stream & Table Container -->
+                                <div class="figma-table-container">
+                                    <table class="figma-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Waktu</th>
+                                                <th>Aksi</th>
+                                                <th>Buy</th>
+                                                <th>Sell</th>
+                                                <th>Alasan Keputusan</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="m15-decision-log-tbody">
+                                            <tr>
+                                                <td colspan="5" class="text-center py-4 text-[var(--text-muted)]">Memuat log keputusan real-time...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+
+                <!-- ═════════════════════════════════════════════════════════════════
+                     PAGE 3: M5 BOT VIEW
+                     ═════════════════════════════════════════════════════════════════ -->
+                <section id="view-m5" class="tab-view hidden space-y-6">
+                    <h1 class="text-3xl font-bold tracking-tight text-[var(--text-primary)]">M5 Bot View</h1>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        <!-- LEFT COLUMN -->
+                        <div class="lg:col-span-5 flex flex-col gap-6">
+                            <div class="ui-card flex flex-col items-center p-6">
+                                <div class="relative w-48 h-48 flex items-center justify-center my-2">
+                                    <svg class="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+                                        <circle class="donut-circle-track" cx="60" cy="60" r="48" stroke-width="12" fill="none" />
+                                        <circle id="m5-donut-buy" class="donut-circle-buy" cx="60" cy="60" r="48" stroke-width="12" fill="none"
+                                            stroke-dasharray="301.59" stroke-dashoffset="150" stroke-linecap="round" />
+                                    </svg>
+                                    <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                                        <span class="text-4xl font-bold tracking-tight text-[var(--text-primary)]" id="m5-gauge-pct">50%</span>
+                                        <span class="text-sm font-semibold text-[var(--text-muted)]" id="m5-gauge-bias">Netral</span>
+                                    </div>
+                                </div>
+                                <h3 class="text-base font-bold text-[var(--text-primary)] mt-3 mb-4">Probabilitas M5 Scalper</h3>
+                                <div class="w-full flex flex-col gap-3">
+                                    <div class="flex flex-col gap-1">
+                                        <div class="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)]">
+                                            <span>Buy</span>
+                                            <span id="m5-buy-pct">50%</span>
+                                        </div>
+                                        <div class="prob-bar-container">
+                                            <div id="m5-buy-bar" class="prob-bar-fill-buy" style="width: 50%;"></div>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <div class="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)]">
+                                            <span>Sell</span>
+                                            <span id="m5-sell-pct">50%</span>
+                                        </div>
+                                        <div class="prob-bar-container">
+                                            <div id="m5-sell-bar" class="prob-bar-fill-sell" style="width: 50%;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Custom Trade M5 -->
+                            <div class="ui-card flex flex-col gap-3 p-5" id="m5-custom-trade-card">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="text-base font-bold text-[var(--text-primary)]">Custom Trade M5</h3>
+                                    <button id="m5-custom-trade-toggle" class="custom-trade-radio-btn" onclick="toggleCustomTrade('m5')" title="Aktifkan/Nonaktifkan Custom Trade">
+                                        <span class="radio-dot"></span>
+                                    </button>
+                                </div>
+                                <div id="m5-custom-trade-inputs" class="flex flex-col gap-2.5 text-xs transition-opacity duration-300 disabled-inputs">
+                                    <div class="flex items-center gap-3">
+                                        <span class="w-16 font-semibold text-[var(--text-secondary)]">Volume :</span>
+                                        <input type="text" id="m5-input-volume" value="0.01 lot" class="pill-input" disabled />
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <span class="w-16 font-semibold text-[var(--text-secondary)]">TP :</span>
+                                        <input type="text" id="m5-input-tp" value="$ 15" class="pill-input" disabled />
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <span class="w-16 font-semibold text-[var(--text-secondary)]">SL :</span>
+                                        <input type="text" id="m5-input-sl" value="$ 7" class="pill-input" disabled />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RIGHT COLUMN -->
+                        <div class="lg:col-span-7 flex flex-col gap-6">
+                            <div class="hero-banner-green flex flex-col justify-between gap-6 p-6">
+                                <div class="flex flex-wrap items-center justify-between gap-4">
+                                    <div class="flex items-center gap-2">
+                                        <span id="m5-hero-dot" class="pulse-dot pulse-dot-red"></span>
+                                        <span class="text-sm font-semibold opacity-90">Durasi Sesi Bot</span>
+                                        <span class="text-xs opacity-75" id="m5-hero-status-sub">(Non-Actived)</span>
+                                    </div>
+                                    <span class="text-3xl md:text-5xl font-bold tracking-tight" id="m5-session-duration">00:00:00</span>
+                                </div>
+                                <div class="flex flex-wrap items-baseline justify-between gap-4 pt-4 border-t border-white/20">
+                                    <span class="text-3xl md:text-5xl font-bold tracking-tight" id="m5-live-clock">14:59:20</span>
+                                    <div class="text-right">
+                                        <span class="text-base md:text-lg font-bold">Candel Close: </span>
+                                        <span class="text-sm font-medium opacity-90" id="m5-candle-countdown">04m 12s</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- M5 Giant Toggle Switch -->
+                            <div class="ui-card flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5">
+                                <div class="flex flex-col">
+                                    <h3 class="text-base font-bold text-[var(--text-primary)]">Keputusan Terakhir M5</h3>
+                                    <span class="text-xs text-[var(--text-muted)] font-medium">Keputusan Terakhir : <strong class="text-[var(--text-primary)]" id="m5-last-decision-text">STANDBY</strong></span>
+                                </div>
+                                <div id="m5-bot-toggle" class="bot-toggle-wrapper off" onclick="toggleBotExecution('m5')">
+                                    <div class="toggle-knob">Off</div>
+                                    <span class="toggle-label-text toggle-label-on">ON</span>
+                                </div>
+                            </div>
+
+                            <!-- M5 Decision History Table -->
+                            <div class="ui-card flex flex-col gap-4 p-5">
+                                <div class="flex items-center justify-between flex-wrap gap-2">
+                                    <h3 class="text-base font-bold text-[var(--text-primary)]">Riwayat Keputusan Bot M5</h3>
+                                    <button class="pill-dropdown-btn py-1 px-3 text-xs flex items-center gap-1" onclick="clearDecisionLogsUI('m5')">
+                                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12z"/></svg>
+                                        Clean
+                                    </button>
+                                </div>
+                                <div class="figma-table-container">
+                                    <table class="figma-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Waktu</th>
+                                                <th>Aksi</th>
+                                                <th>Buy</th>
+                                                <th>Sell</th>
+                                                <th>Alasan Keputusan</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="m5-decision-log-tbody">
+                                            <tr>
+                                                <td colspan="5" class="text-center py-4 text-[var(--text-muted)]">Memuat log keputusan M5...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+
+                <!-- ═════════════════════════════════════════════════════════════════
+                     PAGE 4: RECAP TRANSAKSI (16-COLUMN FULL DATA TABLE)
+                     ═════════════════════════════════════════════════════════════════ -->
+                <section id="view-rekap" class="tab-view hidden space-y-6">
+                    <h1 class="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Recap Transaksi</h1>
+
+                    <div class="ui-card flex flex-col gap-6 p-6">
+                        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            <!-- Search Input -->
+                            <div class="relative flex-1 max-w-lg">
+                                <img src="/static/icons/LOGO SEARCH.png" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 object-contain opacity-70" alt="Search" />
+                                <input type="text" id="rekap-search-input" placeholder="Cari tiket, waktu, arah, status..." class="pill-input pl-11" oninput="filterRecapTable()" />
+                            </div>
+
+                            <!-- Filter Buttons -->
+                            <div class="flex flex-wrap items-center gap-2">
+                                <!-- WIN / LOSS Filter -->
+                                <div class="relative">
+                                    <button class="pill-dropdown-btn" onclick="toggleDropdown('dropdown-filter-status')">
+                                        <span id="label-filter-status">Semua Status</span> ▼
+                                    </button>
+                                    <div id="dropdown-filter-status" class="dropdown-menu-floating">
+                                        <button class="dropdown-menu-item" onclick="applyRecapFilter('status', 'ALL')">Semua Status</button>
+                                        <button class="dropdown-menu-item" onclick="applyRecapFilter('status', 'WIN')">WIN Saja</button>
+                                        <button class="dropdown-menu-item" onclick="applyRecapFilter('status', 'LOSS')">LOSS Saja</button>
+                                        <button class="dropdown-menu-item" onclick="applyRecapFilter('status', 'BEP')">BEP Saja</button>
+                                    </div>
+                                </div>
+
+                                <!-- Timeframe / Bot Model Filter -->
+                                <div class="relative">
+                                    <button class="pill-dropdown-btn" onclick="toggleDropdown('dropdown-filter-model')">
+                                        <span id="label-filter-model">Semua Bot</span> ▼
+                                    </button>
+                                    <div id="dropdown-filter-model" class="dropdown-menu-floating">
+                                        <button class="dropdown-menu-item" onclick="applyRecapFilter('model', 'ALL')">Semua Bot</button>
+                                        <button class="dropdown-menu-item" onclick="applyRecapFilter('model', 'M15')">M15 Bot (Skripsi)</button>
+                                        <button class="dropdown-menu-item" onclick="applyRecapFilter('model', 'M5')">M5 Bot (Scalper)</button>
+                                    </div>
+                                </div>
+
+                                <!-- Arah Posisi Filter -->
+                                <div class="relative">
+                                    <button class="pill-dropdown-btn" onclick="toggleDropdown('dropdown-filter-type')">
+                                        <span id="label-filter-type">Semua Arah</span> ▼
+                                    </button>
+                                    <div id="dropdown-filter-type" class="dropdown-menu-floating">
+                                        <button class="dropdown-menu-item" onclick="applyRecapFilter('type', 'ALL')">Semua Arah</button>
+                                        <button class="dropdown-menu-item" onclick="applyRecapFilter('type', 'BUY')">BUY Saja</button>
+                                        <button class="dropdown-menu-item" onclick="applyRecapFilter('type', 'SELL')">SELL Saja</button>
+                                    </div>
+                                </div>
+
+                                <!-- Export & Statistik Dropdown -->
+                                <div class="relative">
+                                    <button class="pill-dropdown-btn" onclick="toggleDropdown('dropdown-filter-stats')">
+                                        <span>Perbandingan Statistik</span> ▼
+                                    </button>
+                                    <div id="dropdown-filter-stats" class="dropdown-menu-floating">
+                                        <button class="dropdown-menu-item flex items-center gap-2" onclick="exportData('csv')">
+                                            <svg class="w-4 h-4 text-[var(--accent-green)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                            <span>Ekspor CSV</span>
+                                        </button>
+                                        <button class="dropdown-menu-item flex items-center gap-2" onclick="showNotification('Total Transaksi Riil: 23 | Win Rate: 69.6% | Profit Factor: 1.4', 'info')">
+                                            <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                                            <span>Ringkasan Statistik</span>
+                                        </button>
+                                        <button class="dropdown-menu-item flex items-center gap-2" onclick="fetchTradesHistory()">
+                                            <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                            <span>Sinkron Ulang Excel</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 16-Column Full Data Table (Exact Figma Spec) -->
+                        <div class="figma-table-container">
+                            <table class="figma-table">
+                                <thead>
+                                    <tr>
+                                        <th>Trade Ke</th>
+                                        <th>Ticket</th>
+                                        <th>Waktu Open (WIB)</th>
+                                        <th>Waktu Close (WIB)</th>
+                                        <th>Durasi</th>
+                                        <th>Arah</th>
+                                        <th>Lot</th>
+                                        <th>Harga Entry (USD)</th>
+                                        <th>Stop Loss (USD)</th>
+                                        <th>Take Profit (USD)</th>
+                                        <th>Harga Exit (USD)</th>
+                                        <th>Pips</th>
+                                        <th>Profit (USD)</th>
+                                        <th>Saldo (USD)</th>
+                                        <th>Hasil</th>
+                                        <th>Alasan Exit / Keterangan</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rekap-trades-tbody">
+                                    <tr>
+                                        <td colspan="16" class="text-center py-6 text-[var(--text-muted)]">Memuat riwayat transaksi forward testing...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+
+                <!-- ═════════════════════════════════════════════════════════════════
+                     PAGE 5: EVALUASI W/L
+                     ═════════════════════════════════════════════════════════════════ -->
+                <section id="view-eval" class="tab-view hidden space-y-6">
+                    <h1 class="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Evaluasi W/L</h1>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="ui-card flex flex-col gap-2 p-5">
+                            <span class="text-xs font-semibold text-[var(--text-muted)] uppercase">Win Trade Analysis</span>
+                            <span class="text-3xl font-bold text-[#007a4d]" id="eval-win-total">16 Menang (69.6%)</span>
+                            <p class="text-xs text-[var(--text-secondary)] mt-2">Sebagian besar Take Profit diraih pada Zona B-Diag dan Zona C-Sniper saat konfluensi H4 trend searah.</p>
+                        </div>
+                        <div class="ui-card flex flex-col gap-2 p-5">
+                            <span class="text-xs font-semibold text-[var(--text-muted)] uppercase">Loss Autopsy</span>
+                            <span class="text-3xl font-bold text-[#b91c1c]" id="eval-loss-total">7 Kalah (30.4%)</span>
+                            <p class="text-xs text-[var(--text-secondary)] mt-2">Kerugian terbatasi secara disiplin oleh Dynamic Stop Loss ATR 14 tanpa slippage signifikan.</p>
+                        </div>
+                        <div class="ui-card flex flex-col gap-2 p-5">
+                            <span class="text-xs font-semibold text-[var(--text-muted)] uppercase">Capital Preservation</span>
+                            <span class="text-3xl font-bold text-[var(--text-primary)]">Auto BEP +$0.20</span>
+                            <p class="text-xs text-[var(--text-secondary)] mt-2">Mekanisme auto BEP berhasil mengamankan 3 posisi dari pembalikan arah mendadak pasar emas.</p>
+                        </div>
+                    </div>
+
+                    <div class="ui-card flex flex-col gap-4 p-5">
+                        <h3 class="text-lg font-bold text-[var(--text-primary)]">Inspeksi Transaksi Mendalam (Trade Autopsy)</h3>
+                        <div class="figma-table-container">
+                            <table class="figma-table">
+                                <thead>
+                                    <tr>
+                                        <th>Ticket</th>
+                                        <th>Waktu</th>
+                                        <th>Tipe</th>
+                                        <th>Skenario Entry</th>
+                                        <th>SL / TP</th>
+                                        <th>PnL ($)</th>
+                                        <th>Hasil</th>
+                                        <th>Diagnosa &amp; Evaluasi AI</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="eval-diagnostics-tbody">
+                                    <tr>
+                                        <td colspan="8" class="text-center py-4 text-[var(--text-muted)]">Memuat data diagnosa...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+
+                <!-- ═════════════════════════════════════════════════════════════════
+                     PAGE 6: ABOUT
+                     ═════════════════════════════════════════════════════════════════ -->
+                <section id="view-about" class="tab-view hidden space-y-6">
+                    <h1 class="text-3xl font-bold tracking-tight text-[var(--text-primary)]">About</h1>
+
+                    <div class="ui-card p-6">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 leading-relaxed text-xs text-[var(--text-secondary)]">
+                            <!-- Column 1 -->
+                            <div class="flex flex-col gap-3">
+                                <h3 class="text-sm font-bold text-[var(--text-primary)] border-b border-[var(--table-border)] pb-2">
+                                    1. 44 Fitur Input AI Model
+                                </h3>
+                                <div>
+                                    <strong class="text-[var(--text-primary)]">Makroekonomi &amp; Sentimen News</strong>
+                                    <ul class="list-disc pl-4 mt-1 space-y-1">
+                                        <li>ForexFactory Scraper (CPI, NFP, FOMC)</li>
+                                        <li>DXY Returns (1, 3 lag) &amp; XAU/DXY Ratio</li>
+                                        <li>Dynamic Minutes-to-News &amp; Pre-News Caution</li>
+                                        <li>Macro Consensus Bias (Forecast vs Previous)</li>
+                                    </ul>
+                                </div>
+                                <div class="mt-2">
+                                    <strong class="text-[var(--text-primary)]">Smart Money Concepts (SMC/ICT)</strong>
+                                    <ul class="list-disc pl-4 mt-1 space-y-1">
+                                        <li>Liquidity Sweep High / Low Detection</li>
+                                        <li>Fair Value Gap (FVG) Bullish &amp; Bearish</li>
+                                        <li>Order Block (OB) Bullish &amp; Bearish</li>
+                                        <li>BOS, CHoCH, &amp; Fibonacci OTE (38.2, 50, 61.8%)</li>
+                                    </ul>
+                                </div>
+                                <div class="mt-2">
+                                    <strong class="text-[var(--text-primary)]">Multi-Timeframe Alignment &amp; Momentum</strong>
+                                    <ul class="list-disc pl-4 mt-1 space-y-1">
+                                        <li>H4 &amp; H1 Continuous Distance (%) from EMA50</li>
+                                        <li>H4 Channel Slope (-0.3 Downtrend Threshold)</li>
+                                        <li>ADX 14 Trend Strength &amp; Volume Ratio SMA20</li>
+                                        <li>Consecutive Bull/Bear Candle Streak Counter</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <!-- Column 2 -->
+                            <div class="flex flex-col gap-3">
+                                <h3 class="text-sm font-bold text-[var(--text-primary)] border-b border-[var(--table-border)] pb-2">
+                                    2. Manajemen Risiko Dinamis
+                                </h3>
+                                <div>
+                                    <strong class="text-[var(--text-primary)]">Sniper Direct Entry with H4 Guard</strong>
+                                    <ul class="list-disc pl-4 mt-1 space-y-1">
+                                        <li>Eksekusi instan jika AI Confidence &gt;= 70.0%</li>
+                                        <li>BUY Sniper DIBLOKIR saat H4 Descending!</li>
+                                        <li>SELL Sniper DIBLOKIR saat H4 Ascending!</li>
+                                    </ul>
+                                </div>
+                                <div class="mt-2">
+                                    <strong class="text-[var(--text-primary)]">Structural Dynamic RRR &amp; SMC Levels</strong>
+                                    <ul class="list-disc pl-4 mt-1 space-y-1">
+                                        <li>TP Target: Nearest Supply/Demand Kunci</li>
+                                        <li>SL Proporsional Dinamis (RRR &gt;= 1.8 s/d 1:2.5)</li>
+                                        <li>Bad RRR Filter: Ditolak jika ruang &lt; 1.8x SL</li>
+                                    </ul>
+                                </div>
+                                <div class="mt-2">
+                                    <strong class="text-[var(--text-primary)]">Dynamic Trailing Lock &amp; Cut-Loss</strong>
+                                    <ul class="list-disc pl-4 mt-1 space-y-1">
+                                        <li>Auto BEP +$0.20 saat profit &gt;= +$4.00 (Save -$21)</li>
+                                        <li>Early Cut-Loss jika sinyal AI berbalik &gt;= 65%</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <!-- Column 3 -->
+                            <div class="flex flex-col gap-3">
+                                <h3 class="text-sm font-bold text-[var(--text-primary)] border-b border-[var(--table-border)] pb-2">
+                                    3. Metadata Penelitian Skripsi
+                                </h3>
+                                <div>
+                                    <strong class="text-[var(--text-primary)]">Judul Skripsi</strong>
+                                    <p class="mt-1 leading-relaxed">
+                                        Penerapan Algoritma LightGBM untuk Prediksi Probabilitas Arah Harga XAUUSD Berbasis Multi-Timeframe, Indeks Dolar AS (DXY), dan Makroekonomi
+                                    </p>
+                                </div>
+                                <div class="mt-2">
+                                    <strong class="text-[var(--text-primary)]">Pengembang</strong>
+                                    <p class="mt-1 font-semibold text-[var(--text-primary)]">
+                                        Nouval Ditya Maheswara (NIM: 123230165 – Informatika)
+                                    </p>
+                                </div>
+                                <div class="mt-2">
+                                    <strong class="text-[var(--text-primary)]">Target Uji</strong>
+                                    <p class="mt-1">100 Transaksi Forward Testing Real-Time</p>
+                                </div>
+                                <div class="mt-2">
+                                    <strong class="text-[var(--text-primary)]">Integrasi Broker</strong>
+                                    <p class="mt-1">MetaTrader 5 (Exness Real-2 Terminal)</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
     </div>
 
-    <!-- Top Navigation Header -->
-    <header class="app-header">
-        <div class="header-left">
-            <span class="logo-icon">⚡</span>
-            <div class="brand-text">
-                <h1>BOT TRADING AI</h1>
-                <span class="version-badge">LightGBM v3.7</span>
-            </div>
-        </div>
-        <div class="header-right">
-            <div id="live-indicator" class="live-pill">
-                <span class="pulsing-dot"></span>
-                <span id="live-text">LIVE</span>
-            </div>
-            <!-- Theme Toggle Switch -->
-            <button id="btn-theme-toggle" class="icon-btn" title="Ganti Tema">
-                <i id="theme-icon" class="lucide-icon" data-lucide="moon"></i>
-            </button>
-            <button id="btn-show-qr" class="icon-btn" title="QR Code HP">
-                <i class="lucide-icon" data-lucide="qr-code"></i>
-            </button>
-        </div>
-    </header>
-
-    <main class="app-container">
-        <!-- 1. Account Summary Hero Card -->
-        <section class="card card-hero">
-            <div class="hero-top-row">
-                <div>
-                    <p class="label-muted">Saldo Terkini Akun</p>
-                    <div class="hero-balance-row">
-                        <h2 id="val-balance" class="balance-display">$500.00</h2>
-                        <span id="roi-pill" class="roi-badge positive">
-                            <i class="lucide-icon-sm" data-lucide="trending-up"></i>
-                            <span id="val-roi">+0.00%</span>
-                        </span>
-                    </div>
-                </div>
-                <div class="hero-wallet-icon">
-                    <i class="lucide-icon" data-lucide="wallet"></i>
-                </div>
-            </div>
-            <!-- Equity Curve SVG -->
-            <div class="equity-curve-section">
-                <div class="equity-meta">
-                    <span class="label-muted">Kurva Ekuitas</span>
-                    <span id="equity-peak" class="equity-peak">Tertinggi: $500.00</span>
-                </div>
-                <div class="equity-chart-container">
-                    <svg id="equity-svg" class="equity-svg" preserveAspectRatio="none" viewBox="0 0 320 60">
-                        <defs>
-                            <linearGradient id="curveGrad" x1="0%" x2="0%" y1="0%" y2="100%">
-                                <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.3"></stop>
-                                <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.0"></stop>
-                            </linearGradient>
-                        </defs>
-                        <path id="eq-fill" d="M 0 55 L 320 55 L 320 60 L 0 60 Z" fill="url(#curveGrad)"></path>
-                        <path id="eq-line" d="M 0 55 L 320 55" fill="none" stroke="var(--accent)" stroke-linecap="round" stroke-width="2"></path>
-                        <circle id="eq-dot" cx="320" cy="55" fill="var(--accent)" r="3.5"></circle>
-                    </svg>
-                </div>
-            </div>
-            <!-- Quick Stats Row -->
-            <div class="hero-stats-grid">
-                <div class="stat-item">
-                    <span class="stat-label">Ekuitas Akun</span>
-                    <span id="val-equity" class="stat-value">$500.00</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Floating P/L</span>
-                    <span id="val-floating" class="stat-value neutral">$0.00</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Win Rate (M15 Skripsi)</span>
-                    <span id="val-winrate" class="stat-value">0%</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Net P/L (M15 Skripsi)</span>
-                    <span id="val-netpl" class="stat-value neutral">$0.00</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- 2. Target Skripsi Progress (Khusus Model M15) -->
-        <section class="card card-progress">
-            <div class="progress-header">
-                <div class="progress-title-group">
-                    <i class="lucide-icon-sm" data-lucide="graduation-cap"></i>
-                    <h4>Target Skripsi (Model M15)</h4>
-                </div>
-                <span id="progress-count" class="progress-badge">0 / 100 Trade M15</span>
-            </div>
-            <div class="progress-bar-track">
-                <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%"></div>
-            </div>
-            <div class="progress-footer">
-                <span id="progress-desc" class="label-muted">Pengujian Model M15 v3.7 Sniper (Objek Utama Skripsi)</span>
-                <span id="progress-pct" class="progress-pct">0.0%</span>
-            </div>
-        </section>
-
-        <!-- 3. Bot Status Cards -->
-        <section class="bot-cards-grid">
-            <article id="card-bot-m15" class="card card-bot">
-                <div class="bot-header">
-                    <div>
-                        <span class="bot-name">M15 Swing</span>
-                        <span style="font-size:10px;color:var(--accent);font-weight:700;margin-left:4px;">[MODEL SKRIPSI]</span>
-                    </div>
-                    <span id="status-m15" class="status-badge checking">
-                        <span class="status-dot"></span>
-                        Memeriksa...
-                    </span>
-                </div>
-                <div class="bot-stats">
-                    <div>
-                        <span class="label-muted">Win Rate (Skripsi)</span>
-                        <span id="m15-winrate" class="bot-big-stat">0%</span>
-                    </div>
-                    <div class="text-right">
-                        <span class="label-muted">Progres Selesai</span>
-                        <span id="m15-trade-count" class="bot-tf-badge">0 / 100 Trade</span>
-                    </div>
-                </div>
-                <div class="bot-footer">
-                    <span class="label-muted">Status:</span>
-                    <span class="bot-pair-badge">Objek Utama Penelitian</span>
-                </div>
-            </article>
-            <article id="card-bot-m5" class="card card-bot">
-                <div class="bot-header">
-                    <div>
-                        <span class="bot-name">M5 Scalper</span>
-                        <span style="font-size:10px;color:var(--text-muted);margin-left:4px;">[NON-SKRIPSI]</span>
-                    </div>
-                    <span id="status-m5" class="status-badge checking">
-                        <span class="status-dot"></span>
-                        Memeriksa...
-                    </span>
-                </div>
-                <div class="bot-stats">
-                    <div>
-                        <span class="label-muted">Win Rate (Eksperimen)</span>
-                        <span id="m5-winrate" class="bot-big-stat">0%</span>
-                    </div>
-                    <div class="text-right">
-                        <span class="label-muted">Total Trade</span>
-                        <span id="m5-trade-count" class="bot-tf-badge">0 Trade</span>
-                    </div>
-                </div>
-                <div class="bot-footer">
-                    <span class="label-muted">Status:</span>
-                    <span class="bot-pair-badge gold">Eksperimen Tambahan</span>
-                </div>
-            </article>
-        </section>
-
-        <!-- 4. Macroeconomic Alert Banner -->
-        <section id="macro-alert-card" class="card card-macro">
-            <div class="macro-icon-wrap">
-                <i class="lucide-icon" data-lucide="alert-triangle"></i>
-            </div>
-            <div class="macro-content">
-                <div class="macro-header">
-                    <h5 id="macro-title">Memeriksa kondisi makro...</h5>
-                    <span id="macro-impact" class="macro-impact-badge">—</span>
-                </div>
-                <p id="macro-desc" class="macro-desc">Memuat data kalender ekonomi terkini.</p>
-            </div>
-        </section>
-
-        <!-- 5. Live Open Positions Section -->
-        <section class="card card-section">
-            <div class="section-header">
-                <div class="section-title-group">
-                    <i class="lucide-icon-sm" data-lucide="activity"></i>
-                    <h3>Posisi Terbuka</h3>
-                    <span id="pos-count" class="section-badge">0</span>
-                </div>
-            </div>
-            <div id="positions-list" class="positions-list">
-                <div class="empty-state">
-                    <div class="empty-icon-wrap">
-                        <i class="lucide-icon" data-lucide="coffee"></i>
-                    </div>
-                    <h5>Tidak Ada Posisi Terbuka</h5>
-                    <p>Bot sedang menunggu setup terbaik sesuai probabilitas model machine learning.</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- 6. Trade History Section -->
-        <section class="card card-section">
-            <div class="section-header">
-                <div class="section-title-group">
-                    <i class="lucide-icon-sm" data-lucide="list-ordered"></i>
-                    <h3>Riwayat Trade</h3>
-                    <span id="trades-count" class="section-badge">0</span>
-                </div>
-                <!-- Filter Tabs -->
-                <div class="filter-tabs">
-                    <button id="tab-all" class="tab-btn active" onclick="switchTab('all')">Semua</button>
-                    <button id="tab-m15" class="tab-btn" onclick="switchTab('m15')">M15 (Skripsi)</button>
-                    <button id="tab-m5" class="tab-btn" onclick="switchTab('m5')">M5 (Non-Skripsi)</button>
-                </div>
-            </div>
-            <div id="section-trades" class="trades-list">
-                <div class="empty-state">
-                    <p>Belum ada trade tercatat sejak reset terakhir.</p>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <!-- Footer -->
-    <footer class="app-footer">
-        <div class="footer-engine">
-            Status Engine: <span id="engine-status" class="engine-online">ONLINE</span> | Model: <span class="model-name">LightGBM-M5-M15-v3.7</span>
-        </div>
-        <div class="footer-sub">
-            Skripsi Informatika — UPN "Veteran" Yogyakarta • Nouval Ditya Maheswara (123230165)
-        </div>
-        <p class="server-time">Update: <span id="last-sync-time">—</span></p>
-    </footer>
-
-    <!-- QR Code & Remote Access Modal -->
-    <div id="modal-qr" class="modal-overlay hidden">
-        <div class="modal-card">
-            <button id="btn-close-qr" class="modal-close-btn">&times;</button>
-            <div class="modal-header">
-                <span class="modal-icon">🌍</span>
-                <h3>Akses Monitoring dari HP</h3>
-            </div>
-            <p class="modal-desc">Bisa diakses dari <strong>mana saja</strong> (kuota paket data 4G/5G, luar rumah, atau beda Wi-Fi):</p>
-            
-            <div class="qr-box">
-                <img id="qr-image" src="/api/qr" alt="QR Code">
-            </div>
-
-            <!-- Primary HTTPS Internet URL -->
-            <div class="qr-url-box primary-url-box">
-                <div class="url-badge-row">
-                    <span class="url-lbl">URL PUBLIK (HTTPS • DI MANA SAJA):</span>
-                    <span class="badge-https">ONLINE</span>
-                </div>
-                <code id="qr-url-text">{{ primary_url }}</code>
-            </div>
-            <button id="btn-copy-url" class="copy-btn">Salin Link HTTPS</button>
-
-            <!-- Secondary Local Wi-Fi Info -->
-            <div class="local-url-accordion">
-                <span class="local-lbl">Link Alternatif (Khusus 1 Wi-Fi):</span>
-                <code id="local-url-text">{{ mobile_url }}</code>
-            </div>
-        </div>
-    </div>
-
-
-    <script src="/static/app.js"></script>
+    <!-- Application Script Logic -->
+    <script src="/static/app.js?v=4.4.2"></script>
 </body>
 </html>

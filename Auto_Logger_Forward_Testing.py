@@ -52,15 +52,20 @@ def sync_mt5_trades_to_excel(
     is_m5 = (magic_number in [123236, 123235]) or ("m5" in os.path.basename(excel_path).lower())
 
     if model_label is None:
-        model_label = "LightGBM M5 v3.7 (36 Fitur Makro+SMC+H4)" if is_m5 else "LightGBM M15 v3.7 (36 Fitur Makro+SMC+H4)"
+        model_label = "LightGBM M5 v4.1 (Scalper Dynamic RRR)" if is_m5 else "LightGBM M15 v4.1 (Structural RRR + 30D HTF)"
     if threshold_label is None:
-        threshold_label = "Versi 3.7 Multi-Zone Scalper (Wide SL + Macro)" if is_m5 else "Versi 3.7 (Wide SL + RRR 2.5 + Sniper)"
+        threshold_label = "Versi 4.1 Multi-Zone Scalper (Dynamic RRR)" if is_m5 else "Versi 4.1 (Structural RRR + Adaptive Hybrid)"
 
-    # Tetapkan nama sheet khusus v3.7
-    if sheet_title is None or "v3.7" not in sheet_title:
-        sheet_title = "Trade Log M5 Scalping (v3.7)" if is_m5 else "Trade Log Model Terbaru (v3.7)"
-    if summary_sheet_title is None or "v3.7" not in summary_sheet_title:
-        summary_sheet_title = "Ringkasan Statistik (v3.7)"
+    # Tetapkan nama sheet khusus v4.1
+    if sheet_title is None or ("v4.1" not in sheet_title and "v4.0" not in sheet_title and "v3.7" not in sheet_title):
+        sheet_title = "Trade Log M5 Scalping (v4.1)" if is_m5 else "Trade Log Model Terbaru (v4.1)"
+    elif "v3.7" in sheet_title or "v4.0" in sheet_title:
+        sheet_title = sheet_title.replace("v3.7", "v4.1").replace("v4.0", "v4.1")
+
+    if summary_sheet_title is None or ("v4.1" not in summary_sheet_title and "v4.0" not in summary_sheet_title and "v3.7" not in summary_sheet_title):
+        summary_sheet_title = "Ringkasan Statistik (v4.1)"
+    elif "v3.7" in summary_sheet_title or "v4.0" in summary_sheet_title:
+        summary_sheet_title = summary_sheet_title.replace("v3.7", "v4.1").replace("v4.0", "v4.1")
 
     archive_log_name = "Trade Log M5 (Arsip v3.6)" if is_m5 else "Trade Log M15 (Arsip v3.6)"
     archive_stat_name = "Ringkasan Statistik (v3.6)"

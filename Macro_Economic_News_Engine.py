@@ -1,7 +1,16 @@
 import os
+import sys
 import json
 import urllib.request
 from datetime import datetime, timezone, timedelta
+
+try:
+    if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
 
 # Lokasi cache kalender ekonomi lokal
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -181,20 +190,119 @@ def compute_macro_features(df_index):
         'Is_FOMC_Week': is_fomc_week
     }, index=df_index)
 
+def parse_macro_numeric_value(val_str):
+    """
+    Mengonversi nilai string kalender ekonomi seperti '16.3K', '3.5%', '-0.5M' menjadi angka float.
+    """
+    if not val_str or not isinstance(val_str, str):
+        return None
+    s = val_str.strip().replace('%', '').replace('+', '')
+    multiplier = 1.0
+    if s.endswith('K') or s.endswith('k'):
+        multiplier = 1e3
+        s = s[:-1]
+    elif s.endswith('M') or s.endswith('m'):
+        multiplier = 1e6
+        s = s[:-1]
+    elif s.endswith('B') or s.endswith('b'):
+        multiplier = 1e9
+        s = s[:-1]
+    try:
+        return float(s) * multiplier
+    except Exception:
+        return None
+
+def get_dynamic_macro_factors(current_time_utc=None):
+    """
+    Menghitung faktor makroekonomi kuantitatif dinamis secara real-time:
+    1. minutes_to_high_news: Hitung mundur menit menuju rilis berita High/Medium-Impact terdekat.
+    2. macro_expectation_bias: Arah bias konsensus terhadap EMAS (XAUUSD):
+       - +1: Bullish Emas (Ekspektasi ekonomi AS melemah / data negatif bagi Dolar).
+       - -1: Bearish Emas (Ekspektasi ekonomi AS menguat / data positif bagi Dolar).
+       -  0: Netral atau tidak ada deviasi signifikan.
+    3. news_impact_weight: Bobot dampak numerik (High=3, Medium=2, Low=1, None=0).
+    4. nearest_event_title: Judul berita terdekat.
+    """
+    if current_time_utc is None:
+        current_time_utc = datetime.now(timezone.utc)
+    elif current_time_utc.tzinfo is None:
+        current_time_utc = current_time_utc.replace(tzinfo=timezone.utc)
+
+    events = get_parsed_usd_events()
+    
+    nearest_event = None
+    min_diff_sec = 999999999
+    
+    for ev in events:
+        diff_sec = (ev["time_utc"] - current_time_utc).total_seconds()
+        # Cari berita mendatang atau yang baru saja rilis (jendela -15m s/d 48 jam ke depan)
+        if -900 <= diff_sec <= (48 * 3600):
+            if diff_sec >= -900 and abs(diff_sec) < abs(min_diff_sec):
+                min_diff_sec = diff_sec
+                nearest_event = ev
+                
+    if not nearest_event:
+        return {
+            'minutes_to_high_news': 9999.0,
+            'macro_expectation_bias': 0,
+            'news_impact_weight': 0,
+            'nearest_event_title': "None",
+            'forecast_str': "-",
+            'previous_str': "-"
+        }
+        
+    diff_min = round(min_diff_sec / 60.0, 1)
+    impact = nearest_event.get("impact", "Low")
+    impact_weight = 3 if impact == "High" else (2 if impact == "Medium" else 1)
+    
+    # Hitung bias ekspektasi konsensus (Forecast vs Previous)
+    fcst_num = parse_macro_numeric_value(nearest_event.get("forecast", ""))
+    prev_num = parse_macro_numeric_value(nearest_event.get("previous", ""))
+    
+    bias = 0
+    if fcst_num is not None and prev_num is not None:
+        title_upper = nearest_event.get("title", "").upper()
+        # Berita pengangguran/klaim tunjangan (Unemployment Rate / Jobless Claims):
+        # Angka naik = ekonomi memburuk = Dolar melemah = EMAS NAIK (+1)
+        if any(kw in title_upper for kw in ["UNEMPLOYMENT", "JOBLESS", "CLAIMS"]):
+            if fcst_num > prev_num:
+                bias = 1  # Bullish Emas
+            elif fcst_num < prev_num:
+                bias = -1 # Bearish Emas
+        else:
+            # Berita pertumbuhan / tenaga kerja / inflasi umum (NFP, GDP, CPI, PPI, Retail Sales, PMI):
+            # Angka naik = ekonomi kuat = Dolar menguat = EMAS TURUN (-1)
+            if fcst_num > prev_num:
+                bias = -1 # Bearish Emas (USD kuat)
+            elif fcst_num < prev_num:
+                bias = 1  # Bullish Emas (USD lemah)
+                
+    return {
+        'minutes_to_high_news': diff_min,
+        'macro_expectation_bias': bias,
+        'news_impact_weight': impact_weight,
+        'nearest_event_title': nearest_event.get("title", "Unknown"),
+        'forecast_str': nearest_event.get("forecast", "-") or "-",
+        'previous_str': nearest_event.get("previous", "-") or "-"
+    }
+
 def get_macro_snapshot_for_trade():
     """
     Mengambil snapshot kondisi makroekonomi saat entry posisi untuk pencatatan skenario evaluasi.
     """
     freeze, desc, ev = check_news_guard(window_before_min=30, window_after_min=30)
+    factors = get_dynamic_macro_factors()
     now_utc = datetime.now(timezone.utc)
     
-    event_title = ev['title'] if ev else "None"
-    impact = ev['impact'] if ev else "Low/None"
-    mins_to_event = int((ev['time_utc'] - now_utc).total_seconds() / 60.0) if ev else 999
+    event_title = factors['nearest_event_title']
+    impact = ev['impact'] if ev else ("High" if factors['news_impact_weight'] == 3 else "Medium")
+    mins_to_event = factors['minutes_to_high_news']
     
     if freeze:
         status_tag = "NEWS_FREEZE_ACTIVE"
-    elif ev and abs(mins_to_event) <= 60:
+    elif abs(mins_to_event) <= 45 and factors['news_impact_weight'] >= 2:
+        status_tag = "PRE_NEWS_CAUTION"
+    elif abs(mins_to_event) <= 90:
         status_tag = "NEAR_HIGH_IMPACT_NEWS"
     else:
         status_tag = "NORMAL_MARKET"
@@ -204,21 +312,34 @@ def get_macro_snapshot_for_trade():
         'desc': desc,
         'nearest_event': event_title,
         'event_impact': impact,
-        'mins_to_event': mins_to_event
+        'mins_to_event': mins_to_event,
+        'macro_expectation_bias': factors['macro_expectation_bias'],
+        'news_impact_weight': factors['news_impact_weight'],
+        'forecast': factors['forecast_str'],
+        'previous': factors['previous_str']
     }
 
 if __name__ == "__main__":
     print("="*75)
-    print("TESTING ENGINE BERITA MAKROEKONOMI REAL-TIME")
+    print("TESTING ENGINE BERITA MAKROEKONOMI REAL-TIME (DENGAN FAKTOR DINAMIS)")
     print("="*75)
     events = get_parsed_usd_events()
     print(f"Total Berita High/Medium USD minggu ini: {len(events)}")
-    for e in events[:10]:
+    for e in events[:8]:
         print(f"[{e['time_utc'].strftime('%Y-%m-%d %H:%M UTC')}] [{e['impact']}] {e['title']} | Fcst: {e['forecast']} | Prev: {e['previous']}")
         
     freeze, desc, ev = check_news_guard()
     print(f"\nStatus Guard Saat Ini: Freeze={freeze}")
     print(f"Deskripsi: {desc}")
     
+    dyn_factors = get_dynamic_macro_factors()
+    print(f"\n📊 Dynamic Macro Factors:")
+    print(f"  • Berita Terdekat : {dyn_factors['nearest_event_title']}")
+    print(f"  • Hitung Mundur   : {dyn_factors['minutes_to_high_news']} menit")
+    print(f"  • Bobot Dampak    : {dyn_factors['news_impact_weight']} (1=Low, 2=Medium, 3=High)")
+    print(f"  • Bias Ekspektasi : {dyn_factors['macro_expectation_bias']} (+1=Bullish Gold, -1=Bearish Gold, 0=Neutral)")
+    print(f"  • Forecast / Prev : {dyn_factors['forecast_str']} / {dyn_factors['previous_str']}")
+    
     snap = get_macro_snapshot_for_trade()
-    print(f"Macro Snapshot: {snap}")
+    print(f"\n📸 Macro Trade Snapshot:\n  {snap}")
+
