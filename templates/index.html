@@ -22,9 +22,10 @@
     <link rel="shortcut icon" href="/static/icons/LOGO APP.png" />
 
     <!-- QuantLGB Glassmorphism Pure Poppins Stylesheet -->
-    <link rel="stylesheet" href="/static/style.css?v=4.4.2" />
+    <link rel="stylesheet" href="/static/style.css?v=5.2.0_bep_sync{% if cache_bust %}_{{ cache_bust }}{% endif %}" />
 </head>
 <body class="light-mode">
+    <div id="app-sidebar-backdrop" onclick="closeMobileSidebar()"></div>
 
     <div id="app-layout">
         <!-- =========================================================================
@@ -33,9 +34,14 @@
         <aside id="app-sidebar">
             <div class="flex flex-col gap-8">
                 <!-- Brand Logo: QuantLGB with Candlestick Mark -->
-                <div class="flex items-center gap-3 px-2 pt-1 cursor-pointer" onclick="switchTab('dashboard')">
-                    <img src="/static/icons/LOGO APP.png" class="w-8 h-8 object-contain" alt="QuantLGB Logo" />
-                    <span class="text-xl font-bold tracking-tight text-[var(--text-primary)]">QuantLGB</span>
+                <div class="flex items-center justify-between px-2 pt-1">
+                    <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('dashboard')">
+                        <img src="/static/icons/LOGO APP.png" class="w-8 h-8 object-contain" alt="QuantLGB Logo" />
+                        <span class="text-xl font-bold tracking-tight text-[var(--text-primary)]">QuantLGB</span>
+                    </div>
+                    <button onclick="closeMobileSidebar()" class="lg:hidden w-8 h-8 rounded-full bg-[var(--pill-bg)] hover:bg-[var(--pill-hover)] text-[var(--text-secondary)] flex items-center justify-center font-bold text-base transition-all" aria-label="Tutup Menu">
+                        &times;
+                    </button>
                 </div>
 
                 <!-- Navigation Group: Engine -->
@@ -51,9 +57,12 @@
                         <img src="/static/icons/LOGO M15 DAN M5 BOT MENU BAR.png" class="w-5 h-5 object-contain flex-shrink-0 nav-icon-img" alt="M15 Bot" />
                         <span>M15 Bot</span>
                     </a>
-                    <a class="nav-link-item" data-tab="m5" onclick="switchTab('m5')">
-                        <img src="/static/icons/LOGO M15 DAN M5 BOT MENU BAR.png" class="w-5 h-5 object-contain flex-shrink-0 nav-icon-img" alt="M5 Bot" />
-                        <span>M5 Bot</span>
+                    <a class="nav-link-item" id="nav-item-proprietary" data-tab="proprietary" onclick="switchTab('proprietary')">
+                        <svg class="w-5 h-5 flex-shrink-0 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                        </svg>
+                        <span class="font-bold text-amber-500 dark:text-amber-400">Proprietary</span>
+                        <span class="ml-auto text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">PRO</span>
                     </a>
                 </div>
 
@@ -72,21 +81,44 @@
                         <img src="/static/icons/LOGO ABOUT.png" class="w-5 h-5 object-contain flex-shrink-0 nav-icon-img" alt="About" />
                         <span>About</span>
                     </a>
+                    <a class="nav-link-item cursor-pointer" onclick="openQrBarcodeModal()" title="Scan Barcode untuk Pantau di HP (Beda Jaringan)">
+                        <svg class="w-5 h-5 flex-shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="14" width="7" height="7"></rect>
+                            <rect x="3" y="14" width="7" height="7"></rect>
+                            <path d="M10 7h1v1h-1zM7 10h1v1H7zM17 10h1v1h-1zM10 17h1v1h-1z"></path>
+                        </svg>
+                        <span>Barcode HP</span>
+                        <span class="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">ONLINE</span>
+                    </a>
                 </div>
             </div>
 
-            <!-- Sidebar Footer: Light / Dark Mode Slide Toggle Switch -->
-            <div class="pt-4 border-t border-[var(--card-border)] flex items-center justify-between">
-                <div class="theme-switch-container" id="theme-toggle-btn" onclick="toggleTheme()" title="Beralih Mode Light / Dark">
-                    <div class="theme-switch-knob">
-                        <!-- Sun Icon (LOGO MATAHARI.png) / Moon Icon (LOGO MOON DARK MODE.png) -->
-                        <img id="theme-icon-sun" src="/static/icons/LOGO MATAHARI.png" class="w-4 h-4 object-contain" alt="Light" />
-                        <img id="theme-icon-moon" src="/static/icons/LOGO MOON DARK MODE.png" class="w-4 h-4 object-contain hidden" alt="Dark" />
+            <!-- Sidebar Footer: Light / Dark Mode + Mode Presentasi Toggle (NO TEXT) -->
+            <div class="pt-4 border-t border-[var(--card-border)] flex flex-col gap-3">
+                <div class="flex items-center justify-between">
+                    <!-- Light/Dark Theme Switch -->
+                    <div class="theme-switch-container" id="theme-toggle-btn" onclick="toggleTheme()" title="Beralih Mode Light / Dark">
+                        <div class="theme-switch-knob">
+                            <img id="theme-icon-sun" src="/static/icons/LOGO MATAHARI.png" class="w-4 h-4 object-contain" alt="Light" />
+                            <img id="theme-icon-moon" src="/static/icons/LOGO MOON DARK MODE.png" class="w-4 h-4 object-contain hidden" alt="Dark" />
+                        </div>
                     </div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span id="mt5-status-indicator" class="pulse-dot pulse-dot-green"></span>
-                    <span id="mt5-status-text" class="text-xs font-semibold text-[var(--text-secondary)]">MT5 LIVE</span>
+                    <!-- Mode Presentasi Button (Icon Only - NO TEXT) -->
+                    <button id="presentation-mode-btn" onclick="togglePresentationMode()"
+                        class="w-9 h-9 rounded-xl flex items-center justify-center bg-[var(--pill-bg)] hover:bg-amber-100 dark:hover:bg-amber-900/30 text-[var(--text-secondary)] hover:text-amber-500 transition-all border border-[var(--card-border)] hover:border-amber-400"
+                        title="Mode Presentasi (Sembunyikan / Tampilkan Proprietary)">
+                        <svg id="presentation-eye-icon" class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                    <!-- MT5 Status Indicator -->
+                    <div class="flex items-center gap-2">
+                        <span id="mt5-status-indicator" class="pulse-dot pulse-dot-green"></span>
+                        <span id="mt5-status-text" class="text-xs font-semibold text-[var(--text-secondary)]">MT5 LIVE</span>
+                    </div>
                 </div>
             </div>
         </aside>
@@ -95,8 +127,49 @@
              MAIN VIEWPORT CONTAINER
              ========================================================================= -->
         <main id="app-main">
-            <!-- Top Right Notification Bell Pill with Slide Down Panel -->
-            <div class="w-full flex justify-end px-8 pt-6 pb-2 pointer-events-none relative z-50">
+            <!-- Mobile Topbar Header (Shown on Mobile / Tablet <= 1024px) -->
+            <header id="mobile-topbar" class="lg:hidden flex items-center justify-between px-4 py-3 bg-[var(--sidebar-bg)] border-b border-[var(--card-border)] z-40 sticky top-0 flex-shrink-0">
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleMobileSidebar()" class="w-9 h-9 rounded-xl bg-[var(--pill-bg)] border border-[var(--card-border)] flex items-center justify-center text-[var(--text-primary)] hover:bg-[var(--pill-hover)] active:scale-95 transition-all" aria-label="Menu Navigasi">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    </button>
+                    <div class="flex items-center gap-2 cursor-pointer" onclick="switchTab('dashboard')">
+                        <img src="/static/icons/LOGO APP.png" class="w-6 h-6 object-contain" alt="QuantLGB" />
+                        <span class="font-bold text-base tracking-tight text-[var(--text-primary)]">QuantLGB</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="openQrBarcodeModal()" class="w-9 h-9 rounded-xl bg-[var(--pill-bg)] border border-[var(--card-border)] flex items-center justify-center text-emerald-500 hover:bg-emerald-500/10 transition-all cursor-pointer" title="Scan Barcode HP">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="14" width="7" height="7"></rect>
+                            <rect x="3" y="14" width="7" height="7"></rect>
+                        </svg>
+                    </button>
+                    <button onclick="toggleTheme()" class="w-9 h-9 rounded-xl bg-[var(--pill-bg)] border border-[var(--card-border)] flex items-center justify-center text-[var(--text-secondary)] transition-all cursor-pointer" title="Ganti Tema">
+                        <span class="text-xs">🌓</span>
+                    </button>
+                    <button onclick="toggleNotificationPanel()" class="w-9 h-9 rounded-xl bg-[var(--pill-bg)] border border-[var(--card-border)] flex items-center justify-center relative text-[var(--text-secondary)] transition-all cursor-pointer" title="Notifikasi">
+                        <img src="/static/icons/LOGO NOTIF.png" class="w-4 h-4 object-contain" alt="Notifikasi" />
+                    </button>
+                </div>
+            </header>
+
+            <!-- Top Right Notification Bell Pill with Slide Down Panel (Desktop Only) -->
+            <div class="hidden lg:flex w-full justify-end items-center gap-3 px-8 pt-6 pb-2 pointer-events-none relative z-50">
+                <div class="pointer-events-auto">
+                    <button onclick="openQrBarcodeModal()" class="flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-[var(--card-bg)] shadow-md border border-[var(--card-border)] hover:border-emerald-500/50 hover:shadow-lg transition-all text-xs font-semibold text-[var(--text-primary)] cursor-pointer" title="Scan Barcode untuk Pantau di HP (Beda Jaringan)">
+                        <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="14" width="7" height="7"></rect>
+                            <rect x="3" y="14" width="7" height="7"></rect>
+                        </svg>
+                        <span class="hidden sm:inline">📱 Scan HP (Beda Jaringan)</span>
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    </button>
+                </div>
                 <div class="relative pointer-events-auto">
                     <button id="notification-bell-btn" class="w-11 h-11 rounded-full bg-[var(--card-bg)] shadow-md border border-[var(--card-border)] flex items-center justify-center cursor-pointer hover:shadow-lg transition-all" onclick="toggleNotificationPanel()" title="Notifikasi Aktivitas Bot">
                         <img src="/static/icons/LOGO NOTIF.png" class="w-5 h-5 object-contain" alt="Notifikasi" />
@@ -207,6 +280,32 @@
                         </div>
                     </div>
 
+                    <!-- LIVE FLOATING POSITIONS CARD -->
+                    <div id="live-positions-card" class="ui-card">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-full bg-[#007a4d] flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M13 2.05v2.02c3.95.49 7 3.85 7 7.93 0 3.21-1.81 6-4.72 7.72L13 17v5h5l-1.22-1.22C19.91 19.07 22 15.76 22 12c0-5.18-3.95-9.45-9-9.95zM11 2.05C5.95 2.55 2 6.82 2 12c0 3.76 2.09 7.07 5.22 8.78L6 22h5V2.05z"/></svg>
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-[var(--text-primary)] text-base">Posisi Aktif Berjalan</h3>
+                                    <span class="text-[11px] text-[var(--text-muted)] font-medium">Live Floating Trades · Bot M15 &amp; M5 Only</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="pulse-dot pulse-dot-green"></span>
+                                <span class="text-[11px] font-bold text-emerald-600" id="live-pos-count-label">0 Posisi</span>
+                            </div>
+                        </div>
+                        <div id="live-positions-container">
+                            <div class="flex flex-col items-center justify-center py-6 gap-2 text-[var(--text-muted)]">
+                                <svg class="w-10 h-10 opacity-30" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+                                <span class="text-sm font-semibold">Tidak ada posisi aktif</span>
+                                <span class="text-xs">Bot sedang menganalisis pasar...</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- =========================================================================
                          EXACT FIGMA 2-COLUMN ASYMMETRIC GRID (KOLOM KIRI ~60% | KOLOM KANAN ~40%)
                          ========================================================================= -->
@@ -278,25 +377,27 @@
                                         <span class="text-[11px] font-semibold text-[var(--text-muted)]">CONNECTED</span>
                                     </div>
                                 </div>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <!-- M15 Pod -->
-                                    <div class="flex items-center gap-3.5 p-3.5 rounded-2xl bg-[var(--pill-bg)] cursor-pointer hover:bg-[var(--pill-hover)] transition-all" onclick="switchTab('m15')">
+                                <div id="dash-bot-overview-grid" class="grid grid-cols-2 gap-4">
+                                    <!-- M15 Pod (Skripsi) -->
+                                    <div id="dash-pod-m15" class="flex items-center gap-3.5 p-3.5 rounded-2xl bg-[var(--pill-bg)] cursor-pointer hover:bg-[var(--pill-hover)] transition-all" onclick="switchTab('m15')">
                                         <div class="w-12 h-12 rounded-full bg-[#007a4d] flex items-center justify-center shadow-sm">
                                             <img src="/static/icons/LOGO M15 DAN M5.png" class="w-6 h-6 object-contain brightness-0 invert" alt="M15 Pod" />
                                         </div>
                                         <div class="flex flex-col">
-                                            <span class="font-bold text-base text-[var(--text-primary)]">M15</span>
+                                            <span class="font-bold text-base text-[var(--text-primary)]">M15 Bot</span>
                                             <span class="text-xs font-semibold text-[#007a4d]" id="dash-m15-pod-status">ACTIVE</span>
                                         </div>
                                     </div>
-                                    <!-- M5 Pod -->
-                                    <div class="flex items-center gap-3.5 p-3.5 rounded-2xl bg-[var(--pill-bg)] cursor-pointer hover:bg-[var(--pill-hover)] transition-all" onclick="switchTab('m5')">
-                                        <div class="w-12 h-12 rounded-full bg-gray-400 flex items-center justify-center shadow-sm" id="dash-m5-pod-circle">
-                                            <img src="/static/icons/LOGO M15 DAN M5.png" class="w-6 h-6 object-contain brightness-0 invert" alt="M5 Pod" />
+                                    <!-- Proprietary Pod (Commercial PRO) -->
+                                    <div id="dash-pod-proprietary" class="flex items-center gap-3.5 p-3.5 rounded-2xl bg-[var(--pill-bg)] cursor-pointer hover:bg-[var(--pill-hover)] transition-all" onclick="switchTab('proprietary')">
+                                        <div class="w-12 h-12 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shadow-sm" id="dash-prop-pod-circle">
+                                            <svg class="w-6 h-6 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                                            </svg>
                                         </div>
                                         <div class="flex flex-col">
-                                            <span class="font-bold text-base text-[var(--text-primary)]">M5</span>
-                                            <span class="text-xs font-semibold text-[var(--text-muted)]" id="dash-m5-pod-status">NON - ACTIVE</span>
+                                            <span class="font-bold text-base text-amber-500 dark:text-amber-400">Proprietary</span>
+                                            <span class="text-xs font-semibold text-amber-500" id="dash-prop-pod-status">PRO READY</span>
                                         </div>
                                     </div>
                                 </div>
@@ -315,16 +416,20 @@
                                     <span class="text-sm font-bold text-[var(--text-secondary)] uppercase">Win Rate</span>
                                 </div>
                                 <div class="flex items-center gap-4 my-2">
-                                    <span class="text-5xl font-bold tracking-tight text-[var(--text-muted)] opacity-60" id="dash-win-rate">75%</span>
+                                    <span class="text-5xl font-bold tracking-tight text-[var(--text-primary)]" id="dash-win-rate">50%</span>
                                     <div class="h-10 w-[2px] bg-[var(--table-border)]"></div>
-                                    <div class="flex items-center gap-3">
-                                        <span class="text-2xl font-bold text-[#007a4d]" id="dash-win-count">15W</span>
-                                        <span class="text-2xl font-bold text-[#b91c1c]" id="dash-loss-count">5L</span>
+                                    <div class="flex flex-col gap-1">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xl font-bold text-[#007a4d]" id="dash-win-count" title="Murni Menang (TP/Trailing)">12W</span>
+                                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-500/15 text-[var(--text-muted)]" id="dash-bep-count" title="Break-Even (Netral)">21 BEP</span>
+                                            <span class="text-xl font-bold text-[#b91c1c]" id="dash-loss-count" title="Murni Kalah (SL)">12L</span>
+                                        </div>
+                                        <span class="text-[10px] text-[var(--text-muted)] font-medium">*BEP dihitung Netral</span>
                                     </div>
                                 </div>
                                 <div class="flex items-center justify-between text-xs font-semibold text-[var(--text-muted)] pt-2 border-t border-[var(--table-border)]">
-                                    <span>Total Trade</span>
-                                    <span class="text-[var(--text-primary)] font-bold" id="dash-total-trades">20 Trades</span>
+                                    <span id="dash-phase-label">Total Trade Selesai</span>
+                                    <span class="text-[var(--text-primary)] font-bold" id="dash-total-trades">45 Trades</span>
                                 </div>
                             </div>
 
@@ -549,71 +654,115 @@
                     </div>
                 </section>
 
-
                 <!-- ═════════════════════════════════════════════════════════════════
-                     PAGE 3: M5 BOT VIEW
+                     PAGE 2B: M15 PRO BOT VIEW (57 FITUR & AI ADAPTIVE SNIPER)
                      ═════════════════════════════════════════════════════════════════ -->
-                <section id="view-m5" class="tab-view hidden space-y-6">
-                    <h1 class="text-3xl font-bold tracking-tight text-[var(--text-primary)]">M5 Bot View</h1>
+                <section id="view-m15_pro" class="tab-view hidden space-y-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-2xl">⭐</span>
+                                <h1 class="text-3xl font-bold tracking-tight text-[var(--text-primary)]">M15 PRO (57 Fitur AI Sniper)</h1>
+                                <span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/30">EXPERIMENTAL PRO v5.0</span>
+                            </div>
+                            <p class="text-sm text-[var(--text-secondary)] mt-1">
+                                Akun Khusus Exness MT5Trial14 (<span class="font-mono text-amber-400 font-bold">#416453202</span>) • Model LightGBM 57-Fitur End-to-End • Zero Over-Filtering
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="badge-pill bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold">
+                                Magic: 155701
+                            </span>
+                            <span class="badge-pill bg-purple-500/10 text-purple-400 border border-purple-500/20 text-xs font-semibold">
+                                TP Dinamis: $8.50 - $11.00
+                            </span>
+                        </div>
+                    </div>
 
                     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                         <!-- LEFT COLUMN -->
                         <div class="lg:col-span-5 flex flex-col gap-6">
+                            <!-- Gauge Real-Time Sentimen AI M15 PRO -->
                             <div class="ui-card flex flex-col items-center p-6">
+                                <div class="w-full flex items-center justify-between mb-4">
+                                    <h3 class="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+                                        Radar Probabilitas Model AI PRO
+                                    </h3>
+                                    <span class="text-xs font-mono text-[var(--text-muted)]" id="m15pro-candle-countdown">15m 00s</span>
+                                </div>
+
+                                <!-- Gauge Donut Circle -->
                                 <div class="relative w-48 h-48 flex items-center justify-center my-2">
                                     <svg class="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
-                                        <circle class="donut-circle-track" cx="60" cy="60" r="48" stroke-width="12" fill="none" />
-                                        <circle id="m5-donut-buy" class="donut-circle-buy" cx="60" cy="60" r="48" stroke-width="12" fill="none"
-                                            stroke-dasharray="301.59" stroke-dashoffset="150" stroke-linecap="round" />
+                                        <circle cx="60" cy="60" r="48" fill="none" stroke="currentColor" stroke-width="10" class="text-[var(--border-subtle)]" opacity="0.3"></circle>
+                                        <circle id="m15pro-donut-buy" cx="60" cy="60" r="48" fill="none" stroke="url(#gradient-pro-gauge)" stroke-width="10"
+                                            stroke-dasharray="301.59" stroke-dashoffset="150" stroke-linecap="round" class="transition-all duration-700 ease-out"></circle>
+                                        <defs>
+                                            <linearGradient id="gradient-pro-gauge" x1="0%" y1="0%" x2="100%" y2="100%">
+                                                <stop offset="0%" stop-color="#f59e0b"></stop>
+                                                <stop offset="100%" stop-color="#10b981"></stop>
+                                            </linearGradient>
+                                        </defs>
                                     </svg>
-                                    <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
-                                        <span class="text-4xl font-bold tracking-tight text-[var(--text-primary)]" id="m5-gauge-pct">50%</span>
-                                        <span class="text-sm font-semibold text-[var(--text-muted)]" id="m5-gauge-bias">Netral</span>
+                                    <div class="absolute flex flex-col items-center justify-center text-center">
+                                        <span id="m15pro-gauge-pct" class="text-3xl font-extrabold tracking-tight text-[var(--text-primary)]">50%</span>
+                                        <span id="m15pro-gauge-bias" class="text-xs font-bold text-amber-400 mt-0.5">STANDBY</span>
                                     </div>
                                 </div>
-                                <h3 class="text-base font-bold text-[var(--text-primary)] mt-3 mb-4">Probabilitas M5 Scalper</h3>
-                                <div class="w-full flex flex-col gap-3">
-                                    <div class="flex flex-col gap-1">
-                                        <div class="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)]">
-                                            <span>Buy</span>
-                                            <span id="m5-buy-pct">50%</span>
-                                        </div>
-                                        <div class="prob-bar-container">
-                                            <div id="m5-buy-bar" class="prob-bar-fill-buy" style="width: 50%;"></div>
-                                        </div>
+
+                                <!-- Buy / Sell Probabilities Progress -->
+                                <div class="w-full space-y-3 mt-4">
+                                    <div class="flex items-center justify-between text-xs font-semibold">
+                                        <span class="text-emerald-400 flex items-center gap-1.5">
+                                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Probabilitas BUY
+                                        </span>
+                                        <span id="m15pro-buy-pct" class="font-mono text-emerald-400 font-bold">50%</span>
                                     </div>
-                                    <div class="flex flex-col gap-1">
-                                        <div class="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)]">
-                                            <span>Sell</span>
-                                            <span id="m5-sell-pct">50%</span>
-                                        </div>
-                                        <div class="prob-bar-container">
-                                            <div id="m5-sell-bar" class="prob-bar-fill-sell" style="width: 50%;"></div>
-                                        </div>
+                                    <div class="w-full h-2 rounded-full bg-[var(--border-subtle)] overflow-hidden">
+                                        <div id="m15pro-buy-bar" class="h-full bg-emerald-500 rounded-full transition-all duration-500" style="width: 50%;"></div>
+                                    </div>
+
+                                    <div class="flex items-center justify-between text-xs font-semibold pt-1">
+                                        <span class="text-rose-400 flex items-center gap-1.5">
+                                            <span class="w-2 h-2 rounded-full bg-rose-500"></span> Probabilitas SELL
+                                        </span>
+                                        <span id="m15pro-sell-pct" class="font-mono text-rose-400 font-bold">50%</span>
+                                    </div>
+                                    <div class="w-full h-2 rounded-full bg-[var(--border-subtle)] overflow-hidden">
+                                        <div id="m15pro-sell-bar" class="h-full bg-rose-500 rounded-full transition-all duration-500" style="width: 50%;"></div>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Custom Trade M5 -->
-                            <div class="ui-card flex flex-col gap-3 p-5" id="m5-custom-trade-card">
+                            <!-- Kontrol Switch M15 PRO & Info Akun -->
+                            <div class="ui-card p-6 flex flex-col gap-4">
                                 <div class="flex items-center justify-between">
-                                    <h3 class="text-base font-bold text-[var(--text-primary)]">Custom Trade M5</h3>
-                                    <button id="m5-custom-trade-toggle" class="custom-trade-radio-btn" onclick="toggleCustomTrade('m5')" title="Aktifkan/Nonaktifkan Custom Trade">
-                                        <span class="radio-dot"></span>
-                                    </button>
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-3 h-3 rounded-full bg-amber-400 animate-ping"></div>
+                                        <div>
+                                            <h4 class="text-sm font-bold text-[var(--text-primary)]">Status Eksekusi M15 PRO</h4>
+                                            <span id="m15pro-hero-status-sub" class="text-xs text-[var(--text-muted)]">Engine Aktif Berjalan (Watchdog 24/7)</span>
+                                        </div>
+                                    </div>
+                                    <div id="m15pro-bot-toggle" class="bot-toggle-wrapper on cursor-pointer" onclick="toggleM15ProBot()">
+                                        <div class="toggle-knob">ON</div>
+                                        <span class="toggle-label-text toggle-label-off">Off</span>
+                                    </div>
                                 </div>
-                                <div id="m5-custom-trade-inputs" class="flex flex-col gap-2.5 text-xs transition-opacity duration-300 disabled-inputs">
-                                    <div class="flex items-center gap-3">
-                                        <span class="w-16 font-semibold text-[var(--text-secondary)]">Volume :</span>
-                                        <input type="text" id="m5-input-volume" value="0.01 lot" class="pill-input" disabled />
+
+                                <div class="p-3.5 rounded-xl bg-[var(--card-subtle-bg)] border border-[var(--card-border)] flex flex-col gap-2 text-xs">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-[var(--text-secondary)]">Akun MT5:</span>
+                                        <span class="font-mono font-bold text-amber-400">Exness MT5Trial14 (#416453202)</span>
                                     </div>
-                                    <div class="flex items-center gap-3">
-                                        <span class="w-16 font-semibold text-[var(--text-secondary)]">TP :</span>
-                                        <input type="text" id="m5-input-tp" value="$ 15" class="pill-input" disabled />
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-[var(--text-secondary)]">Lot Size Dinamis:</span>
+                                        <span class="font-mono font-semibold text-[var(--text-primary)]">0.01 Fixed (Margin Aman)</span>
                                     </div>
-                                    <div class="flex items-center gap-3">
-                                        <span class="w-16 font-semibold text-[var(--text-secondary)]">SL :</span>
-                                        <input type="text" id="m5-input-sl" value="$ 7" class="pill-input" disabled />
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-[var(--text-secondary)]">Trailing & Quick BEP:</span>
+                                        <span class="font-mono font-semibold text-emerald-400">Aktif (+25 pips lock BEP)</span>
                                     </div>
                                 </div>
                             </div>
@@ -621,59 +770,57 @@
 
                         <!-- RIGHT COLUMN -->
                         <div class="lg:col-span-7 flex flex-col gap-6">
-                            <div class="hero-banner-green flex flex-col justify-between gap-6 p-6">
-                                <div class="flex flex-wrap items-center justify-between gap-4">
-                                    <div class="flex items-center gap-2">
-                                        <span id="m5-hero-dot" class="pulse-dot pulse-dot-red"></span>
-                                        <span class="text-sm font-semibold opacity-90">Durasi Sesi Bot</span>
-                                        <span class="text-xs opacity-75" id="m5-hero-status-sub">(Non-Actived)</span>
+                            <!-- Card Fitur & Arsitektur PRO -->
+                            <div class="ui-card p-6">
+                                <h3 class="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider mb-4 flex items-center gap-2">
+                                    <span>🧠</span> Arsitektur AI End-to-End M15 PRO (57 Fitur)
+                                </h3>
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                                    <div class="p-3 rounded-xl bg-[var(--card-subtle-bg)] border border-[var(--card-border)]">
+                                        <div class="text-[10px] text-[var(--text-muted)] font-bold uppercase">Total Fitur</div>
+                                        <div class="text-lg font-black text-amber-400 mt-1">57</div>
+                                        <div class="text-[10px] text-[var(--text-secondary)]">SMC+Teknikal+Makro</div>
                                     </div>
-                                    <span class="text-3xl md:text-5xl font-bold tracking-tight" id="m5-session-duration">00:00:00</span>
-                                </div>
-                                <div class="flex flex-wrap items-baseline justify-between gap-4 pt-4 border-t border-white/20">
-                                    <span class="text-3xl md:text-5xl font-bold tracking-tight" id="m5-live-clock">14:59:20</span>
-                                    <div class="text-right">
-                                        <span class="text-base md:text-lg font-bold">Candel Close: </span>
-                                        <span class="text-sm font-medium opacity-90" id="m5-candle-countdown">04m 12s</span>
+                                    <div class="p-3 rounded-xl bg-[var(--card-subtle-bg)] border border-[var(--card-border)]">
+                                        <div class="text-[10px] text-[var(--text-muted)] font-bold uppercase">Decision Type</div>
+                                        <div class="text-lg font-black text-emerald-400 mt-1">Pure AI</div>
+                                        <div class="text-[10px] text-[var(--text-secondary)]">Zero Hard Rule Trap</div>
+                                    </div>
+                                    <div class="p-3 rounded-xl bg-[var(--card-subtle-bg)] border border-[var(--card-border)]">
+                                        <div class="text-[10px] text-[var(--text-muted)] font-bold uppercase">Reward Ratio</div>
+                                        <div class="text-lg font-black text-purple-400 mt-1">1 : 1.5+</div>
+                                        <div class="text-[10px] text-[var(--text-secondary)]">TP $8.5-$11 / SL $6.5</div>
+                                    </div>
+                                    <div class="p-3 rounded-xl bg-[var(--card-subtle-bg)] border border-[var(--card-border)]">
+                                        <div class="text-[10px] text-[var(--text-muted)] font-bold uppercase">Confidence Bar</div>
+                                        <div class="text-lg font-black text-blue-400 mt-1">&ge; 60.0%</div>
+                                        <div class="text-[10px] text-[var(--text-secondary)]">High Precision Sniper</div>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- M5 Giant Toggle Switch -->
-                            <div class="ui-card flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5">
-                                <div class="flex flex-col">
-                                    <h3 class="text-base font-bold text-[var(--text-primary)]">Keputusan Terakhir M5</h3>
-                                    <span class="text-xs text-[var(--text-muted)] font-medium">Keputusan Terakhir : <strong class="text-[var(--text-primary)]" id="m5-last-decision-text">STANDBY</strong></span>
+                            <!-- Tabel Log Keputusan M15 PRO -->
+                            <div class="ui-card p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
+                                        <span>📋</span> Log Keputusan Real-Time (M15 PRO)
+                                    </h3>
+                                    <span class="text-xs text-[var(--text-muted)]">Auto-Refresh Tiap Candle M15</span>
                                 </div>
-                                <div id="m5-bot-toggle" class="bot-toggle-wrapper off" onclick="toggleBotExecution('m5')">
-                                    <div class="toggle-knob">Off</div>
-                                    <span class="toggle-label-text toggle-label-on">ON</span>
-                                </div>
-                            </div>
-
-                            <!-- M5 Decision History Table -->
-                            <div class="ui-card flex flex-col gap-4 p-5">
-                                <div class="flex items-center justify-between flex-wrap gap-2">
-                                    <h3 class="text-base font-bold text-[var(--text-primary)]">Riwayat Keputusan Bot M5</h3>
-                                    <button class="pill-dropdown-btn py-1 px-3 text-xs flex items-center gap-1" onclick="clearDecisionLogsUI('m5')">
-                                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12z"/></svg>
-                                        Clean
-                                    </button>
-                                </div>
-                                <div class="figma-table-container">
-                                    <table class="figma-table">
-                                        <thead>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left text-xs">
+                                        <thead class="text-[var(--text-secondary)] border-b border-[var(--card-border)]">
                                             <tr>
-                                                <th>Waktu</th>
+                                                <th class="py-2.5">Waktu (WIB)</th>
+                                                <th>Close Candle</th>
+                                                <th>Probabilitas AI</th>
                                                 <th>Aksi</th>
-                                                <th>Buy</th>
-                                                <th>Sell</th>
                                                 <th>Alasan Keputusan</th>
                                             </tr>
                                         </thead>
-                                        <tbody id="m5-decision-log-tbody">
+                                        <tbody id="m15pro-decision-log-tbody">
                                             <tr>
-                                                <td colspan="5" class="text-center py-4 text-[var(--text-muted)]">Memuat log keputusan M5...</td>
+                                                <td colspan="5" class="text-center py-4 text-[var(--text-muted)]">Menunggu candle M15 berikutnya...</td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -685,10 +832,430 @@
 
 
                 <!-- ═════════════════════════════════════════════════════════════════
+                     PAGE 3: PROPRIETARY ENGINE (COMMERCIAL PRO - $500 ALOKASI MANDIRI)
+                     ═════════════════════════════════════════════════════════════════ -->
+                <!-- ═════════════════════════════════════════════════════════════════
+                     PAGE 3: PROPRIETARY ENGINE (COMMERCIAL PRO - $500 ALOKASI MANDIRI)
+                     ═════════════════════════════════════════════════════════════════ -->
+                <section id="view-proprietary" class="tab-view hidden space-y-6">
+                    <!-- Clean Figma Header Banner & Sub-Navigation -->
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <div class="flex items-center gap-3">
+                                <h1 class="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Proprietary Bot View</h1>
+                                <span class="badge-pill bg-[var(--accent-green)]/15 text-[var(--accent-green)] text-xs font-bold">PRO</span>
+                            </div>
+                            <p class="text-xs text-[var(--text-secondary)] mt-1">Akun Exness Pro #463897979 • Alokasi Modal: $500.00 USD (Terpisah dari Skripsi) • Magic: 155701</p>
+                        </div>
+                        <!-- Clean Segmented Sub-Tab Switcher -->
+                        <div class="flex items-center gap-1.5 p-1 bg-[var(--pill-bg)] rounded-2xl border border-[var(--card-border)] w-fit flex-shrink-0">
+                            <button id="pro-subtab-dash" onclick="switchProSubTab('dashboard')" class="px-4 py-1.5 rounded-xl text-xs font-bold transition-all bg-[var(--card-bg)] text-[var(--text-primary)] shadow-sm">
+                                Dashboard PRO
+                            </button>
+                            <button id="pro-subtab-rekap" onclick="switchProSubTab('rekap')" class="px-4 py-1.5 rounded-xl text-xs font-bold transition-all text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+                                Recap Transaksi PRO
+                            </button>
+                            <button id="pro-subtab-eval" onclick="switchProSubTab('eval')" class="px-4 py-1.5 rounded-xl text-xs font-bold transition-all text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+                                Evaluasi W/L PRO
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ─────────────────────────────────────────────────────────────
+                         SUB-VIEW 1: DASHBOARD PRO
+                         ───────────────────────────────────────────────────────────── -->
+                    <div id="pro-subview-dashboard" class="space-y-6 block">
+                        <!-- 4 Stat Cards Proprietary (Clean Figma Style) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <!-- Card 1: Balanced PRO -->
+                            <div class="ui-card flex flex-col justify-between p-5 min-h-[155px]">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-full bg-[var(--text-primary)] flex items-center justify-center">
+                                            <img src="/static/icons/LOGO BALANCED.png" class="w-4 h-4 object-contain theme-icon-light" alt="Balance" />
+                                            <img src="/static/icons/LOGO BALANCED DARK MODE.png" class="w-4 h-4 object-contain theme-icon-dark" alt="Balance" />
+                                        </div>
+                                        <span class="text-sm font-bold text-[var(--text-secondary)] uppercase">Balanced (PRO)</span>
+                                    </div>
+                                    <span id="pro-dash-growth" class="badge-pill bg-white/20 text-[var(--text-primary)] text-xs font-bold">▲ 0.0%</span>
+                                </div>
+                                <div>
+                                    <span class="text-3xl md:text-4xl font-black tracking-tight text-[var(--text-primary)]" id="pro-dash-balance">$500.00</span>
+                                    <div class="text-[11px] text-[var(--text-muted)] font-medium mt-1">Alokasi Modal Mandiri: $500.00 USD</div>
+                                </div>
+                            </div>
+
+                            <!-- Card 2: Total PnL PRO -->
+                            <div class="ui-card flex flex-col justify-between p-5 min-h-[155px]">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-full bg-[var(--text-primary)] flex items-center justify-center">
+                                            <img src="/static/icons/LOGO TOTAL PNL.png" class="w-4 h-4 object-contain theme-icon-light" alt="PnL" />
+                                            <img src="/static/icons/LOGO TOTAL PNL DARK.png" class="w-4 h-4 object-contain theme-icon-dark" alt="PnL" />
+                                        </div>
+                                        <span class="text-sm font-bold text-[var(--text-secondary)] uppercase">Total PnL (PRO)</span>
+                                    </div>
+                                    <span class="text-xs font-bold text-[var(--text-muted)]">PF 2.72</span>
+                                </div>
+                                <div>
+                                    <span class="text-3xl md:text-4xl font-black tracking-tight text-[#007a4d]" id="pro-dash-pnl">+$0.00</span>
+                                    <div class="text-[11px] text-[var(--text-muted)] font-medium mt-1">Akumulasi Cuan Proprietary Engine</div>
+                                </div>
+                            </div>
+
+                            <!-- Card 3: Win Rate PRO -->
+                            <div class="ui-card flex flex-col justify-between p-5 min-h-[155px]">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-full bg-[var(--text-primary)] flex items-center justify-center">
+                                            <img src="/static/icons/LOGO WIN RATE DAN PERFORMA PERIODE.png" class="w-4 h-4 object-contain theme-icon-light" alt="Win Rate" />
+                                            <img src="/static/icons/LOGO WIN RATE DARK.png" class="w-4 h-4 object-contain theme-icon-dark" alt="Win Rate" />
+                                        </div>
+                                        <span class="text-sm font-bold text-[var(--text-secondary)] uppercase">Win Rate (PRO)</span>
+                                    </div>
+                                    <span id="pro-dash-trades" class="text-xs font-bold text-[var(--text-muted)]">0 Trades</span>
+                                </div>
+                                <div class="flex items-baseline justify-between gap-2">
+                                    <span class="text-3xl md:text-4xl font-black tracking-tight text-[var(--text-primary)]" id="pro-dash-win-rate">0%</span>
+                                    <div class="text-right text-xs font-bold flex items-center gap-1.5">
+                                        <span class="text-[#007a4d]" id="pro-dash-win-count">0W</span>
+                                        <span class="text-[var(--text-muted)]">|</span>
+                                        <span class="text-amber-500" id="pro-dash-bep-count">0 BEP</span>
+                                        <span class="text-[var(--text-muted)]">|</span>
+                                        <span class="text-[#b91c1c]" id="pro-dash-loss-count">0L</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card 4: Risk Profile -->
+                            <div class="ui-card flex flex-col justify-between p-5 min-h-[155px]">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-full bg-[var(--text-primary)] flex items-center justify-center">
+                                            <span class="text-xs font-bold">🛡️</span>
+                                        </div>
+                                        <span class="text-sm font-bold text-[var(--text-secondary)] uppercase">Risk Architecture</span>
+                                    </div>
+                                    <span class="badge-pill bg-emerald-500/15 text-emerald-400 text-xs font-bold">Active</span>
+                                </div>
+                                <div>
+                                    <div class="text-base font-bold text-[var(--text-primary)]">Max Drawdown: <span class="text-[#007a4d] font-black">$17.80</span> <span class="text-[10px] text-[var(--text-muted)]">(3.5%)</span></div>
+                                    <div class="text-[11px] text-[var(--text-muted)] font-medium mt-1">SL Ketat $5.00 • TP Dinamis • BEP +$0.30</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- LIVE FLOATING POSITIONS (PRO ONLY) -->
+                        <div class="ui-card p-5">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="pulse-dot pulse-dot-green"></span>
+                                    <h3 class="font-bold text-base text-[var(--text-primary)]">Posisi Aktif Berjalan (Proprietary PRO)</h3>
+                                </div>
+                                <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20" id="pro-live-pos-count-label">0 Posisi</span>
+                            </div>
+                            <div id="pro-live-positions-container" class="space-y-3">
+                                <div class="flex flex-col items-center justify-center py-6 gap-2 text-[var(--text-muted)]">
+                                    <svg class="w-10 h-10 opacity-30" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+                                    <span class="text-sm font-semibold">Tidak ada posisi aktif Proprietary</span>
+                                    <span class="text-xs">Engine V5.4 sedang memindai peluang micro-sniper...</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PROPRIETARY PORTOFOLIO EQUITY CURVE (STEPEED AREA CHART FIGMA) -->
+                        <div class="ui-card flex flex-col gap-4 p-5">
+                            <div class="flex items-center justify-between flex-wrap gap-2">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-8 h-8 rounded-full bg-[#007a4d] text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                                        📈
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-base text-[var(--text-primary)]">Portofolio PRO — Equity Curve</h3>
+                                        <span class="text-xs text-[var(--text-secondary)] font-medium">Grafik Pertumbuhan Modal Proprietary Bot (Alokasi Mandiri $500.00 USD)</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button id="btn-pro-curve-gain" onclick="setProCurveMode('gain')" class="badge-pill bg-[#007a4d] text-white text-xs font-bold px-3 py-1 cursor-pointer shadow-sm hover:opacity-90 transition-all">Gain ▲</button>
+                                    <button id="btn-pro-curve-dd" onclick="setProCurveMode('drawdown')" class="badge-pill bg-[var(--pill-bg)] text-[var(--text-muted)] text-xs font-bold px-3 py-1 cursor-pointer hover:bg-rose-500/10 hover:text-rose-500 transition-all">Drawdown ▼</button>
+                                </div>
+                            </div>
+                            <div class="relative w-full h-72 md:h-80">
+                                <canvas id="proEquityChartCanvas"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- 2-COLUMN ENGINE MONITOR & CONTROLS -->
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                            <!-- LEFT COLUMN: GAUGES & STRUCTURE -->
+                            <div class="lg:col-span-5 flex flex-col gap-6">
+                                <!-- Gauge Triple-Barrier Probability -->
+                                <div class="ui-card flex flex-col items-center p-6">
+                                    <div class="relative w-48 h-48 flex items-center justify-center my-2">
+                                        <svg class="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+                                            <circle class="donut-circle-track" cx="60" cy="60" r="48" stroke-width="12" fill="none" />
+                                            <circle id="pro-donut-buy" class="donut-circle-buy" cx="60" cy="60" r="48" stroke-width="12" fill="none"
+                                                stroke-dasharray="301.59" stroke-dashoffset="150" stroke-linecap="round" />
+                                        </svg>
+                                        <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                                            <span class="text-4xl font-bold tracking-tight text-[var(--text-primary)]" id="pro-gauge-pct">50%</span>
+                                            <span class="text-xs font-semibold text-amber-400" id="pro-gauge-bias">TRIPLE-BARRIER</span>
+                                        </div>
+                                    </div>
+                                    <h3 class="text-base font-bold text-[var(--text-primary)] mt-3 mb-4">Probabilitas Horizon Dinamis (77F)</h3>
+                                    <div class="w-full flex flex-col gap-3">
+                                        <div class="flex flex-col gap-1">
+                                            <div class="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)]">
+                                                <span>Upper Barrier (+$9.50)</span>
+                                                <span id="pro-buy-pct">50%</span>
+                                            </div>
+                                            <div class="prob-bar-container">
+                                                <div id="pro-buy-bar" class="prob-bar-fill-buy" style="width: 50%;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="flex flex-col gap-1">
+                                            <div class="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)]">
+                                                <span>Lower Barrier (-$5.00)</span>
+                                                <span id="pro-sell-pct">50%</span>
+                                            </div>
+                                            <div class="prob-bar-container">
+                                                <div id="pro-sell-bar" class="prob-bar-fill-sell" style="width: 50%;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Shockwave & Rejection Analytics -->
+                                <div class="ui-card flex flex-col gap-3 p-5">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider">Shockwave Crash Shield</h3>
+                                        <span class="text-xs px-2 py-0.5 rounded font-bold bg-blue-500/20 text-blue-400">AKTIF PROTEKSI</span>
+                                    </div>
+                                    <p class="text-xs text-[var(--text-secondary)] leading-relaxed">
+                                        Sensor volatilitas ATR 14 memantau lilin ekstrem (&ge; 3x ATR). Saat terjadi shockwave crash, model membekukan eksekusi counter-trend blind buy untuk mengeliminasi risiko drawdown besar.
+                                    </p>
+                                </div>
+
+                                <!-- Custom Trade Controls PRO -->
+                                <div class="ui-card flex flex-col gap-3 p-5">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="text-base font-bold text-[var(--text-primary)]">Konfigurasi Eksekusi PRO</h3>
+                                        <span class="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">AUTO SNIPER</span>
+                                    </div>
+                                    <div class="flex flex-col gap-2.5 text-xs">
+                                        <div class="flex items-center justify-between">
+                                            <span class="font-semibold text-[var(--text-secondary)]">Volume Lot:</span>
+                                            <span class="font-bold text-[var(--text-primary)]">0.01 Lot (Proporsional $500)</span>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="font-semibold text-[var(--text-secondary)]">Stop Loss Ketat:</span>
+                                            <span class="font-bold text-rose-400">Fixed $5.00 (Max Loss $5.35)</span>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="font-semibold text-[var(--text-secondary)]">Take Profit Dinamis:</span>
+                                            <span class="font-bold text-emerald-400">+$9.50 s/d +$12.50 (Sniper)</span>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="font-semibold text-[var(--text-secondary)]">Multi-Tier Auto BEP:</span>
+                                            <span class="font-bold text-amber-400">Lock +$0.30 saat Floating +$2.20</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- RIGHT COLUMN: HERO BANNER & DECISION LOGS -->
+                            <div class="lg:col-span-7 flex flex-col gap-6">
+                                <!-- Hero Banner Proprietary (Clean Emerald Theme) -->
+                                <div class="hero-banner-green flex flex-col justify-between gap-6 p-6">
+                                    <div class="flex flex-wrap items-center justify-between gap-4">
+                                        <div class="flex items-center gap-2">
+                                            <span id="pro-hero-dot" class="pulse-dot pulse-dot-green"></span>
+                                            <span class="text-sm font-semibold opacity-90">Durasi Sesi Bot PRO</span>
+                                            <span class="text-xs opacity-75" id="pro-hero-status-sub">(Actived)</span>
+                                        </div>
+                                        <span class="text-3xl md:text-5xl font-bold tracking-tight" id="pro-session-duration">00:00:00</span>
+                                    </div>
+                                    <div class="flex flex-wrap items-baseline justify-between gap-4 pt-4 border-t border-white/20">
+                                        <span class="text-3xl md:text-5xl font-bold tracking-tight" id="pro-live-clock">14:59:20</span>
+                                        <div class="text-right">
+                                            <span class="text-base md:text-lg font-bold">Candel Close: </span>
+                                            <span class="text-sm font-medium opacity-90" id="pro-candle-countdown">14m 50s</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Keputusan Terakhir & Giant ON/OFF Slide Toggle Switch -->
+                                <div class="ui-card flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5">
+                                    <div class="flex flex-col">
+                                        <h3 class="text-base font-bold text-[var(--text-primary)]">Keputusan Terakhir</h3>
+                                        <span class="text-xs text-[var(--text-muted)] font-medium">Status : <strong class="text-[var(--text-primary)]" id="pro-last-decision-text">STANDBY</strong></span>
+                                    </div>
+                                    <div id="pro-bot-toggle" class="bot-toggle-wrapper on cursor-pointer" onclick="toggleBotExecution('pro')">
+                                        <div class="toggle-knob">ON</div>
+                                        <span class="toggle-label-text toggle-label-off">Off</span>
+                                    </div>
+                                </div>
+
+                                <!-- Riwayat Keputusan Engine PRO Table -->
+                                <div class="ui-card flex flex-col gap-4 p-5">
+                                    <div class="flex items-center justify-between flex-wrap gap-2">
+                                        <h3 class="text-base font-bold text-[var(--text-primary)]">Riwayat Keputusan Engine PRO</h3>
+                                        <button class="pill-dropdown-btn py-1 px-3 text-xs flex items-center gap-1" onclick="clearDecisionLogsUI('pro')">
+                                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12z"/></svg>
+                                            Clean
+                                        </button>
+                                    </div>
+                                    <div class="figma-table-container">
+                                        <table class="figma-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Waktu</th>
+                                                    <th>Aksi</th>
+                                                    <th>Up %</th>
+                                                    <th>Down %</th>
+                                                    <th>Alasan Keputusan &amp; Skenario</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="pro-decision-log-tbody">
+                                                <tr>
+                                                    <td colspan="5" class="text-center py-4 text-[var(--text-muted)]">Memuat log keputusan Proprietary...</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ─────────────────────────────────────────────────────────────
+                         SUB-VIEW 2: RECAP TRANSAKSI PRO (DEDIKASI 16-KOLOM PRO)
+                         ───────────────────────────────────────────────────────────── -->
+                    <div id="pro-subview-rekap" class="space-y-6 hidden">
+                        <div class="ui-card flex flex-col gap-6 p-6">
+                            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                                <div class="relative flex-1 max-w-lg">
+                                    <img src="/static/icons/LOGO SEARCH.png" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 object-contain opacity-70" alt="Search" />
+                                    <input type="text" id="pro-rekap-search-input" placeholder="Cari tiket, waktu, arah posisi PRO..." class="pill-input pl-11" oninput="filterProRecapTable()" />
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button class="pill-dropdown-btn flex items-center gap-2" onclick="fetchProTradesHistory()">
+                                        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                        <span>Sinkronkan Excel PRO</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="figma-table-container">
+                                <table class="figma-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Trade Ke</th>
+                                            <th>Ticket</th>
+                                            <th>Waktu Open (WIB)</th>
+                                            <th>Waktu Close (WIB)</th>
+                                            <th>Arah</th>
+                                            <th>Lot</th>
+                                            <th>Harga Entry (USD)</th>
+                                            <th>Stop Loss (USD)</th>
+                                            <th>Take Profit (USD)</th>
+                                            <th>Harga Exit (USD)</th>
+                                            <th>Pips</th>
+                                            <th>Profit ($)</th>
+                                            <th>Saldo PRO ($)</th>
+                                            <th>Hasil</th>
+                                            <th>Alasan Keluar / Trailing</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pro-rekap-trades-tbody">
+                                        <tr>
+                                            <td colspan="15" class="text-center py-6 text-[var(--text-muted)]">Belum ada riwayat transaksi Proprietary PRO. Engine siap mengeksekusi sinyal pertama...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ─────────────────────────────────────────────────────────────
+                         SUB-VIEW 3: EVALUASI W/L PRO (DEDIKASI AUTOPSY PRO)
+                         ───────────────────────────────────────────────────────────── -->
+                    <div id="pro-subview-eval" class="space-y-6 hidden">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div class="ui-card flex flex-col gap-2 p-5 border-t-4 border-t-emerald-500">
+                                <span class="text-xs font-semibold text-[var(--text-muted)] uppercase">Win Trade Analysis (TP Dinamis)</span>
+                                <span class="text-3xl font-bold text-[#007a4d]" id="pro-eval-win-total">0 Trade</span>
+                                <p class="text-xs text-[var(--text-secondary)] mt-2">Target TP ekspansif $9.50 - $12.50 tercapai optimal pada setup sniper.</p>
+                            </div>
+                            <div class="ui-card flex flex-col gap-2 p-5 border-t-4 border-t-rose-500">
+                                <span class="text-xs font-semibold text-[var(--text-muted)] uppercase">Loss Autopsy (Tight SL $5.00)</span>
+                                <span class="text-3xl font-bold text-[#b91c1c]" id="pro-eval-loss-total">0 Trade</span>
+                                <p class="text-xs text-[var(--text-secondary)] mt-2">Kerugian terbatasi ketat maksimal $5.00, mencegah risiko kejatuhan modal.</p>
+                            </div>
+                            <div class="ui-card flex flex-col gap-2 p-5 border-t-4 border-t-amber-500">
+                                <span class="text-xs font-semibold text-[var(--text-muted)] uppercase">Capital Preservation (Auto BEP)</span>
+                                <span class="text-3xl font-bold text-amber-500" id="pro-eval-bep-total">0 Trade</span>
+                                <p class="text-xs text-[var(--text-secondary)] mt-2">Kunci profit +$0.30 saat floating mencapai +$2.20 menyelamatkan modal dari pembalikan arah.</p>
+                            </div>
+                            <div class="ui-card flex flex-col gap-2 p-5 border-t-4 border-t-purple-500">
+                                <span class="text-xs font-semibold text-[var(--text-muted)] uppercase">Micro-Trigger Alignment</span>
+                                <span class="text-3xl font-bold text-purple-400" id="pro-eval-micro-total">100% Selaras</span>
+                                <p class="text-xs text-[var(--text-secondary)] mt-2">Entry asinkron di pucuk sumbu wick berhasil menghemat 15-20 pips harga beli/jual.</p>
+                            </div>
+                        </div>
+
+                        <div class="ui-card flex flex-col gap-4 p-5">
+                            <div class="flex items-center justify-between flex-wrap gap-2">
+                                <div>
+                                    <h3 class="text-lg font-bold text-[var(--text-primary)]">Inspeksi Transaksi Mendalam (Trade Autopsy PRO)</h3>
+                                    <p class="text-xs text-[var(--text-secondary)]">Diagnosa akurasi sinyal Triple Barrier, Shockwave Shield, dan evaluasi eksekusi micro sniper.</p>
+                                </div>
+                            </div>
+                            <div class="figma-table-container">
+                                <table class="figma-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Ticket</th>
+                                            <th>Waktu</th>
+                                            <th>Arah</th>
+                                            <th>Entry Price</th>
+                                            <th>Exit Price</th>
+                                            <th>PnL ($)</th>
+                                            <th>Hasil</th>
+                                            <th>Diagnosa &amp; Pelajaran Model PRO</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pro-eval-diagnostics-tbody">
+                                        <tr>
+                                            <td colspan="8" class="text-center py-4 text-[var(--text-muted)]">Belum ada data evaluasi Proprietary PRO...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+
+                <!-- ═════════════════════════════════════════════════════════════════
                      PAGE 4: RECAP TRANSAKSI (16-COLUMN FULL DATA TABLE)
                      ═════════════════════════════════════════════════════════════════ -->
                 <section id="view-rekap" class="tab-view hidden space-y-6">
-                    <h1 class="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Recap Transaksi</h1>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <h1 class="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Recap Transaksi</h1>
+                        <!-- Segmented Pill Filter -->
+                        <div class="flex items-center gap-1.5 p-1 bg-[var(--pill-bg)] rounded-2xl border border-[var(--card-border)] w-fit">
+                            <button id="rekap-seg-m15" onclick="setRecapSegment('M15')" class="px-4 py-1.5 rounded-xl text-xs font-bold transition-all bg-[var(--card-bg)] text-[var(--text-primary)] shadow-sm">
+                                M15 Skripsi (Pure 100)
+                            </button>
+                            <button id="rekap-seg-pro" onclick="setRecapSegment('PRO')" class="hidden px-4 py-1.5 rounded-xl text-xs font-bold transition-all text-[var(--text-muted)] hover:text-amber-400">
+                                ⭐ M15 PRO
+                            </button>
+                            <button id="rekap-seg-all" onclick="setRecapSegment('ALL')" class="px-4 py-1.5 rounded-xl text-xs font-bold transition-all text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+                                Semua
+                            </button>
+                        </div>
+                    </div>
 
                     <div class="ui-card flex flex-col gap-6 p-6">
                         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -721,6 +1288,7 @@
                                     <div id="dropdown-filter-model" class="dropdown-menu-floating">
                                         <button class="dropdown-menu-item" onclick="applyRecapFilter('model', 'ALL')">Semua Bot</button>
                                         <button class="dropdown-menu-item" onclick="applyRecapFilter('model', 'M15')">M15 Bot (Skripsi)</button>
+                                        <button class="dropdown-menu-item" onclick="applyRecapFilter('model', 'PRO')">⭐ M15 PRO (57 Fitur)</button>
                                         <button class="dropdown-menu-item" onclick="applyRecapFilter('model', 'M5')">M5 Bot (Scalper)</button>
                                     </div>
                                 </div>
@@ -747,7 +1315,7 @@
                                             <svg class="w-4 h-4 text-[var(--accent-green)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                                             <span>Ekspor CSV</span>
                                         </button>
-                                        <button class="dropdown-menu-item flex items-center gap-2" onclick="showNotification('Total Transaksi Riil: 23 | Win Rate: 69.6% | Profit Factor: 1.4', 'info')">
+                                        <button class="dropdown-menu-item flex items-center gap-2" onclick="openRingkasanStatistikModal()">
                                             <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                                             <span>Ringkasan Statistik</span>
                                         </button>
@@ -760,7 +1328,7 @@
                             </div>
                         </div>
 
-                        <!-- 16-Column Full Data Table (Exact Figma Spec) -->
+                        <!-- 17-Column Full Data Table (Exact Figma Spec + 75M Model Validation) -->
                         <div class="figma-table-container">
                             <table class="figma-table">
                                 <thead>
@@ -780,12 +1348,13 @@
                                         <th>Profit (USD)</th>
                                         <th>Saldo (USD)</th>
                                         <th>Hasil</th>
+                                        <th>Validasi Model (75M)</th>
                                         <th>Alasan Exit / Keterangan</th>
                                     </tr>
                                 </thead>
                                 <tbody id="rekap-trades-tbody">
                                     <tr>
-                                        <td colspan="16" class="text-center py-6 text-[var(--text-muted)]">Memuat riwayat transaksi forward testing...</td>
+                                        <td colspan="17" class="text-center py-6 text-[var(--text-muted)]">Memuat riwayat transaksi forward testing...</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -795,51 +1364,215 @@
 
 
                 <!-- ═════════════════════════════════════════════════════════════════
-                     PAGE 5: EVALUASI W/L
+                     PAGE 5: EVALUASI W/L & TRADE AUTOPSY & HEAD-TO-HEAD
                      ═════════════════════════════════════════════════════════════════ -->
                 <section id="view-eval" class="tab-view hidden space-y-6">
-                    <h1 class="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Evaluasi W/L</h1>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="ui-card flex flex-col gap-2 p-5">
-                            <span class="text-xs font-semibold text-[var(--text-muted)] uppercase">Win Trade Analysis</span>
-                            <span class="text-3xl font-bold text-[#007a4d]" id="eval-win-total">16 Menang (69.6%)</span>
-                            <p class="text-xs text-[var(--text-secondary)] mt-2">Sebagian besar Take Profit diraih pada Zona B-Diag dan Zona C-Sniper saat konfluensi H4 trend searah.</p>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <h1 class="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Evaluasi &amp; Komparasi Model</h1>
+                            <p class="text-xs text-[var(--text-secondary)] mt-1">Trade Autopsy mendalam dan evaluasi performa empiris model M15 Kanonikal berbasis 57 Fitur Kausal &amp; Horizon 75 Menit</p>
                         </div>
-                        <div class="ui-card flex flex-col gap-2 p-5">
-                            <span class="text-xs font-semibold text-[var(--text-muted)] uppercase">Loss Autopsy</span>
-                            <span class="text-3xl font-bold text-[#b91c1c]" id="eval-loss-total">7 Kalah (30.4%)</span>
-                            <p class="text-xs text-[var(--text-secondary)] mt-2">Kerugian terbatasi secara disiplin oleh Dynamic Stop Loss ATR 14 tanpa slippage signifikan.</p>
-                        </div>
-                        <div class="ui-card flex flex-col gap-2 p-5">
-                            <span class="text-xs font-semibold text-[var(--text-muted)] uppercase">Capital Preservation</span>
-                            <span class="text-3xl font-bold text-[var(--text-primary)]">Auto BEP +$0.20</span>
-                            <p class="text-xs text-[var(--text-secondary)] mt-2">Mekanisme auto BEP berhasil mengamankan 3 posisi dari pembalikan arah mendadak pasar emas.</p>
+                        <!-- Segmented Pill Tabs -->
+                        <div class="flex items-center gap-1.5 p-1 bg-[var(--pill-bg)] rounded-2xl border border-[var(--card-border)] w-fit">
+                            <button id="eval-seg-m15" onclick="setEvalSegment('m15')" class="px-4 py-1.5 rounded-xl text-xs font-bold transition-all bg-[var(--card-bg)] text-[var(--text-primary)] shadow-sm">
+                                M15 Skripsi
+                            </button>
+                            <button id="eval-seg-pro" onclick="setEvalSegment('pro')" class="hidden px-4 py-1.5 rounded-xl text-xs font-bold transition-all text-[var(--text-muted)] hover:text-amber-400">
+                                ⭐ M15 PRO
+                            </button>
+                            <button id="eval-seg-h2h" onclick="setEvalSegment('h2h')" class="hidden px-4 py-1.5 rounded-xl text-xs font-bold transition-all text-[var(--text-muted)] hover:text-purple-400">
+                                ⚔️ Head-to-Head
+                            </button>
                         </div>
                     </div>
 
-                    <div class="ui-card flex flex-col gap-4 p-5">
-                        <h3 class="text-lg font-bold text-[var(--text-primary)]">Inspeksi Transaksi Mendalam (Trade Autopsy)</h3>
-                        <div class="figma-table-container">
-                            <table class="figma-table">
-                                <thead>
-                                    <tr>
-                                        <th>Ticket</th>
-                                        <th>Waktu</th>
-                                        <th>Tipe</th>
-                                        <th>Skenario Entry</th>
-                                        <th>SL / TP</th>
-                                        <th>PnL ($)</th>
-                                        <th>Hasil</th>
-                                        <th>Diagnosa &amp; Evaluasi AI</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="eval-diagnostics-tbody">
-                                    <tr>
-                                        <td colspan="8" class="text-center py-4 text-[var(--text-muted)]">Memuat data diagnosa...</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                    <!-- AUTOPSY CONTAINER (For M15 Standar & M15 PRO) -->
+                    <div id="eval-autopsy-container" class="space-y-6">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div class="ui-card flex flex-col gap-2 p-5">
+                                <span class="text-xs font-semibold text-[var(--text-muted)] uppercase">Win Trade Analysis (TP)</span>
+                                <span class="text-3xl font-bold text-[#007a4d]" id="eval-win-total">Memuat...</span>
+                                <p class="text-xs text-[var(--text-secondary)] mt-2" id="eval-win-desc">Target Take Profit (TP) penuh tercapai optimal pada setup sniper.</p>
+                            </div>
+                            <div class="ui-card flex flex-col gap-2 p-5">
+                                <span class="text-xs font-semibold text-[var(--text-muted)] uppercase">Loss Autopsy</span>
+                                <span class="text-3xl font-bold text-[#b91c1c]" id="eval-loss-total">Memuat...</span>
+                                <p class="text-xs text-[var(--text-secondary)] mt-2" id="eval-loss-desc">Kerugian terbatasi secara disiplin oleh Dynamic Stop Loss ATR 14 tanpa slippage signifikan.</p>
+                            </div>
+                            <div class="ui-card flex flex-col gap-2 p-5">
+                                <span class="text-xs font-semibold text-[var(--text-muted)] uppercase">Capital Preservation (Auto BEP)</span>
+                                <span class="text-3xl font-bold text-amber-600" id="eval-bep-total">Memuat...</span>
+                                <p class="text-xs text-[var(--text-secondary)] mt-2" id="eval-bep-desc">Mekanisme auto BEP trailing mengamankan posisi dari pembalikan arah mendadak pasar emas.</p>
+                            </div>
+                            <div class="ui-card flex flex-col gap-2 p-5 border-l-4 border-l-emerald-500">
+                                <span class="text-xs font-semibold text-[var(--text-muted)] uppercase">Validasi Model Murni (75 Menit)</span>
+                                <span class="text-3xl font-bold text-emerald-600" id="eval-75m-total">Memuat...</span>
+                                <p class="text-xs text-[var(--text-secondary)] mt-2" id="eval-75m-desc">Arah prediksi model pada candle ke-5 (75m horizon) searah dengan harga entry.</p>
+                            </div>
+                        </div>
+
+                        <div class="ui-card flex flex-col gap-4 p-5">
+                            <div class="flex items-center justify-between flex-wrap gap-2">
+                                <div>
+                                    <h3 class="text-lg font-bold text-[var(--text-primary)]">Inspeksi Transaksi Mendalam (Trade Autopsy)</h3>
+                                    <p class="text-xs text-[var(--text-secondary)]">Diagnosa akurasi teknikal, konfluensi SMC/H4, dan evaluasi arah model pada candle ke-5 (75 menit).</p>
+                                </div>
+                                <span class="badge-pill bg-emerald-50 text-emerald-700 border border-emerald-300 font-semibold text-xs px-3 py-1">
+                                    🎯 75-Min Horizon Alignment
+                                </span>
+                            </div>
+                            <div class="figma-table-container">
+                                <table class="figma-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Ticket</th>
+                                            <th>Waktu</th>
+                                            <th>Tipe</th>
+                                            <th>Skenario Entry</th>
+                                            <th>Harga Entry</th>
+                                            <th>PnL ($)</th>
+                                            <th>Hasil</th>
+                                            <th>Validasi Model 75M</th>
+                                            <th>Diagnosa &amp; Evaluasi AI</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="eval-diagnostics-tbody">
+                                        <tr>
+                                            <td colspan="9" class="text-center py-4 text-[var(--text-muted)]">Memuat data diagnosa...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- HEAD-TO-HEAD KOMPARASI CONTAINER -->
+                    <div id="eval-h2h-container" class="hidden space-y-6">
+                        <!-- Side-by-Side Comparison Cards -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Card Standar M15 -->
+                            <div class="ui-card p-6 flex flex-col justify-between border-t-4 border-t-blue-500">
+                                <div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-bold uppercase tracking-wider text-blue-400">Baseline Skripsi (v4.2)</span>
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-300 border border-blue-500/20">Two-Stage Hybrid</span>
+                                    </div>
+                                    <h3 class="text-xl font-black text-[var(--text-primary)] mt-1">M15 Standar (44 Fitur)</h3>
+                                    <p class="text-xs text-[var(--text-muted)] mt-1">Akun Utama Exness • SMC Heuristic Filter + LightGBM</p>
+
+                                    <div class="grid grid-cols-3 gap-3 my-6 text-center">
+                                        <div class="p-3 rounded-xl bg-[var(--card-subtle-bg)] border border-[var(--card-border)]">
+                                            <div class="text-[10px] text-[var(--text-muted)] font-semibold uppercase">Win Rate</div>
+                                            <div class="text-xl font-black text-[var(--text-primary)] mt-1" id="h2h-std-wr">--%</div>
+                                        </div>
+                                        <div class="p-3 rounded-xl bg-[var(--card-subtle-bg)] border border-[var(--card-border)]">
+                                            <div class="text-[10px] text-[var(--text-muted)] font-semibold uppercase">Total Trades</div>
+                                            <div class="text-xl font-black text-[var(--text-primary)] mt-1" id="h2h-std-trades">--</div>
+                                        </div>
+                                        <div class="p-3 rounded-xl bg-[var(--card-subtle-bg)] border border-[var(--card-border)]">
+                                            <div class="text-[10px] text-[var(--text-muted)] font-semibold uppercase">Net Profit</div>
+                                            <div class="text-xl font-black mt-1" id="h2h-std-pnl">$--</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-xs space-y-2 border-t border-[var(--card-border)] pt-4 text-[var(--text-secondary)]">
+                                    <div class="flex justify-between"><span>Risk / Reward:</span> <span class="font-semibold text-[var(--text-primary)]">Fixed 1:1 ($6.50 / $6.50)</span></div>
+                                    <div class="flex justify-between"><span>Filtrasi Hard Rule:</span> <span class="font-semibold text-rose-400">Aktif (Kanal Miring &amp; Mid-Zone)</span></div>
+                                    <div class="flex justify-between"><span>Frekuensi Eksekusi:</span> <span class="font-semibold text-[var(--text-primary)]">Sangat Selektif</span></div>
+                                </div>
+                            </div>
+
+                            <!-- Card M15 PRO -->
+                            <div class="ui-card p-6 flex flex-col justify-between border-t-4 border-t-amber-400 relative overflow-hidden">
+                                <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-amber-500/5 rounded-full pointer-events-none"></div>
+                                <div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Next-Gen Sniper (v5.0)</span>
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Pure AI End-to-End</span>
+                                    </div>
+                                    <h3 class="text-xl font-black text-[var(--text-primary)] mt-1 flex items-center gap-2">
+                                        <span>⭐ M15 PRO (57 Fitur)</span>
+                                    </h3>
+                                    <p class="text-xs text-[var(--text-muted)] mt-1">Akun Khusus Exness MT5Trial14 (#416453202) • Zero Over-Filtering</p>
+
+                                    <div class="grid grid-cols-3 gap-3 my-6 text-center">
+                                        <div class="p-3 rounded-xl bg-[var(--card-subtle-bg)] border border-[var(--card-border)]">
+                                            <div class="text-[10px] text-[var(--text-muted)] font-semibold uppercase">Win Rate</div>
+                                            <div class="text-xl font-black text-amber-400 mt-1" id="h2h-pro-wr">--%</div>
+                                        </div>
+                                        <div class="p-3 rounded-xl bg-[var(--card-subtle-bg)] border border-[var(--card-border)]">
+                                            <div class="text-[10px] text-[var(--text-muted)] font-semibold uppercase">Total Trades</div>
+                                            <div class="text-xl font-black text-amber-400 mt-1" id="h2h-pro-trades">--</div>
+                                        </div>
+                                        <div class="p-3 rounded-xl bg-[var(--card-subtle-bg)] border border-[var(--card-border)]">
+                                            <div class="text-[10px] text-[var(--text-muted)] font-semibold uppercase">Net Profit</div>
+                                            <div class="text-xl font-black mt-1" id="h2h-pro-pnl">$--</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-xs space-y-2 border-t border-[var(--card-border)] pt-4 text-[var(--text-secondary)]">
+                                    <div class="flex justify-between"><span>Risk / Reward:</span> <span class="font-semibold text-emerald-400">Adaptive 1:1.5 ($8.50 - $11.00 / $6.50)</span></div>
+                                    <div class="flex justify-between"><span>Filtrasi Hard Rule:</span> <span class="font-semibold text-emerald-400">AI End-to-End (Bebas Paralisis)</span></div>
+                                    <div class="flex justify-between"><span>Frekuensi Eksekusi:</span> <span class="font-semibold text-amber-400">Responsif pada Setup &ge; 60%</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Comparison Matrix Table -->
+                        <div class="ui-card p-6">
+                            <h3 class="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider mb-4 flex items-center gap-2">
+                                <span>⚖️</span> Matriks Perbandingan Komprehensif: M15 Standar vs M15 PRO
+                            </h3>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left text-xs">
+                                    <thead class="text-[var(--text-secondary)] border-b border-[var(--card-border)]">
+                                        <tr>
+                                            <th class="py-3">Dimensi Evaluasi</th>
+                                            <th>M15 Standar (Skripsi v4.2)</th>
+                                            <th>⭐ M15 PRO (AI Sniper v5.0)</th>
+                                            <th>Signifikansi &amp; Keunggulan</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-[var(--card-border)]">
+                                        <tr>
+                                            <td class="py-3 font-semibold text-[var(--text-primary)]">Total Feature Input</td>
+                                            <td class="font-mono text-[var(--text-secondary)]">44 Fitur</td>
+                                            <td class="font-mono font-bold text-amber-400">57 Fitur (+13 Indikator Baru)</td>
+                                            <td class="text-emerald-400">Menangkap dinamika EMA Ribbon, Volatilitas &amp; Momentum H1/H4</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-3 font-semibold text-[var(--text-primary)]">Arsitektur Pengambilan Keputusan</td>
+                                            <td class="text-[var(--text-secondary)]">Two-Stage (Hard Rule Filter + AI Model)</td>
+                                            <td class="font-bold text-emerald-400">Pure End-to-End AI Model</td>
+                                            <td class="text-emerald-400">Menghilangkan fenomena 'Analisis Paralisis' tanpa mengorbankan proteksi</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-3 font-semibold text-[var(--text-primary)]">Isolasi Akun MT5</td>
+                                            <td class="text-[var(--text-secondary)]">Akun Utama Exness</td>
+                                            <td class="font-mono font-bold text-amber-400">Exness MT5Trial14 (#416453202)</td>
+                                            <td class="text-[var(--text-primary)]">Data PnL dan riwayat transaksi terpisah 100% transparan &amp; objektif</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-3 font-semibold text-[var(--text-primary)]">Target Take Profit (TP)</td>
+                                            <td class="text-[var(--text-secondary)]">Fixed +$6.50 (1:1 RR)</td>
+                                            <td class="font-bold text-purple-400">Adaptive Dynamic ATR (+$8.50 s/d +$11.00)</td>
+                                            <td class="text-emerald-400">Menangkap pergerakan tren besar emas secara optimal (RR &gt; 1:1.5)</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-3 font-semibold text-[var(--text-primary)]">Pengamanan Modal (Auto BEP)</td>
+                                            <td class="text-emerald-400">Aktif (+25 pips lock BEP)</td>
+                                            <td class="font-bold text-emerald-400">Aktif (+25 pips lock BEP)</td>
+                                            <td class="text-[var(--text-secondary)]">Keduanya mempertahankan proteksi modal ketat terhadap pembalikan harga</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-3 font-semibold text-[var(--text-primary)]">Status Eksekusi Real-Time</td>
+                                            <td class="text-emerald-400">Aktif Berjalan (Watchdog 24 Jam)</td>
+                                            <td class="font-bold text-amber-400">Aktif Berjalan (Watchdog 24 Jam)</td>
+                                            <td class="text-[var(--text-primary)]">Keduanya terhubung ke Exness dan beroperasi bersamaan</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -849,98 +1582,221 @@
                      PAGE 6: ABOUT
                      ═════════════════════════════════════════════════════════════════ -->
                 <section id="view-about" class="tab-view hidden space-y-6">
-                    <h1 class="text-3xl font-bold tracking-tight text-[var(--text-primary)]">About</h1>
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <h1 class="text-3xl font-bold tracking-tight text-[var(--text-primary)]">About &amp; Arsitektur Model</h1>
+                            <p class="text-xs text-[var(--text-secondary)] mt-1">Dokumentasi komprehensif sistem trading kanonikal AI, feature engineering 65 variabel bebas data leakage, integrasi fitur spasial zona, EMA Ribbon 9/26, struktur Price Action DXY &amp; SMT POI, dan protokol eksekusi 100% pure model.</p>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-bold">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                LightGBM Kanonikal M15 (v5.2 Optimal)
+                            </span>
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-xs font-bold">
+                                65 Fitur Super Kombo (EMA 9/26 + DXY SMT POI)
+                            </span>
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-xs font-bold">
+                                Bebas Leakage &amp; Pure AI
+                            </span>
+                        </div>
+                    </div>
 
-                    <div class="ui-card p-6">
-                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 leading-relaxed text-xs text-[var(--text-secondary)]">
-                            <!-- Column 1 -->
-                            <div class="flex flex-col gap-3">
-                                <h3 class="text-sm font-bold text-[var(--text-primary)] border-b border-[var(--table-border)] pb-2">
-                                    1. 44 Fitur Input AI Model
+                    <!-- HERO SUMMARY CARD -->
+                    <div class="ui-card p-6 border-l-4 border-l-emerald-500 relative overflow-hidden">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                            <div class="p-3.5 rounded-xl bg-[var(--card-subtle-bg)] border border-[var(--card-border)]">
+                                <span class="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Peneliti / Pengembang</span>
+                                <span class="text-sm font-bold text-[var(--text-primary)] mt-1 block">Nouval Ditya Maheswara</span>
+                                <span class="text-[11px] text-[var(--text-secondary)]">NIM: 123230165 • S1 Informatika UPNVY</span>
+                            </div>
+                            <div class="p-3.5 rounded-xl bg-[var(--card-subtle-bg)] border border-[var(--card-border)]">
+                                <span class="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Instrumen &amp; Arsitektur</span>
+                                <span class="text-sm font-bold text-[var(--text-primary)] mt-1 block">XAUUSD (Gold Spot) • M15</span>
+                                <span class="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">100% Pure Model (No Outer Rules)</span>
+                            </div>
+                            <div class="p-3.5 rounded-xl bg-[var(--card-subtle-bg)] border border-[var(--card-border)]">
+                                <span class="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Akun Live Forward Testing</span>
+                                <span class="text-sm font-mono font-bold text-emerald-600 dark:text-emerald-400 mt-1 block">Exness #463897979</span>
+                                <span class="text-[11px] text-[var(--text-secondary)]">Magic 123242 • Server MT5Trial17</span>
+                            </div>
+                            <div class="p-3.5 rounded-xl bg-[var(--card-subtle-bg)] border border-[var(--card-border)]">
+                                <span class="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Hasil Validasi Out-of-Sample</span>
+                                <span class="text-sm font-bold text-emerald-500 mt-1 block">Win Rate 50.43% • PF 1.32</span>
+                                <span class="text-[11px] text-[var(--text-secondary)]">Sniper WR 53.66% • Net PnL +$290.05 (Max DD $72.15)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3 DETAILED COLUMNS -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 leading-relaxed text-xs">
+                        <!-- Column 1: Feature Engineering -->
+                        <div class="ui-card p-6 flex flex-col gap-4">
+                            <div class="flex items-center justify-between border-b border-[var(--card-border)] pb-3">
+                                <h3 class="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                                    <span>🧬</span> 1. 65 Fitur Kausal AI Model
                                 </h3>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">Clean 65 Features</span>
+                            </div>
+
+                            <div class="space-y-4 text-[var(--text-secondary)]">
                                 <div>
-                                    <strong class="text-[var(--text-primary)]">Makroekonomi &amp; Sentimen News</strong>
-                                    <ul class="list-disc pl-4 mt-1 space-y-1">
-                                        <li>ForexFactory Scraper (CPI, NFP, FOMC)</li>
-                                        <li>DXY Returns (1, 3 lag) &amp; XAU/DXY Ratio</li>
-                                        <li>Dynamic Minutes-to-News &amp; Pre-News Caution</li>
-                                        <li>Macro Consensus Bias (Forecast vs Previous)</li>
+                                    <div class="flex items-center gap-1.5 mb-1.5">
+                                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                        <strong class="text-[var(--text-primary)] text-xs">Integrasi Zona Spasial &amp; Dinamika M15 (12 Fitur)</strong>
+                                    </div>
+                                    <ul class="list-disc pl-5 space-y-1 text-[11px]">
+                                        <li><strong>Zone A &amp; B Bounce/Proximity (6 Fitur):</strong> Konfluensi jarak SNR &le; 0.15% - 0.40% dan rejection wick &ge; 18-20% serta clearance safe &ge; 0.18%.</li>
+                                        <li><strong>EMA 9/26 Ribbon &amp; Pullback (6 Fitur):</strong> Golden/Death Cross, Spread EMA 9-26, Jarak harga ke EMA9/EMA26, serta pantulan pullback candle wick.</li>
+                                        <li><em>Keunggulan:</em> Menghilangkan filter if-else eksternal bot; pohon LightGBM otomatis belajar mendeteksi area pantulan terbaik.</li>
                                     </ul>
                                 </div>
-                                <div class="mt-2">
-                                    <strong class="text-[var(--text-primary)]">Smart Money Concepts (SMC/ICT)</strong>
-                                    <ul class="list-disc pl-4 mt-1 space-y-1">
-                                        <li>Liquidity Sweep High / Low Detection</li>
-                                        <li>Fair Value Gap (FVG) Bullish &amp; Bearish</li>
-                                        <li>Order Block (OB) Bullish &amp; Bearish</li>
-                                        <li>BOS, CHoCH, &amp; Fibonacci OTE (38.2, 50, 61.8%)</li>
+
+                                <div class="border-t border-[var(--card-border)] pt-3">
+                                    <div class="flex items-center gap-1.5 mb-1.5">
+                                        <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                                        <strong class="text-[var(--text-primary)] text-xs">SMC Bebas Leakage &amp; Geometri (15 Fitur)</strong>
+                                    </div>
+                                    <ul class="list-disc pl-5 space-y-1 text-[11px]">
+                                        <li><strong>Order Block Bull / Bear:</strong> Terbukti bebas leakage 100% (menggunakan lookback historis t-2, tanpa shift masa depan).</li>
+                                        <li><strong>Displacement &amp; Likuiditas:</strong> Fair Value Gap (FVG Bull/Bear) dan Liquidity Sweep High/Low.</li>
+                                        <li><strong>Struktur Tren:</strong> BOS (Break of Structure) &amp; CHoCH (Change of Character).</li>
+                                        <li><strong>Zona Diskon:</strong> Fibonacci Retracement (Pos 100, Dist 38.2%, 50.0%, 61.8%).</li>
                                     </ul>
                                 </div>
-                                <div class="mt-2">
-                                    <strong class="text-[var(--text-primary)]">Multi-Timeframe Alignment &amp; Momentum</strong>
-                                    <ul class="list-disc pl-4 mt-1 space-y-1">
-                                        <li>H4 &amp; H1 Continuous Distance (%) from EMA50</li>
-                                        <li>H4 Channel Slope (-0.3 Downtrend Threshold)</li>
-                                        <li>ADX 14 Trend Strength &amp; Volume Ratio SMA20</li>
-                                        <li>Consecutive Bull/Bear Candle Streak Counter</li>
+
+                                <div class="border-t border-[var(--card-border)] pt-3">
+                                    <div class="flex items-center gap-1.5 mb-1.5">
+                                        <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                                        <strong class="text-[var(--text-primary)] text-xs">Struktur DXY Price Action &amp; SMT POI (9 Fitur Baru)</strong>
+                                    </div>
+                                    <ul class="list-disc pl-5 space-y-1 text-[11px]">
+                                        <li><strong>DXY Supply &amp; Demand POI:</strong> Jarak DXY ke Support/Resistensi &amp; Deteksi DXY di area jenuh pembalikan.</li>
+                                        <li><strong>SMT Divergence (Bull &amp; Bear):</strong> Anomali Smart Money Divergence (contoh: Gold Higher High tapi DXY gagal Lower Low).</li>
+                                        <li><strong>DXY BOS &amp; RSI 14:</strong> Breakout struktur Dolar dan RSI 14 DXY untuk menyaring sinyal palsu emas di pucuk/lembah.</li>
+                                    </ul>
+                                </div>
+
+                                <div class="border-t border-[var(--card-border)] pt-3">
+                                    <div class="flex items-center gap-1.5 mb-1.5">
+                                        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                                        <strong class="text-[var(--text-primary)] text-xs">MTF H1/H4, Volatilitas &amp; Makroekonomi (29 Fitur)</strong>
+                                    </div>
+                                    <ul class="list-disc pl-5 space-y-1 text-[11px]">
+                                        <li><strong>MTF Konfluensi:</strong> EMA 50 &amp; EMA 200 pada H1 dan H4 untuk filter arah tren besar institusional.</li>
+                                        <li><strong>Volatilitas &amp; Momentum:</strong> Bollinger Bands (Bandwidth &amp; Position), ATR 14, ADX 14, RSI 14, Volume Ratio.</li>
+                                        <li><strong>Kalender Makro:</strong> Is_NFP_Week, Is_CPI_Day, Is_FOMC_Week untuk proteksi fase rilis data ekonomi.</li>
                                     </ul>
                                 </div>
                             </div>
+                        </div>
 
-                            <!-- Column 2 -->
-                            <div class="flex flex-col gap-3">
-                                <h3 class="text-sm font-bold text-[var(--text-primary)] border-b border-[var(--table-border)] pb-2">
-                                    2. Manajemen Risiko Dinamis
+                        <!-- Column 2: Risk Management & Execution -->
+                        <div class="ui-card p-6 flex flex-col gap-4">
+                            <div class="flex items-center justify-between border-b border-[var(--card-border)] pb-3">
+                                <h3 class="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                                    <span>🛡️</span> 2. Manajemen Risiko &amp; Pure AI Execution
                                 </h3>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 border border-blue-500/20">Pure AI Decision</span>
+                            </div>
+
+                            <div class="space-y-4 text-[var(--text-secondary)]">
                                 <div>
-                                    <strong class="text-[var(--text-primary)]">Sniper Direct Entry with H4 Guard</strong>
-                                    <ul class="list-disc pl-4 mt-1 space-y-1">
-                                        <li>Eksekusi instan jika AI Confidence &gt;= 70.0%</li>
-                                        <li>BUY Sniper DIBLOKIR saat H4 Descending!</li>
-                                        <li>SELL Sniper DIBLOKIR saat H4 Ascending!</li>
+                                    <div class="flex items-center gap-1.5 mb-1.5">
+                                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                        <strong class="text-[var(--text-primary)] text-xs">100% Pure Model Decision (Bebas Heuristik)</strong>
+                                    </div>
+                                    <ul class="list-disc pl-5 space-y-1 text-[11px]">
+                                        <li><strong>Validasi Skripsi Murni:</strong> Tidak ada skrip filter luar yang mendikte eksekusi. Semua keputusan murni berdasarkan probabilitas AI.</li>
+                                        <li><strong>Selective Normal Entry (&ge; 60%):</strong> Eksekusi saat keyakinan model mencapai ambang batas signifikansi statistik.</li>
+                                        <li><strong>High-Conviction Sniper (&ge; 65%):</strong> Eksekusi presisi tinggi dengan target ekspansi TP lebih besar.</li>
+                                        <li><strong>Fixed Lot 0.01:</strong> Margin sangat aman (~$2.08) dengan toleransi risiko ketat.</li>
                                     </ul>
                                 </div>
-                                <div class="mt-2">
-                                    <strong class="text-[var(--text-primary)]">Structural Dynamic RRR &amp; SMC Levels</strong>
-                                    <ul class="list-disc pl-4 mt-1 space-y-1">
-                                        <li>TP Target: Nearest Supply/Demand Kunci</li>
-                                        <li>SL Proporsional Dinamis (RRR &gt;= 1.8 s/d 1:2.5)</li>
-                                        <li>Bad RRR Filter: Ditolak jika ruang &lt; 1.8x SL</li>
+
+                                <div class="border-t border-[var(--card-border)] pt-3">
+                                    <div class="flex items-center gap-1.5 mb-1.5">
+                                        <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                                        <strong class="text-[var(--text-primary)] text-xs">Stop Loss &amp; Take Profit Terukur</strong>
+                                    </div>
+                                    <ul class="list-disc pl-5 space-y-1 text-[11px]">
+                                        <li><strong>Stop Loss Ketat Fixed:</strong> -$6.50 (65 pips) — Membatasi risiko maksimal &le; 1.3% ekuitas modal.</li>
+                                        <li><strong>Take Profit Normal:</strong> +$8.50 (+85 pips, Risk/Reward 1:1.31).</li>
+                                        <li><strong>Take Profit Sniper:</strong> +$11.00 (+110 pips, Risk/Reward 1:1.69).</li>
                                     </ul>
                                 </div>
-                                <div class="mt-2">
-                                    <strong class="text-[var(--text-primary)]">Dynamic Trailing Lock &amp; Cut-Loss</strong>
-                                    <ul class="list-disc pl-4 mt-1 space-y-1">
-                                        <li>Auto BEP +$0.20 saat profit &gt;= +$4.00 (Save -$21)</li>
-                                        <li>Early Cut-Loss jika sinyal AI berbalik &gt;= 65%</li>
+
+                                <div class="border-t border-[var(--card-border)] pt-3">
+                                    <div class="flex items-center gap-1.5 mb-1.5">
+                                        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                                        <strong class="text-[var(--text-primary)] text-xs">Proteksi Modal &amp; Multi-Tier Trailing</strong>
+                                    </div>
+                                    <ul class="list-disc pl-5 space-y-1 text-[11px]">
+                                        <li><strong>Tier 1 (+25 pips / +$2.50):</strong> Kunci BEP impas <strong>+$0.20</strong>.</li>
+                                        <li><strong>Tier 2 (+45 pips / +$4.50):</strong> Kunci profit minimal <strong>+$2.00</strong>.</li>
+                                        <li><strong>Tier 3 (+70 pips / +$7.00):</strong> Kunci profit minimal <strong>+$4.50</strong>.</li>
+                                        <li><strong>Tier 4 (&ge; +$10.00):</strong> Dynamic Trailing Buffer <strong>$2.50</strong> di bawah harga puncak.</li>
+                                        <li><strong>AI Early Cut-Loss:</strong> Posisi ditutup mandiri jika probabilitas sinyal berbalik arah &ge; 65%.</li>
                                     </ul>
                                 </div>
                             </div>
+                        </div>
 
-                            <!-- Column 3 -->
-                            <div class="flex flex-col gap-3">
-                                <h3 class="text-sm font-bold text-[var(--text-primary)] border-b border-[var(--table-border)] pb-2">
-                                    3. Metadata Penelitian Skripsi
+                        <!-- Column 3: Research Metadata -->
+                        <div class="ui-card p-6 flex flex-col gap-4">
+                            <div class="flex items-center justify-between border-b border-[var(--card-border)] pb-3">
+                                <h3 class="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                                    <span>🎓</span> 3. Metadata Penelitian Skripsi
                                 </h3>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 border border-purple-500/20">S1 Informatika</span>
+                            </div>
+
+                            <div class="space-y-4 text-[var(--text-secondary)]">
                                 <div>
-                                    <strong class="text-[var(--text-primary)]">Judul Skripsi</strong>
-                                    <p class="mt-1 leading-relaxed">
-                                        Penerapan Algoritma LightGBM untuk Prediksi Probabilitas Arah Harga XAUUSD Berbasis Multi-Timeframe, Indeks Dolar AS (DXY), dan Makroekonomi
+                                    <strong class="text-[var(--text-primary)] text-xs block mb-1">Judul Skripsi</strong>
+                                    <p class="leading-relaxed text-[11px] bg-[var(--card-subtle-bg)] p-3 rounded-xl border border-[var(--card-border)] text-[var(--text-primary)] font-medium">
+                                        "Penerapan Algoritma LightGBM untuk Prediksi Probabilitas Arah Harga XAUUSD Berbasis Multi-Timeframe, Indeks Dolar AS (DXY), dan Makroekonomi"
                                     </p>
                                 </div>
-                                <div class="mt-2">
-                                    <strong class="text-[var(--text-primary)]">Pengembang</strong>
-                                    <p class="mt-1 font-semibold text-[var(--text-primary)]">
-                                        Nouval Ditya Maheswara (NIM: 123230165 – Informatika)
-                                    </p>
+
+                                <div class="border-t border-[var(--card-border)] pt-3 space-y-2 text-[11px]">
+                                    <div class="flex justify-between items-center py-1 border-b border-[var(--card-border)]/50">
+                                        <span class="text-[var(--text-muted)] font-medium">Peneliti:</span>
+                                        <span class="font-bold text-[var(--text-primary)]">Nouval Ditya Maheswara</span>
+                                    </div>
+                                    <div class="flex justify-between items-center py-1 border-b border-[var(--card-border)]/50">
+                                        <span class="text-[var(--text-muted)] font-medium">NIM / Program Studi:</span>
+                                        <span class="font-semibold text-[var(--text-primary)]">123230165 / S1 Informatika</span>
+                                    </div>
+                                    <div class="flex justify-between items-center py-1 border-b border-[var(--card-border)]/50">
+                                        <span class="text-[var(--text-muted)] font-medium">Institusi:</span>
+                                        <span class="font-semibold text-[var(--text-primary)]">UPN "Veteran" Yogyakarta</span>
+                                    </div>
+                                    <div class="flex justify-between items-center py-1 border-b border-[var(--card-border)]/50">
+                                        <span class="text-[var(--text-muted)] font-medium">Metode Evaluasi:</span>
+                                        <span class="font-semibold text-emerald-600 dark:text-emerald-400">Walk-Forward Live Testing</span>
+                                    </div>
+                                    <div class="flex justify-between items-center py-1 border-b border-[var(--card-border)]/50">
+                                        <span class="text-[var(--text-muted)] font-medium">Target Pengujian:</span>
+                                        <span class="font-bold text-amber-500">100 Transaksi Forward Testing</span>
+                                    </div>
+                                    <div class="flex justify-between items-center py-1 border-b border-[var(--card-border)]/50">
+                                        <span class="text-[var(--text-muted)] font-medium">Akun Broker MT5:</span>
+                                        <span class="font-mono font-bold text-emerald-600 dark:text-emerald-400">Exness-MT5Trial17 (#463897979)</span>
+                                    </div>
+                                    <div class="flex justify-between items-center py-1 border-b border-[var(--card-border)]/50">
+                                        <span class="text-[var(--text-muted)] font-medium">Magic Identification:</span>
+                                        <span class="font-mono font-bold text-[var(--text-primary)]">123242 (Kanonikal M15)</span>
+                                    </div>
+                                    <div class="flex justify-between items-center py-1">
+                                        <span class="text-[var(--text-muted)] font-medium">Database Laporan:</span>
+                                        <span class="font-semibold text-blue-500">Excel Forward Testing Auto-Sync</span>
+                                    </div>
                                 </div>
-                                <div class="mt-2">
-                                    <strong class="text-[var(--text-primary)]">Target Uji</strong>
-                                    <p class="mt-1">100 Transaksi Forward Testing Real-Time</p>
-                                </div>
-                                <div class="mt-2">
-                                    <strong class="text-[var(--text-primary)]">Integrasi Broker</strong>
-                                    <p class="mt-1">MetaTrader 5 (Exness Real-2 Terminal)</p>
+
+                                <div class="border-t border-[var(--card-border)] pt-3">
+                                    <div class="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-[10px] text-emerald-700 dark:text-emerald-300 leading-relaxed">
+                                        💡 <strong>Sistem Terisolasi &amp; Tahan Kegagalan:</strong> Dilengkapi socket port single-instance lock (`port 48901`) dan intelligent watchdog cooldown untuk menjamin 0% risiko duplikasi proses maupun lonjakan memori RAM.
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -952,6 +1808,504 @@
     </div>
 
     <!-- Application Script Logic -->
-    <script src="/static/app.js?v=4.4.2"></script>
+    <script src="/static/app.js?v=5.2.0_bep_sync{% if cache_bust %}_{{ cache_bust }}{% endif %}"></script>
+
+    <script>
+    // ============================================================
+    // MODE PRESENTASI (Sembunyikan Proprietary PRO) — Persistent via localStorage
+    // ============================================================
+    let _presentationMode = localStorage.getItem('presentationMode') === 'true';
+
+    function togglePresentationMode() {
+        _presentationMode = !_presentationMode;
+        localStorage.setItem('presentationMode', _presentationMode);
+        applyPresentationMode();
+    }
+
+    function applyPresentationMode() {
+        const btn = document.getElementById('presentation-mode-btn');
+        const eyeIcon = document.getElementById('presentation-eye-icon');
+        const navProp = document.getElementById('nav-item-proprietary');
+        const dashPropPod = document.getElementById('dash-pod-proprietary');
+        const dashGrid = document.getElementById('dash-bot-overview-grid');
+
+        const rekapSegPro = document.getElementById('rekap-seg-pro');
+        const rekapSegAll = document.getElementById('rekap-seg-all');
+        const evalSegPro = document.getElementById('eval-seg-pro');
+        const evalSegH2h = document.getElementById('eval-seg-h2h');
+
+        if (_presentationMode) {
+            // Sembunyikan Proprietary dari Nav & Dashboard
+            if (navProp) navProp.classList.add('hidden');
+            if (dashPropPod) dashPropPod.classList.add('hidden');
+            if (dashGrid) {
+                dashGrid.classList.remove('grid-cols-2');
+                dashGrid.classList.add('grid-cols-1');
+            }
+            if (rekapSegPro) rekapSegPro.classList.add('hidden');
+            if (rekapSegAll) rekapSegAll.classList.add('hidden');
+            if (evalSegPro) evalSegPro.classList.add('hidden');
+            if (evalSegH2h) evalSegH2h.classList.add('hidden');
+
+            // Redirect jika user sedang di tab proprietary
+            if (typeof currentTab !== 'undefined' && currentTab === 'proprietary') {
+                switchTab('dashboard');
+            }
+
+            // Update icon mata menjadi Eye-Slash (tertutup / hidden)
+            if (eyeIcon) {
+                eyeIcon.innerHTML = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>`;
+            }
+            if (btn) {
+                btn.classList.add('bg-amber-100', 'dark:bg-amber-900/40', 'border-amber-400', 'text-amber-600');
+                btn.title = "Mode Presentasi Aktif (Proprietary Tersembunyi)";
+            }
+
+            // Filter tabel riwayat transaksi Skripsi — sembunyikan transaksi PRO
+            document.querySelectorAll('#rekap-trades-tbody tr').forEach(row => {
+                const text = row.innerText || '';
+                if (text.includes('PRO') || text.includes('Proprietary')) {
+                    row.style.display = 'none';
+                }
+            });
+        } else {
+            // Tampilkan kembali Proprietary
+            if (navProp) navProp.classList.remove('hidden');
+            if (dashPropPod) dashPropPod.classList.remove('hidden');
+            if (dashGrid) {
+                dashGrid.classList.remove('grid-cols-1');
+                dashGrid.classList.add('grid-cols-2');
+            }
+            if (rekapSegPro) rekapSegPro.classList.remove('hidden');
+            if (rekapSegAll) rekapSegAll.classList.remove('hidden');
+            if (evalSegPro) evalSegPro.classList.remove('hidden');
+            if (evalSegH2h) evalSegH2h.classList.remove('hidden');
+
+            // Update icon mata menjadi Eye (terbuka / normal)
+            if (eyeIcon) {
+                eyeIcon.innerHTML = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>`;
+            }
+            if (btn) {
+                btn.classList.remove('bg-amber-100', 'dark:bg-amber-900/40', 'border-amber-400', 'text-amber-600');
+                btn.title = "Mode Normal (Klik untuk Mode Presentasi)";
+            }
+
+            document.querySelectorAll('#rekap-trades-tbody tr').forEach(row => {
+                row.style.display = '';
+            });
+        }
+    }
+
+    // Apply on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        applyPresentationMode();
+        fetchLivePositions();
+    });
+
+    // ============================================================
+    // LIVE FLOATING POSITIONS CARD (SKRIPSI & PROPRIETARY SEPARATED)
+    // ============================================================
+    function renderPositionCardsHtml(posList) {
+        return posList.map(p => {
+            const isProfit = p.profit >= 0;
+            const pnlColor = isProfit ? '#007a4d' : '#b91c1c';
+            const pnlSign = isProfit ? '+' : '';
+            const typeColor = p.type === 'BUY' ? '#1d4ed8' : '#b91c1c';
+            const pipColor = p.pips >= 0 ? '#007a4d' : '#b91c1c';
+            const pipsSign = p.pips >= 0 ? '+' : '';
+            return `
+            <div class="flex items-center justify-between p-3.5 rounded-2xl bg-[var(--pill-bg)] border border-[var(--card-border)] mb-2 last:mb-0">
+                <div class="flex items-center gap-3">
+                    <span class="px-2.5 py-1 rounded-lg text-xs font-bold text-white" style="background:${typeColor}">${p.type}</span>
+                    <div class="flex flex-col">
+                        <span class="text-sm font-bold text-[var(--text-primary)]">${p.symbol} &nbsp;<span class="text-[11px] font-semibold text-[var(--text-muted)]">${p.bot_tag}</span></span>
+                        <span class="text-xs text-[var(--text-muted)]">#${p.ticket} · Entry $${p.price_open} · ${p.duration || p.time_open}</span>
+                    </div>
+                </div>
+                <div class="flex flex-col items-end gap-0.5">
+                    <span class="text-base font-bold live-pnl-pulse" style="color:${pnlColor}">${pnlSign}$${p.profit.toFixed(2)}</span>
+                    <span class="text-[11px] font-semibold" style="color:${pipColor}">${pipsSign}${p.pips} pip</span>
+                    <span class="text-[10px] text-[var(--text-muted)]">SL $${p.sl} | TP $${p.tp}</span>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function renderLivePositions(positions) {
+        // 1. Skripsi Live Positions Card
+        const container = document.getElementById('live-positions-container');
+        const countLabel = document.getElementById('live-pos-count-label');
+        if (container) {
+            const skripsiPositions = positions.filter(p => p.engine === 'skripsi' || (!p.bot_tag.includes('PRO') && !p.bot_tag.includes('Proprietary')));
+            if (countLabel) countLabel.textContent = skripsiPositions.length + ' Posisi';
+            if (skripsiPositions.length === 0) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center py-8 gap-2 text-[var(--text-muted)]">
+                        <svg class="w-10 h-10 opacity-30" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+                        <span class="text-sm font-semibold">Tidak ada posisi aktif</span>
+                        <span class="text-xs">Bot sedang menganalisis pasar...</span>
+                    </div>`;
+            } else {
+                container.innerHTML = renderPositionCardsHtml(skripsiPositions);
+            }
+        }
+
+        // 2. Proprietary PRO Live Positions Card
+        const proContainer = document.getElementById('pro-live-positions-container');
+        const proCountLabel = document.getElementById('pro-live-pos-count-label');
+        if (proContainer) {
+            const proPositions = positions.filter(p => p.engine === 'proprietary' || p.bot_tag.includes('PRO') || p.bot_tag.includes('Proprietary'));
+            if (proCountLabel) proCountLabel.textContent = proPositions.length + ' Posisi';
+            if (proPositions.length === 0) {
+                proContainer.innerHTML = `
+                    <div class="flex flex-col items-center justify-center py-6 gap-2 text-[var(--text-muted)]">
+                        <svg class="w-10 h-10 opacity-30" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+                        <span class="text-sm font-semibold">Tidak ada posisi aktif Proprietary</span>
+                        <span class="text-xs">Engine V5.4 sedang memindai peluang micro-sniper...</span>
+                    </div>`;
+            } else {
+                proContainer.innerHTML = renderPositionCardsHtml(proPositions);
+            }
+        }
+    }
+
+    function fetchLivePositions() {
+        fetch('/api/positions/live')
+            .then(r => r.json())
+            .then(renderLivePositions)
+            .catch(() => {});
+    }
+
+    // Sub-tab switcher inside Proprietary view
+    function switchProSubTab(subTab) {
+        ['dashboard', 'rekap', 'eval'].forEach(t => {
+            const view = document.getElementById(`pro-subview-${t}`);
+            const btn  = document.getElementById(`pro-subtab-${t}`);
+            if (view) {
+                if (t === subTab) {
+                    view.classList.remove('hidden');
+                    view.classList.add('block');
+                } else {
+                    view.classList.add('hidden');
+                    view.classList.remove('block');
+                }
+            }
+            if (btn) {
+                if (t === subTab) {
+                    btn.className = 'px-4 py-1.5 rounded-xl text-xs font-bold transition-all bg-[var(--card-bg)] text-amber-400 shadow-sm border border-amber-500/30';
+                } else {
+                    btn.className = 'px-4 py-1.5 rounded-xl text-xs font-bold transition-all text-[var(--text-muted)] hover:text-amber-400';
+                }
+            }
+        });
+        if (subTab === 'dashboard') {
+            if (typeof fetchProPortfolioJourney === 'function') fetchProPortfolioJourney();
+        }
+        if (subTab === 'rekap') fetchProTradesHistory();
+        if (subTab === 'eval') fetchProDiagnosticsData();
+    }
+
+    function fetchProTradesHistory() {
+        fetch('/api/trades?bot_filter=pro_only')
+            .then(r => r.json())
+            .then(trades => {
+                const tbody = document.getElementById('pro-rekap-trades-tbody');
+                if (!tbody) return;
+                if (!trades || trades.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="15" class="text-center py-6 text-[var(--text-muted)]">Belum ada riwayat transaksi Proprietary PRO. Engine siap mengeksekusi sinyal pertama...</td></tr>`;
+                    return;
+                }
+                let runningBal = 500.00;
+                tbody.innerHTML = trades.map((t, idx) => {
+                    const pnl = t.profit || 0;
+                    runningBal += pnl;
+                    const resClass = t.status === 'WIN' ? 'badge-win' : (t.status === 'LOSS' ? 'badge-loss' : 'badge-bep');
+                    const pnlColor = pnl >= 0 ? '#007a4d' : '#b91c1c';
+                    return `
+                    <tr>
+                        <td class="font-bold">#${idx + 1}</td>
+                        <td class="font-mono text-xs">${t.ticket}</td>
+                        <td class="text-xs">${t.time_in || '—'}</td>
+                        <td class="text-xs">${t.time_out || '—'}</td>
+                        <td><span class="badge-pill ${t.type === 'BUY' ? 'bg-blue-500/10 text-blue-400' : 'bg-red-500/10 text-red-400'} font-bold">${t.type}</span></td>
+                        <td>${t.lot}</td>
+                        <td class="font-mono">$${(t.open_price || 0).toFixed(2)}</td>
+                        <td class="font-mono">$${(t.sl || 0).toFixed(2)}</td>
+                        <td class="font-mono">$${(t.tp || 0).toFixed(2)}</td>
+                        <td class="font-mono">$${(t.close_price || 0).toFixed(2)}</td>
+                        <td>${t.pips || 0}</td>
+                        <td class="font-bold" style="color:${pnlColor}">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}</td>
+                        <td class="font-mono font-bold">$${runningBal.toFixed(2)}</td>
+                        <td><span class="badge-pill ${resClass}">${t.status}</span></td>
+                        <td class="text-xs text-[var(--text-muted)]">${t.alasan || 'Micro-Trigger Execution'}</td>
+                    </tr>`;
+                }).join('');
+            })
+            .catch(() => {});
+    }
+
+    function fetchProDiagnosticsData() {
+        fetch('/api/diagnostics?bot_filter=pro_only')
+            .then(r => r.json())
+            .then(diag => {
+                const tbody = document.getElementById('pro-eval-diagnostics-tbody');
+                if (!tbody) return;
+                if (!diag || diag.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-[var(--text-muted)]">Belum ada data evaluasi Proprietary PRO...</td></tr>`;
+                    return;
+                }
+
+                // Kalkulasi total Win, Loss, BEP
+                let wins = 0, losses = 0, beps = 0;
+                diag.forEach(d => {
+                    const res = (d.result || '').toUpperCase();
+                    const pnl = Number(d.profit || 0);
+                    if (res === 'WIN' || pnl > 0.30) wins++;
+                    else if (res === 'BEP' || (pnl >= 0 && pnl <= 0.30)) beps++;
+                    else if (res === 'LOSS' || pnl < 0) losses++;
+                });
+
+                const elWin = document.getElementById('pro-eval-win-total');
+                const elLoss = document.getElementById('pro-eval-loss-total');
+                const elBep = document.getElementById('pro-eval-bep-total');
+                const elMicro = document.getElementById('pro-eval-micro-total');
+
+                if (elWin) elWin.innerText = `${wins} Trade`;
+                if (elLoss) elLoss.innerText = `${losses} Trade`;
+                if (elBep) elBep.innerText = `${beps} Trade`;
+                if (elMicro) elMicro.innerText = `100% Selaras`;
+
+                tbody.innerHTML = diag.map(d => {
+                    const pnl = Number(d.profit || 0);
+                    const resClass = d.result === 'WIN' ? 'badge-win' : (d.result === 'LOSS' ? 'badge-loss' : 'badge-bep');
+                    return `
+                    <tr>
+                        <td class="font-mono">${d.ticket}</td>
+                        <td>${d.time_close || d.time_open}</td>
+                        <td><span class="badge-pill ${d.type === 'BUY' ? 'bg-blue-500/10 text-blue-400' : 'bg-red-500/10 text-red-400'} font-bold">${d.type}</span></td>
+                        <td class="font-mono">$${(d.entry_price || 0).toFixed(2)}</td>
+                        <td class="font-mono">$${(d.exit_price || 0).toFixed(2)}</td>
+                        <td class="font-bold ${pnl >= 0 ? 'text-[#007a4d]' : 'text-[#b91c1c]'}">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}</td>
+                        <td><span class="badge-pill ${resClass}">${d.result}</span></td>
+                        <td class="text-xs text-[var(--text-secondary)]">${d.diagnostic_text || d.lesson_learned || 'Evaluasi Sinyal Triple-Barrier'}</td>
+                    </tr>`;
+                }).join('');
+            })
+            .catch(() => {});
+    }
+
+    function filterProRecapTable() {
+        const query = (document.getElementById('pro-rekap-search-input')?.value || '').toLowerCase();
+        document.querySelectorAll('#pro-rekap-trades-tbody tr').forEach(row => {
+            const text = row.innerText.toLowerCase();
+            row.style.display = text.includes(query) ? '' : 'none';
+        });
+    }
+
+    // Poll live positions setiap 5 detik
+    setInterval(fetchLivePositions, 5000);
+    document.addEventListener('DOMContentLoaded', fetchLivePositions);
+
+    // ============================================================
+    // STATUS BADGE 4-KATEGORI (WIN / LOSS / BEP_REBOUND / BEP_NETRAL)
+    // ============================================================
+    function getBadgeHtml(status) {
+        const s = (status || '').toString().toUpperCase();
+        if (s === 'WIN')          return '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-300">✅ WIN</span>';
+        if (s === 'LOSS')         return '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 border border-red-300">❌ LOSS</span>';
+        if (s === 'BEP_REBOUND')  return '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 border border-blue-300">🔄 REBOUND</span>';
+        if (s === 'BEP_NETRAL')   return '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600 border border-gray-300">🛡️ BEP</span>';
+        if (s === 'BEP')          return '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600 border border-gray-300">⚪ BEP</span>';
+        return `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--pill-bg)] text-[var(--text-muted)]">${s}</span>`;
+    }
+
+    // ============================================================
+    // MILESTONE TRACKER BADGE untuk halaman Scenarios
+    // ============================================================
+    function getMilestoneBadge(sc) {
+        if (sc.milestone_win)  return '<span class="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 border border-blue-200">🌟 ANDAL</span>';
+        if (sc.milestone_loss) return '<span class="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">⚠️ RETRAIN</span>';
+        return '';
+    }
+
+    function getTrackerBar(current, max, colorClass) {
+        const pct = Math.min(100, (current / max) * 100);
+        return `<div class="flex items-center gap-1.5">
+            <div class="flex-1 h-1.5 rounded-full bg-[var(--table-border)]">
+                <div class="h-1.5 rounded-full ${colorClass}" style="width:${pct}%"></div>
+            </div>
+            <span class="text-[10px] font-bold">${current}/${max}</span>
+        </div>`;
+    }
+
+    // Override window.getBadgeHtml untuk app.js yang sudah ada
+    if (typeof window !== 'undefined') {
+        window.getBadgeHtml = getBadgeHtml;
+        window.getMilestoneBadge = getMilestoneBadge;
+        window.getTrackerBar = getTrackerBar;
+        window.renderLivePositions = renderLivePositions;
+        window.applyPresentationMode = applyPresentationMode;
+    }
+
+    // Tambahkan CSS untuk pulse animasi PnL
+    const styleEl = document.createElement('style');
+    styleEl.textContent = `
+        .live-pnl-pulse { animation: pnlPulse 2s ease-in-out infinite; }
+        @keyframes pnlPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        #presentation-mode-btn.active { background: rgba(251,191,36,0.15); border-color: #f59e0b; color: #b45309; }
+    `;
+    document.head.appendChild(styleEl);
+    </script>
+
+    <!-- =========================================================================
+         BARCODE / QR CODE MODAL DIALOG (MONITORING HP BEDA JARINGAN & WI-FI)
+         ========================================================================= -->
+    <div id="qr-barcode-modal" class="fixed inset-0 z-[100] bg-black/75 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-3xl max-w-md w-full p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+            <button onclick="closeQrBarcodeModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-[var(--pill-bg)] hover:bg-[var(--card-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center justify-center text-lg font-bold transition-all cursor-pointer">&times;</button>
+            
+            <div class="text-center mb-4">
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 mb-2 border border-emerald-500/20 shadow-sm">
+                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold text-[var(--text-primary)] tracking-tight">📱 Barcode Akses HP</h3>
+                <p class="text-xs text-[var(--text-secondary)] mt-1">Arahkan kamera HP ke barcode untuk memantau bot secara real-time</p>
+            </div>
+
+            <!-- Mode Tabs (Beda Jaringan vs Wi-Fi Lokal) -->
+            <div class="flex rounded-2xl bg-[var(--pill-bg)] p-1 border border-[var(--card-border)] mb-3">
+                <button id="qr-tab-public" onclick="switchQrMode('public')" class="flex-1 py-2 text-xs font-bold rounded-xl transition-all bg-emerald-500 text-white shadow-sm cursor-pointer">
+                    🌍 Beda Jaringan (Internet)
+                </button>
+                <button id="qr-tab-local" onclick="switchQrMode('local')" class="flex-1 py-2 text-xs font-bold rounded-xl transition-all text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer">
+                    📶 Wi-Fi Lokal
+                </button>
+            </div>
+
+            <!-- Status Pill -->
+            <div class="flex items-center justify-center gap-2 mb-3">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span id="qr-status-pill" class="text-[11px] font-bold text-emerald-400 tracking-wide uppercase">CLOUDFLARE HTTPS AKTIF (AKSES BEBAS DI LUAR RUMAH / KUOTA)</span>
+            </div>
+
+            <!-- QR Code Display Container -->
+            <div class="flex justify-center my-3">
+                <div class="p-3 bg-white rounded-2xl shadow-lg border border-slate-200">
+                    <img id="qr-image-display" src="/api/qrcode?mode=public" class="w-48 h-48 object-contain rounded-lg" alt="QR Code" />
+                </div>
+            </div>
+
+            <!-- URL Box with Copy Button -->
+            <div class="bg-[var(--pill-bg)] border border-[var(--card-border)] rounded-2xl p-3 mb-3">
+                <span class="text-[10px] font-bold text-[var(--text-muted)] block mb-1">URL AKSI LANGSUNG (KLIK / SALIN):</span>
+                <div class="flex items-center justify-between gap-2">
+                    <a id="qr-url-text" href="#" target="_blank" rel="noopener noreferrer" class="text-xs font-mono font-bold text-emerald-400 hover:text-emerald-300 hover:underline truncate select-all">Memuat URL...</a>
+                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                        <a id="qr-open-btn" href="#" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1.5 text-xs font-bold rounded-xl bg-emerald-500/10 hover:bg-emerald-500 hover:text-white text-emerald-400 border border-emerald-500/20 transition-all cursor-pointer flex items-center gap-1 shadow-sm" title="Buka di tab baru">
+                            ↗ Buka
+                        </a>
+                        <button id="qr-copy-btn" onclick="copyQrUrl()" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-[var(--card-bg)] hover:bg-emerald-500 hover:text-white border border-[var(--card-border)] transition-all cursor-pointer shadow-sm">
+                            📋 Salin
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-[11px] text-[var(--text-secondary)] text-center leading-relaxed mb-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-2.5">
+                💡 <b>Cara Pakai:</b> Buka kamera bawaan iPhone / Android atau Google Lens, arahkan ke barcode di atas, lalu tap link yang muncul.
+            </div>
+
+            <button onclick="closeQrBarcodeModal()" class="w-full py-2.5 rounded-xl bg-[var(--pill-bg)] hover:bg-[var(--card-border)] text-xs font-bold text-[var(--text-primary)] transition-all cursor-pointer">
+                Tutup
+            </button>
+        </div>
+    </div>
+
+    <!-- =========================================================================
+         MODAL RINGKASAN STATISTIK RIIL (SKRIPSI VS PRO VS GABUNGAN)
+         ========================================================================= -->
+    <div id="modal-ringkasan-statistik" class="fixed inset-0 z-[100] bg-black/75 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-3xl max-w-2xl w-full p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto">
+            <button onclick="closeRingkasanStatistikModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-[var(--pill-bg)] hover:bg-[var(--card-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center justify-center text-lg font-bold transition-all cursor-pointer">&times;</button>
+            
+            <div class="flex items-center gap-3 mb-5 border-b border-[var(--card-border)] pb-4">
+                <div class="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-xl border border-blue-500/20 shadow-sm flex-shrink-0">
+                    📊
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-[var(--text-primary)] tracking-tight">Ringkasan Statistik Riil Bot</h3>
+                    <p class="text-xs text-[var(--text-secondary)] mt-0.5">Komparasi Data Akurat Forward Testing Multi-Model MT5 &amp; Excel Laporan</p>
+                </div>
+            </div>
+
+            <!-- Comparison Cards Grid (M15 Skripsi vs PRO) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <!-- Skripsi M15 Card -->
+                <div class="p-4 rounded-2xl bg-[var(--pill-bg)] border border-[var(--card-border)] flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-blue-500 uppercase tracking-wide">Objek Skripsi (M15)</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">Pure 100</span>
+                        </div>
+                        <div class="text-2xl font-black text-[var(--text-primary)] mb-1" id="stat-skripsi-balance">$526.30</div>
+                        <div class="text-xs text-[var(--text-secondary)] mb-3">Saldo Akumulasi Skripsi (Modal $500.00)</div>
+                    </div>
+                    <div class="space-y-1.5 text-xs border-t border-[var(--card-border)] pt-2.5">
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Total Transaksi:</span><span class="font-bold text-[var(--text-primary)]" id="stat-skripsi-trades">37 Trade</span></div>
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Win Rate (Decided):</span><span class="font-bold text-[#007a4d]" id="stat-skripsi-wr">65.6%</span></div>
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Hasil Riil:</span><span class="font-bold text-[var(--text-secondary)]" id="stat-skripsi-wbl">21W | 5 BEP | 11L</span></div>
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Net Profit USD:</span><span class="font-black text-[#007a4d]" id="stat-skripsi-pnl">+$26.30</span></div>
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Profit Factor:</span><span class="font-bold text-blue-500" id="stat-skripsi-pf">1.42</span></div>
+                    </div>
+                </div>
+
+                <!-- Proprietary PRO Card -->
+                <div class="p-4 rounded-2xl bg-[var(--pill-bg)] border border-[var(--card-border)] flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-amber-500 uppercase tracking-wide">Proprietary PRO (57F)</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">Sniper V5.4</span>
+                        </div>
+                        <div class="text-2xl font-black text-[#007a4d]" id="stat-pro-balance">$520.78</div>
+                        <div class="text-xs text-[var(--text-secondary)] mb-3">Saldo Mandiri PRO (Modal $500.00)</div>
+                    </div>
+                    <div class="space-y-1.5 text-xs border-t border-[var(--card-border)] pt-2.5">
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Total Transaksi:</span><span class="font-bold text-[var(--text-primary)]" id="stat-pro-trades">19 Trade</span></div>
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Win Rate:</span><span class="font-bold text-[#007a4d]" id="stat-pro-wr">68.4%</span></div>
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Hasil Riil:</span><span class="font-bold text-[var(--text-secondary)]" id="stat-pro-wbl">13W (7 Pure, 6 BEP) | 6L</span></div>
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Net Profit USD:</span><span class="font-black text-[#007a4d]" id="stat-pro-pnl">+$20.78</span></div>
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Profit Factor:</span><span class="font-bold text-amber-500" id="stat-pro-pf">2.72</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total Combined Banner -->
+            <div class="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-blue-500/10 to-amber-500/10 border border-emerald-500/20 flex items-center justify-between flex-wrap gap-3 mb-5">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">⚡</span>
+                    <div>
+                        <div class="text-xs font-bold uppercase text-[var(--text-muted)]">Total Portofolio Gabungan</div>
+                        <div class="text-base font-black text-[var(--text-primary)]" id="stat-total-summary">56 Transaksi • Net Profit +$47.08 USD</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="badge-pill bg-emerald-500 text-white font-bold text-xs px-3 py-1" id="stat-total-wr-badge">Win Rate 66.7%</span>
+                </div>
+            </div>
+
+            <button onclick="closeRingkasanStatistikModal()" class="w-full py-3 rounded-xl bg-[var(--pill-bg)] hover:bg-[var(--card-border)] text-xs font-bold text-[var(--text-primary)] transition-all cursor-pointer">
+                Tutup Ringkasan
+            </button>
+        </div>
+    </div>
+
 </body>
 </html>

@@ -23,10 +23,17 @@ EXCEL_PATH_M5        = os.path.join(BASE_DIR, "Laporan_Forward_Testing_Model_M5_
 EXCEL_PATH_ARCHIVE   = os.path.join(BASE_DIR, "Laporan_Forward_Testing_100_Trade.xlsx") if os.path.exists(os.path.join(BASE_DIR, "Laporan_Forward_Testing_100_Trade.xlsx")) else r"d:\SKRIPSI INFORMATIKA\Laporan_Forward_Testing_100_Trade.xlsx"
 
 MT5_PATH = r"C:\Program Files\MetaTrader 5 EXNESS\terminal64.exe"
-MAGIC_NEW_MODEL = 123230
-MAGIC_M5_SCALP   = 123236
 
-# CUTOFF WAKTU VERSI 3.7 (Reset Saldo Awal $500 pada 18 September 2026 21:55:00 WIB - Sniper Direct Entry)
+# Magic ID Spesifik
+MAGIC_PHASE_100  = 123242  # Magic ID Khusus: Pure 100 Trades Forward Testing (v4.2)
+MAGIC_NEW_MODEL  = 123242  # Default aktif sekarang: v4.2 Pure 100
+MAGIC_V41_ARCHIVE= 123230  # Arsip Batch 1 (v4.1 - 46 Trade)
+MAGIC_M5_SCALP   = 123236  # Bot M5 Scalper
+
+# CUTOFF WAKTU:
+# 1. Versi 5.2 / v4.2 Pure 100 Trades: Dimulai 8 Oktober 2026 00:30:00 WIB (Reset Bersih Model 65 Fitur)
+V42_START_TIME = datetime(2026, 10, 8, 0, 30, 0)
+# 2. Versi 4.1 Batch 1 (Arsip 46 Trade): 18 September 2026 21:55:00 WIB
 V37_START_TIME = datetime(2026, 9, 18, 21, 55, 0)
 STARTING_BALANCE_DEFAULT = 500.00
 
@@ -34,39 +41,60 @@ STARTING_BALANCE_DEFAULT = 500.00
 def sync_mt5_trades_to_excel(
     excel_path=EXCEL_PATH_NEW_MODEL, 
     filter_new_model_only=True,
-    magic_number=123230,
+    magic_number=123242,
     comment_filter=None,
     model_label=None,
     sheet_title=None,
     summary_sheet_title=None,
     threshold_label=None,
-    start_date=V37_START_TIME,
+    start_date=None,
     starting_balance=STARTING_BALANCE_DEFAULT,
     silent=False
 ):
     """
-    Menyinkronkan data trade MT5 Versi 3.7 ke tab khusus di Excel secara otomatis.
-    - Menjaga tab arsip (v3.6 dan v3.5) tetap utuh tanpa terhapus.
+    Menyinkronkan data trade MT5 Versi 4.2 (Pure 100 Trades) & v4.1 ke tab khusus di Excel secara otomatis.
+    - Menjaga tab arsip (v4.1, v3.6, dan v3.5) tetap utuh tanpa terhapus.
     - Menghitung perkembangan Saldo ($ USD) dari modal awal $500.00.
-    - Menghitung ROI (%) dan Profit Factor secara real-time.
+    - Menghitung Win Rate Murni (BEP dihitung Netral dan terpisah dari Win/Loss).
     """
     is_m5 = (magic_number in [123236, 123235]) or ("m5" in os.path.basename(excel_path).lower())
+    is_v42 = (magic_number == 123242)
+
+    if start_date is None:
+        start_date = V42_START_TIME if is_v42 else V37_START_TIME
 
     if model_label is None:
-        model_label = "LightGBM M5 v4.1 (Scalper Dynamic RRR)" if is_m5 else "LightGBM M15 v4.1 (Structural RRR + 30D HTF)"
+        if is_m5:
+            model_label = "LightGBM M5 v4.1 (Scalper Dynamic RRR)"
+        elif is_v42:
+            model_label = "LightGBM M15 v4.2 (Pure 100 Trades)"
+        else:
+            model_label = "LightGBM M15 v4.1 (Structural RRR + 30D HTF)"
+
     if threshold_label is None:
-        threshold_label = "Versi 4.1 Multi-Zone Scalper (Dynamic RRR)" if is_m5 else "Versi 4.1 (Structural RRR + Adaptive Hybrid)"
+        if is_m5:
+            threshold_label = "Versi 4.1 Multi-Zone Scalper (Dynamic RRR)"
+        elif is_v42:
+            threshold_label = "Versi 4.2 Pure 100 (SMC Adaptive Hybrid + Dynamic RRR)"
+        else:
+            threshold_label = "Versi 4.1 (Structural RRR + Adaptive Hybrid)"
 
-    # Tetapkan nama sheet khusus v4.1
-    if sheet_title is None or ("v4.1" not in sheet_title and "v4.0" not in sheet_title and "v3.7" not in sheet_title):
-        sheet_title = "Trade Log M5 Scalping (v4.1)" if is_m5 else "Trade Log Model Terbaru (v4.1)"
-    elif "v3.7" in sheet_title or "v4.0" in sheet_title:
-        sheet_title = sheet_title.replace("v3.7", "v4.1").replace("v4.0", "v4.1")
+    # Tetapkan nama sheet khusus
+    if sheet_title is None:
+        if is_m5:
+            sheet_title = "Trade Log M5 Scalping (v4.1)"
+        elif is_v42:
+            sheet_title = "Trade Log Pure 100 (v4.2)"
+        else:
+            sheet_title = "Trade Log Model Terbaru (v4.1)"
 
-    if summary_sheet_title is None or ("v4.1" not in summary_sheet_title and "v4.0" not in summary_sheet_title and "v3.7" not in summary_sheet_title):
-        summary_sheet_title = "Ringkasan Statistik (v4.1)"
-    elif "v3.7" in summary_sheet_title or "v4.0" in summary_sheet_title:
-        summary_sheet_title = summary_sheet_title.replace("v3.7", "v4.1").replace("v4.0", "v4.1")
+    if summary_sheet_title is None:
+        if is_m5:
+            summary_sheet_title = "Ringkasan Statistik M5 (v4.1)"
+        elif is_v42:
+            summary_sheet_title = "Ringkasan Statistik (v4.2)"
+        else:
+            summary_sheet_title = "Ringkasan Statistik (v4.1)"
 
     archive_log_name = "Trade Log M5 (Arsip v3.6)" if is_m5 else "Trade Log M15 (Arsip v3.6)"
     archive_stat_name = "Ringkasan Statistik (v3.6)"
@@ -110,7 +138,10 @@ def sync_mt5_trades_to_excel(
 
                 # Filter khusus model/magic
                 if filter_new_model_only:
-                    if deal_in.magic != magic_number:
+                    if is_v42:
+                        if deal_in.magic not in [123242, 123230]:
+                            continue
+                    elif deal_in.magic != magic_number:
                         continue
                     if comment_filter is not None and comment_filter.lower() not in (deal_in.comment or '').lower():
                         continue
@@ -148,7 +179,10 @@ def sync_mt5_trades_to_excel(
                 if "[tp" in cmt_low:
                     close_reason = "Hit Take Profit (TP)"
                 elif "[sl" in cmt_low:
-                    close_reason = "Hit Stop Loss (SL)"
+                    if profit > 0:
+                        close_reason = "Trailing Lock (BEP +$0.20)"
+                    else:
+                        close_reason = "Hit Stop Loss (SL)"
                 elif "scalp tp" in cmt_low:
                     close_reason = "Bot Dynamic Scalp TP"
                 elif "trailing" in cmt_low:
@@ -164,8 +198,21 @@ def sync_mt5_trades_to_excel(
                     pips = (close_price - open_price) * 10.0
                 else:
                     pips = (open_price - close_price) * 10.0
-                    
-                status = "WIN" if profit > 0 else ("LOSS" if profit < 0 else "BEP")
+
+                # Klasifikasi status baru: BEP zone ($0.00 < profit <= $0.50) dianggap BEP, bukan WIN murni
+                # BEP_PENDING akan diproses lebih lanjut oleh Scenario_Evaluator_Engine (evaluasi candle 75m)
+                BEP_MAX_PROFIT = 0.50
+                BEP_MIN_LOSS   = -0.50
+                is_bep_exit = any(x in cmt_low for x in ['break-even', ' be', 'bep', 'trailing'])
+                if profit > BEP_MAX_PROFIT:
+                    status = "WIN"
+                elif profit < BEP_MIN_LOSS:
+                    status = "LOSS"
+                elif profit == 0.0:
+                    status = "BEP"
+                else:
+                    # Profit tipis dalam BEP zone — akan dievaluasi ulang oleh Scenario Evaluator
+                    status = "BEP"
                 
                 trade_records.append({
                     'Ticket Posisi': pos_id,
@@ -189,7 +236,17 @@ def sync_mt5_trades_to_excel(
     mt5.shutdown()
 
     # Evaluasi mendalam otomatis setiap trade tertutup ke Scenario Evaluator Engine
-    if len(trade_records) > 0:
+    eval_lookup = {}
+    csv_eval_file = os.path.join(BASE_DIR, "Evaluasi_Skenario_Trade.csv")
+    if os.path.exists(csv_eval_file):
+        try:
+            df_eval_pre = pd.read_csv(csv_eval_file)
+            for _, erow in df_eval_pre.iterrows():
+                eval_lookup[str(erow.get('Ticket Posisi')).strip()] = erow
+        except Exception:
+            pass
+
+    if is_v42 and len(trade_records) > 0:
         try:
             import Scenario_Evaluator_Engine as scenario_eval
             has_new_eval = False
@@ -197,17 +254,35 @@ def sync_mt5_trades_to_excel(
                 res = scenario_eval.evaluate_and_record_trade(tr_rec, sync_excel=False)
                 if res is not None:
                     has_new_eval = True
+                    tr_rec['Close 75m ($)'] = res.get('Close Candle 75m ($)')
+                    tr_rec['Validasi Model 75M'] = res.get('Validasi Model 75M', 'MENUNGGU')
+                else:
+                    t_str = str(tr_rec.get('Ticket Posisi')).strip()
+                    if t_str in eval_lookup:
+                        erow = eval_lookup[t_str]
+                        tr_rec['Close 75m ($)'] = erow.get('Close Candle 75m ($)')
+                        tr_rec['Validasi Model 75M'] = erow.get('Validasi Model 75M', 'MENUNGGU')
             if has_new_eval:
                 scenario_eval.sync_scenario_evaluation_to_excel()
         except Exception:
             pass
+
+    for tr_rec in trade_records:
+        if 'Close 75m ($)' not in tr_rec or pd.isna(tr_rec.get('Close 75m ($)')):
+            t_str = str(tr_rec.get('Ticket Posisi')).strip()
+            if t_str in eval_lookup:
+                tr_rec['Close 75m ($)'] = eval_lookup[t_str].get('Close Candle 75m ($)')
+                tr_rec['Validasi Model 75M'] = eval_lookup[t_str].get('Validasi Model 75M', 'MENUNGGU')
+            else:
+                tr_rec['Close 75m ($)'] = None
+                tr_rec['Validasi Model 75M'] = 'MENUNGGU'
 
     # Hitung saldo kumulatif dan metrik
     headers = [
         'Trade Ke-', 'Ticket Posisi', 'Waktu Open', 'Waktu Close', 'Durasi',
         'Simbol', 'Tipe', 'Lot', 'Harga Entry', 'Stop Loss (SL)', 'Take Profit (TP)',
         'Harga Exit', 'Pips (P/L)', 'Profit ($ USD)', 'Saldo ($ USD)', 'Hasil',
-        'Keterangan / Alasan Exit', 'Model AI'
+        'Close 75m ($)', 'Validasi Model 75M', 'Keterangan / Alasan Exit', 'Model AI'
     ]
 
     running_balance = starting_balance
@@ -228,9 +303,12 @@ def sync_mt5_trades_to_excel(
         df_trades.insert(insert_idx, 'Saldo ($ USD)', saldo_list)
 
         total_trades = len(df_trades)
-        wins = len(df_trades[df_trades['Profit ($ USD)'] > 0])
-        losses = len(df_trades[df_trades['Profit ($ USD)'] < 0])
-        win_rate = (wins / total_trades) * 100.0 if total_trades > 0 else 0.0
+        wins = len(df_trades[df_trades['Profit ($ USD)'] > 0.25])
+        beps = len(df_trades[(df_trades['Profit ($ USD)'] >= 0.0) & (df_trades['Profit ($ USD)'] <= 0.25)])
+        losses = len(df_trades[df_trades['Profit ($ USD)'] < 0.0])
+        # Win Rate Murni: Win / (Win + Loss), BEP dihitung NETRAL
+        decided_trades = wins + losses
+        win_rate = (wins / decided_trades) * 100.0 if decided_trades > 0 else 0.0
         total_pnl = df_trades['Profit ($ USD)'].sum()
         roi = (total_pnl / starting_balance) * 100.0
         
@@ -243,6 +321,7 @@ def sync_mt5_trades_to_excel(
         df_trades = pd.DataFrame(columns=headers)
         total_trades = 0
         wins = 0
+        beps = 0
         losses = 0
         win_rate = 0.0
         total_pnl = 0.0
@@ -259,9 +338,11 @@ def sync_mt5_trades_to_excel(
         {'Metrik Evaluasi Forward Testing': 'Saldo Terkini', 'Nilai Evaluasi': f"${running_balance:.2f} USD"},
         {'Metrik Evaluasi Forward Testing': 'Total Trade Otomatis Selesai', 'Nilai Evaluasi': f"{total_trades} Trade"},
         {'Metrik Evaluasi Forward Testing': 'Progres Evaluasi (%)', 'Nilai Evaluasi': f"{(total_trades / 100.0) * 100:.1f}%"},
-        {'Metrik Evaluasi Forward Testing': 'Jumlah Trade WIN (Profit)', 'Nilai Evaluasi': f"{wins} Trade"},
+        {'Metrik Evaluasi Forward Testing': 'Jumlah Trade WIN (Murni)', 'Nilai Evaluasi': f"{wins} Trade"},
+        {'Metrik Evaluasi Forward Testing': 'Jumlah Trade BEP (Netral)', 'Nilai Evaluasi': f"{beps} Trade"},
         {'Metrik Evaluasi Forward Testing': 'Jumlah Trade LOSS (Rugi)', 'Nilai Evaluasi': f"{losses} Trade"},
-        {'Metrik Evaluasi Forward Testing': 'Win Rate (%)', 'Nilai Evaluasi': f"{win_rate:.2f}%"},
+        {'Metrik Evaluasi Forward Testing': 'Win Rate Murni (%) [Win/(Win+Loss)]', 'Nilai Evaluasi': f"{win_rate:.2f}%"},
+        {'Metrik Evaluasi Forward Testing': 'Win Rate Total (%) [Win/Total]', 'Nilai Evaluasi': f"{(wins / total_trades * 100.0) if total_trades > 0 else 0.0:.2f}%"},
         {'Metrik Evaluasi Forward Testing': 'Total Akumulasi Profit ($ USD)', 'Nilai Evaluasi': f"${total_pnl:+.2f} USD"},
         {'Metrik Evaluasi Forward Testing': 'Return on Investment (ROI)', 'Nilai Evaluasi': f"{roi:+.2f}%"},
         {'Metrik Evaluasi Forward Testing': 'Rata-rata Profit per Trade', 'Nilai Evaluasi': f"${avg_profit:+.2f} USD"},
@@ -272,10 +353,14 @@ def sync_mt5_trades_to_excel(
     try:
         if not os.path.exists(excel_path):
             wb = openpyxl.Workbook()
-            # remove default sheet
             wb.remove(wb.active)
         else:
-            wb = openpyxl.load_workbook(excel_path)
+            try:
+                wb = openpyxl.load_workbook(excel_path)
+            except Exception as load_err:
+                print(f"⚠️ Warning: load_workbook gagal ({load_err}), membuat workbook baru bersih...")
+                wb = openpyxl.Workbook()
+                wb.remove(wb.active)
 
         # 1. Pastikan tab arsip v3.5 dinamai dengan benar dan aman
         old_default_log = "Trade Log M5 Scalping" if is_m5 else "Trade Log Model Terbaru"
@@ -301,8 +386,10 @@ def sync_mt5_trades_to_excel(
         # Styling
         header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
         header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-        win_fill = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
-        loss_fill = PatternFill(start_color="FCE4D6", end_color="FCE4D6", fill_type="solid")
+        win_fill         = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
+        loss_fill        = PatternFill(start_color="FCE4D6", end_color="FCE4D6", fill_type="solid")
+        bep_rebound_fill = PatternFill(start_color="DBEAFE", end_color="DBEAFE", fill_type="solid")  # biru muda
+        bep_netral_fill  = PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid")  # abu-abu
         thin_border = Border(
             left=Side(style='thin', color='D9D9D9'),
             right=Side(style='thin', color='D9D9D9'),
@@ -321,7 +408,16 @@ def sync_mt5_trades_to_excel(
         for r_idx, row in df_trades.iterrows():
             row_num = r_idx + 2
             status_val = str(row.get('Hasil', ''))
-            row_fill = win_fill if status_val == "WIN" else (loss_fill if status_val == "LOSS" else None)
+            if status_val == "WIN":
+                row_fill = win_fill
+            elif status_val == "LOSS":
+                row_fill = loss_fill
+            elif status_val == "BEP_REBOUND":
+                row_fill = bep_rebound_fill
+            elif status_val == "BEP_NETRAL":
+                row_fill = bep_netral_fill
+            else:
+                row_fill = None
             
             for c_idx, col_name in enumerate(headers, 1):
                 val = row.get(col_name, '')
@@ -383,11 +479,4 @@ if __name__ == "__main__":
         filter_new_model_only=True,
         magic_number=MAGIC_NEW_MODEL,
         model_label="LightGBM M15 v3.7 (Wide SL + RRR 2.5 + Sniper)"
-    )
-    print("Memperbarui Excel M5...")
-    sync_mt5_trades_to_excel(
-        excel_path=EXCEL_PATH_M5,
-        filter_new_model_only=True,
-        magic_number=MAGIC_M5_SCALP,
-        model_label="LightGBM M5 v3.7 (Wide SL + Macro Scalp + Sniper)"
     )

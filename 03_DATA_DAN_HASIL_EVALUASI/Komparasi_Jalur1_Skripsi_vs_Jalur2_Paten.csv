@@ -1,0 +1,5 @@
+Kategori,Nama_Model,N_Fitur,Trades,Win_Rate,Sniper_WR,Net_PnL,Profit_Factor,Max_Drawdown,Keterangan
+Jalur 1A,Model V5.2 (Skripsi S1 - 65 Fitur),65,574,48.26,53.23,246.4,1.27,115.1,"Standar Skripsi: 65 Fitur, Target T+5, SL $6.50 / TP $8.50"
+Jalur 1B,Model V5.3 (Skripsi S1 - 77 Fitur),77,584,45.55,53.04,63.6,1.06,94.65,"Enhanced Skripsi: 77 Fitur (+Stoch RSI & Rejection), Target T+5"
+Jalur 2A,Model V5.3 Pro (Paten Komersial - Triple Barrier),77,869,43.96,40.85,-38.45,0.97,162.65,"Paten Komersial: Labeling Triple-Barrier Volatilitas, Engine M15"
+Jalur 2B,Model V5.4 Master (Paten Komersial - Full Proprietary),77,953,40.82,33.76,1131.95,2.72,17.8,Full Proprietary: Triple-Barrier + Micro Trigger + Tight SL $5.00

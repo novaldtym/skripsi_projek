@@ -1,18 +1,1 @@
-{
-  "timeframe": "M15",
-  "prob_buy": 46.7,
-  "prob_sell": 53.3,
-  "h1_trend": "BEARISH",
-  "mins_left": 11,
-  "secs_left": 42,
-  "seconds_left": 702,
-  "status_str": "TERTAHAN MID-ZONE",
-  "stoch_k": 48.0,
-  "ask_p": 4272.27,
-  "bid_p": 4272.08,
-  "m15_sup": 4244.03,
-  "m15_res": 4288.62,
-  "holding_trades": 0,
-  "floating_pnl": 0.0,
-  "timestamp": 1790280411.1563182
-}
+{"timeframe": "M15", "prob_buy": 52.9, "prob_sell": 47.1, "h1_trend": "BULLISH", "mins_left": 12, "secs_left": 32, "seconds_left": 752, "status_str": "STANDBY (AI 52.9% < 60%)", "stoch_k": 34.6, "ask_p": 4179.54, "bid_p": 4179.39, "m15_sup": 4174.94, "m15_res": 4201.83, "holding_trades": 0, "floating_pnl": 0.0, "is_unified": true, "timestamp": 1791550049.052039}

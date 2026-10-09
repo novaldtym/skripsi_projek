@@ -1,0 +1,9 @@
+ID,Konfigurasi,Keterangan,N_Fitur,Akurasi_ML,ROC_AUC,Trades,Win_Rate,Sniper_WR,Net_PnL,Profit_Factor,Max_Drawdown,Waktu_S
+M1,1. Baseline Murni (Hanya M15 Polosan),"Tanpa DXY, Tanpa MTF, Tanpa Makro",43,50.1,0.503,348,46.55,55.71,45.0,1.08,85.7,2.65
+M2,2. Baseline + DXY Saja,"Tanpa MTF, Tanpa Makro",56,50.7,0.5077,302,44.37,44.78,143.7,1.31,45.9,1.36
+M3,3. Baseline + MTF (H1/H4) Saja,"Tanpa DXY, Tanpa Makro",49,50.28,0.503,697,46.48,58.38,119.05,1.1,114.8,1.42
+M4,4. Baseline + Makroekonomi Saja,"Tanpa DXY, Tanpa MTF",46,49.7,0.4989,350,49.43,42.25,108.4,1.19,67.4,0.95
+M5,5. Baseline + DXY + MTF,Tanpa Makroekonomi,62,50.1,0.5069,619,45.88,52.76,90.95,1.09,76.15,1.59
+M6,6. Baseline + DXY + Makroekonomi,Tanpa MTF H1/H4,59,49.18,0.496,317,45.11,52.38,2.55,1.0,120.95,1.3
+M7,7. Baseline + MTF + Makroekonomi,Tanpa DXY,52,49.56,0.5088,652,45.4,57.65,97.0,1.09,92.4,1.34
+M8,8. Model Penuh Skripsi (DXY + MTF + Makro),65 Fitur Komprehensif Lengkap,65,50.9,0.5092,633,47.71,56.49,198.15,1.19,54.65,1.51

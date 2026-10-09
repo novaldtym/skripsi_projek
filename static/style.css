@@ -163,9 +163,116 @@ html, body {
     padding: 24px 32px 64px 32px;
 }
 
+/* ======== MOBILE SIDEBAR BACKDROP & RESPONSIVE RULES ======== */
+#app-sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    z-index: 998;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+#app-sidebar-backdrop.active {
+    display: block;
+    opacity: 1;
+}
+
 @media (max-width: 1024px) {
+    #app-layout {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    #app-sidebar {
+        position: fixed !important;
+        top: 0 !important;
+        bottom: 0 !important;
+        left: -290px !important;
+        width: 275px !important;
+        height: 100% !important;
+        z-index: 999 !important;
+        box-shadow: 0 0 50px rgba(0, 0, 0, 0.6) !important;
+        transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+
+    #app-sidebar.mobile-open {
+        left: 0 !important;
+    }
+
+    #app-main {
+        width: 100%;
+        height: 100%;
+    }
+
     #main-scroll-area {
-        padding: 16px 16px 48px 16px;
+        padding: 14px 14px 72px 14px !important;
+    }
+
+    .ui-card {
+        padding: 16px !important;
+        border-radius: 20px !important;
+    }
+
+    .figma-table-container,
+    .overflow-x-auto {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    .figma-table th,
+    .figma-table td {
+        padding: 10px 12px !important;
+        font-size: 11px !important;
+        white-space: nowrap;
+    }
+
+    /* Modals Responsive */
+    #qr-barcode-modal > div,
+    #modal-ringkasan-statistik > div {
+        max-width: 95vw !important;
+        width: 95vw !important;
+        padding: 18px !important;
+        max-height: 90vh !important;
+        overflow-y: auto !important;
+    }
+}
+
+@media (max-width: 640px) {
+    #main-scroll-area {
+        padding: 8px 8px 80px 8px !important;
+    }
+
+    .ui-card {
+        padding: 14px !important;
+        border-radius: 18px !important;
+    }
+
+    .hero-banner-green {
+        padding: 16px !important;
+        border-radius: 18px !important;
+    }
+
+    h1.text-3xl {
+        font-size: 1.4rem !important;
+        line-height: 1.8rem !important;
+    }
+
+    .text-4xl, .text-5xl {
+        font-size: 1.75rem !important;
+        line-height: 2.1rem !important;
+    }
+
+    .figma-table-container,
+    .overflow-x-auto {
+        -webkit-overflow-scrolling: touch !important;
     }
 }
 
@@ -532,6 +639,18 @@ body.dark-mode .theme-switch-knob {
 .badge-bep {
     background-color: var(--pill-bg);
     color: var(--text-muted);
+}
+
+.badge-bep-rebound {
+    background-color: rgba(245, 158, 11, 0.15);
+    color: #d97706;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-bep-netral {
+    background-color: rgba(100, 116, 139, 0.15);
+    color: #64748b;
+    border: 1px solid rgba(100, 116, 139, 0.25);
 }
 
 /* ======== DROPDOWN SELECT MENUS ======== */

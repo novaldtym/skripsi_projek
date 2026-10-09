@@ -1,0 +1,21 @@
+Col 0:
+Penelitian Ini (Nouval Ditya Maheswara, 2026)
+---
+Col 1:
+Skripsi Teknik Informatika UPN “Veteran” Yogyakarta
+---
+Col 2:
+XAUUSD Pasar Spot Riil (Multi-Timeframe M15 & M5 dengan konfirmasi H4)
+---
+Col 3:
+LightGBM Classifier Teroptimasi dengan Balanced Class Weights & Confidence Guard (≥ 65,0%)
+---
+Col 4:
+36 Fitur Multi-Source Feature Fusion: Geometri M15/M5, SMC (Order Block Bull & Bear, FVG Bull & Bear, BOS, CHoCH, Sweep), Fibo 100 candle, Jangkar Tren H4 (EMA 50/200), Kanal DXY (XAU/DXY Return, Tren DXY), dan Fitur Siklus Berita Makro (NFP, CPI, FOMC).
+---
+Col 5:
+Akurasi Sinyal High-Conviction (≥ 65,0%) mencapai 74,77% pada M15 (ROC-AUC 0,595) dan 79,26% pada M5 (ROC-AUC 0,618). Live forward testing otomatis menghasilkan eksekusi presisi dengan RRR 1 : 2,5.
+---
+Col 6:
+MENGISI SELURUH GAP PENELITIAN: Memadukan 4 domain fitur heterogen (SMC + MTF H4 + DXY + Berita Makro), mengusung klasifikasi probabilitas terkalibrasi (≥ 65,0%) berbasis LightGBM ultra-cepat, eksekusi real-time zero-delay melalui MetaTrader 5 API dengan Dynamic ATR SL, serta dilengkapi Post-Trade Scenario Evaluator Engine untuk continuous learning dan evaluasi 5–10× skenario.
+---

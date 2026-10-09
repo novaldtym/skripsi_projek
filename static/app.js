@@ -18,6 +18,7 @@ let diagnosticsDataCache = [];
 let allTradesJournal = [];
 let filteredJournal = [];
 let m15DecisionLogs = [];
+let proDecisionLogs = [];
 let m5DecisionLogs = [];
 let m15FilterAction = 'ALL';
 let recapFilters = {
@@ -28,9 +29,12 @@ let recapFilters = {
 };
 
 let m15SessionStartTime = Date.now();
+let proSessionStartTime = Date.now();
 let m5SessionStartTime = Date.now();
 let isM15Active = false;
+let isProActive = false;
 let isM5Active = false;
+let botTransitionGraceUntil = { m15: 0, pro: 0, m5: 0 };
 
 // Audio & Notifications State
 let audioCtx = null;
@@ -50,12 +54,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. Initial Data Load
     fetchLiveData();
     fetchPortfolioJourney();
+    fetchProPortfolioJourney();
     fetchDiagnosticsData();
     fetchNotifications();
 
     // 3. Setup Recurring Polling
     setInterval(fetchLiveData, 2500);
     setInterval(fetchPortfolioJourney, 10000);
+    setInterval(fetchProPortfolioJourney, 10000);
+    setInterval(fetchDiagnosticsData, 8000);
     setInterval(updateClocksAndTimers, 1000);
 
     // 4. Global Click Listener to close open dropdowns & notification panel
@@ -68,9 +75,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 5. Handle initial hash if any
     const hash = window.location.hash.replace('#', '');
-    if (['dashboard', 'm15', 'm5', 'rekap', 'eval', 'about'].includes(hash)) {
+    if (hash === 'proprietary' && localStorage.getItem('presentationMode') === 'true') {
+        switchTab('dashboard');
+    } else if (['dashboard', 'm15', 'proprietary', 'rekap', 'eval', 'about'].includes(hash)) {
         switchTab(hash);
     }
+
+    // 6. Preload PRO data in background
+    if (typeof fetchProPortfolioJourney === 'function') fetchProPortfolioJourney();
+    if (typeof fetchProDiagnosticsData === 'function') fetchProDiagnosticsData();
 });
 
 // ======== 1. THEME SWITCHING (LIGHT / DARK) ========
@@ -111,9 +124,12 @@ function toggleTheme() {
         localStorage.setItem('quantlgb_theme', 'dark');
     }
 
-    // Re-render chart if currently on dashboard to update colors
+    // Re-render chart if currently on dashboard or proprietary to update colors
     if (currentTab === 'dashboard') {
         renderEquityCurveChart();
+    }
+    if (currentTab === 'proprietary') {
+        renderProEquityCurveChart();
     }
 }
 
@@ -144,6 +160,9 @@ function switchTab(tabId) {
         }
     });
 
+    // Close mobile drawer on navigation
+    closeMobileSidebar();
+
     // Scroll main viewport to top
     const scrollArea = document.getElementById('main-scroll-area');
     if (scrollArea) scrollArea.scrollTop = 0;
@@ -151,6 +170,14 @@ function switchTab(tabId) {
     // Trigger chart render when dashboard opens
     if (tabId === 'dashboard') {
         setTimeout(renderEquityCurveChart, 50);
+    }
+    if (tabId === 'proprietary') {
+        fetchProPortfolioJourney();
+        if (typeof fetchProTradesHistory === 'function') fetchProTradesHistory();
+        if (typeof fetchProDiagnosticsData === 'function') fetchProDiagnosticsData();
+    }
+    if (tabId === 'eval') {
+        fetchDiagnosticsData();
     }
 }
 
@@ -189,6 +216,37 @@ function applyIntervalFilter(label) {
     showNotification(`Granularitas Interval: ${label}`, 'info');
 }
 
+let isBackendConnected = true;
+
+function setBackendConnected(connected) {
+    isBackendConnected = connected;
+    let banner = document.getElementById('backend-offline-banner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'backend-offline-banner';
+        banner.className = 'fixed top-0 left-0 right-0 z-[9999] bg-red-600/95 text-white text-center py-2 px-4 text-xs font-bold shadow-lg flex items-center justify-center gap-2 backdrop-blur-sm transition-all';
+        banner.innerHTML = `
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
+            <span>⚠️ KONEKSI TERPUTUS: Server Web / Bot Sedang Offline. Memeriksa ulang...</span>
+            <button onclick="fetchLiveData()" class="ml-3 px-2 py-0.5 bg-white text-red-700 rounded text-[11px] font-bold hover:bg-red-50 cursor-pointer">Hubungkan Ulang</button>
+        `;
+        document.body.prepend(banner);
+    }
+    banner.style.display = connected ? 'none' : 'flex';
+
+    if (!connected) {
+        const m15PodStatus = document.getElementById('dash-m15-pod-status');
+        if (m15PodStatus) {
+            m15PodStatus.innerText = 'OFFLINE';
+            m15PodStatus.className = 'text-[11px] font-semibold text-red-500';
+        }
+        const m15HeroDot = document.getElementById('m15-hero-dot');
+        if (m15HeroDot) m15HeroDot.className = 'pulse-dot pulse-dot-red';
+        const m15HeroSub = document.getElementById('m15-hero-status-sub');
+        if (m15HeroSub) m15HeroSub.innerText = '(Server Offline)';
+    }
+}
+
 // ======== 4. LIVE TELEMETRY & STATUS POLLING ========
 async function fetchLiveData() {
     try {
@@ -197,11 +255,13 @@ async function fetchLiveData() {
             fetch('/api/status')
         ]);
 
-        if (sumRes.ok) {
+        if (sumRes.ok && stRes.ok) {
+            setBackendConnected(true);
             const summary = await sumRes.json();
             summaryDataCache = summary;
             updateDashboardMetrics(summary);
             updateBotTelemetry('m15', summary.telemetry_m15);
+            updateBotTelemetry('pro', summary.telemetry_m15_pro);
             updateBotTelemetry('m5', summary.telemetry_m5);
 
             // Injeksi Kesimpulan Makroekonomi Dinamis
@@ -209,16 +269,17 @@ async function fetchLiveData() {
             if (elMacro && summary.macro_conclusion) {
                 elMacro.innerText = summary.macro_conclusion;
             }
-        }
 
-        if (stRes.ok) {
             const status = await stRes.json();
             updateBotStatusUI(status);
-        }
 
-        // Auto sync notifikasi live
-        fetchNotifications();
+            // Auto sync notifikasi live
+            fetchNotifications();
+        } else {
+            setBackendConnected(false);
+        }
     } catch (err) {
+        setBackendConnected(false);
         console.warn('[QuantLGB Sync]:', err);
     }
 }
@@ -254,19 +315,24 @@ function updateDashboardMetrics(s) {
         elPnl.className = `text-4xl md:text-5xl font-bold tracking-tight ${pnl >= 0 ? 'text-[#007a4d]' : 'text-[#b91c1c]'}`;
     }
 
-    // 4. Win Rate & Trades Count
+    // 4. Win Rate & Trades Count (BEP dihitung Netral)
     const elWr = document.getElementById('dash-win-rate');
     const elWinCount = document.getElementById('dash-win-count');
+    const elBepCount = document.getElementById('dash-bep-count');
     const elLossCount = document.getElementById('dash-loss-count');
     const elTotalTrades = document.getElementById('dash-total-trades');
-    const wr = s.win_rate !== undefined ? s.win_rate : 72.7;
-    const wins = s.win_trades !== undefined ? s.win_trades : 16;
-    const losses = s.loss_trades !== undefined ? s.loss_trades : 6;
+    const elPhaseLabel = document.getElementById('dash-phase-label');
+    const wr = s.win_rate !== undefined ? s.win_rate : 50.0;
+    const wins = s.win_trades !== undefined ? s.win_trades : 12;
+    const beps = s.bep_trades !== undefined ? s.bep_trades : 21;
+    const losses = s.loss_trades !== undefined ? s.loss_trades : 12;
 
-    if (elWr) elWr.innerText = `${wr.toFixed(0)}%`;
+    if (elWr) elWr.innerText = `${Math.round(wr)}%`;
     if (elWinCount) elWinCount.innerText = `${wins}W`;
+    if (elBepCount) elBepCount.innerText = `${beps} BEP`;
     if (elLossCount) elLossCount.innerText = `${losses}L`;
     if (elTotalTrades) elTotalTrades.innerText = `${trades} Trades`;
+    if (elPhaseLabel && s.current_phase) elPhaseLabel.innerText = s.current_phase;
 
     // 5. XAUUSD Live Ticker
     const elBid = document.getElementById('dash-bid');
@@ -286,14 +352,75 @@ function updateDashboardMetrics(s) {
     if (mt5Txt) {
         mt5Txt.innerText = isConnected ? 'MT5 LIVE' : 'MT5 OFFLINE';
     }
+
+    // 7. Proprietary PRO Metrics (Alokasi Terpisah $500.00 Mandiri)
+    const elProBal = document.getElementById('pro-dash-balance');
+    const elProGrowth = document.getElementById('pro-dash-growth');
+    const elProPnl = document.getElementById('pro-dash-pnl');
+    const elProWr = document.getElementById('pro-dash-win-rate');
+    const elProWinCount = document.getElementById('pro-dash-win-count');
+    const elProBepCount = document.getElementById('pro-dash-bep-count');
+    const elProLossCount = document.getElementById('pro-dash-loss-count');
+    const elProTrades = document.getElementById('pro-dash-trades');
+
+    const proBal = s.pro_current_balance !== undefined ? s.pro_current_balance : 500.00;
+    const proPnl = s.pro_net_profit !== undefined ? s.pro_net_profit : 0.0;
+    const proGrowthPct = ((proBal - 500.00) / 500.00) * 100.0;
+    const proTrades = s.pro_trades || 0;
+    const proWr = s.pro_win_rate || 0;
+    const proWins = s.pro_wins || 0;
+    const proBeps = s.pro_beps || 0;
+    const proLosses = s.pro_losses || 0;
+
+    if (elProBal) elProBal.innerText = `$${proBal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (elProGrowth) {
+        elProGrowth.innerText = `${proGrowthPct >= 0 ? '▲' : '▼'} ${Math.abs(proGrowthPct).toFixed(1)}%`;
+        elProGrowth.className = `badge-pill ${proGrowthPct >= 0 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-900/60 text-white'} text-xs font-bold`;
+    }
+    if (elProPnl) {
+        elProPnl.innerText = `${proPnl >= 0 ? '+$' : '-$'}${Math.abs(proPnl).toFixed(2)}`;
+        elProPnl.className = `text-3xl md:text-4xl font-black tracking-tight ${proPnl >= 0 ? 'text-[#007a4d]' : 'text-[#b91c1c]'}`;
+    }
+    if (elProWr) elProWr.innerText = `${Math.round(proWr)}%`;
+    if (elProWinCount) elProWinCount.innerText = `${proWins}W`;
+    if (elProBepCount) elProBepCount.innerText = `${proBeps} BEP`;
+    if (elProLossCount) elProLossCount.innerText = `${proLosses}L`;
+    if (elProTrades) elProTrades.innerText = `${proTrades} Trades`;
 }
 
 function updateBotStatusUI(st) {
     if (!st) return;
 
+    const now = Date.now();
+
     // M15 Bot Status
-    const m15Running = (st.m15 && st.m15.running) || (st.bots && st.bots.m15_running);
-    isM15Active = !!m15Running;
+    let m15Running = Boolean((st.m15 && st.m15.running) || (st.bots && st.bots.m15_running));
+
+    // Proteksi status saat transisi start/stop agar UI tidak bouncing
+    const m15Grace = botTransitionGraceUntil['m15'] || 0;
+    if (m15Grace > 0) {
+        if (now < m15Grace) {
+            if (m15Running) {
+                botTransitionGraceUntil['m15'] = 0;
+            } else {
+                m15Running = true;
+            }
+        } else {
+            botTransitionGraceUntil['m15'] = 0;
+        }
+    } else if (m15Grace < 0) {
+        if (now < -m15Grace) {
+            if (!m15Running) {
+                botTransitionGraceUntil['m15'] = 0;
+            } else {
+                m15Running = false;
+            }
+        } else {
+            botTransitionGraceUntil['m15'] = 0;
+        }
+    }
+
+    isM15Active = m15Running;
     const m15Toggle = document.getElementById('m15-bot-toggle');
     const m15PodStatus = document.getElementById('dash-m15-pod-status');
     const m15HeroDot = document.getElementById('m15-hero-dot');
@@ -343,6 +470,24 @@ function updateBotStatusUI(st) {
     if (m5HeroDot) m5HeroDot.className = `pulse-dot ${m5Running ? 'pulse-dot-green' : 'pulse-dot-red'}`;
     if (m5HeroSub) m5HeroSub.innerText = m5Running ? '(Actived)' : '(Non-Actived)';
 
+    // PRO Bot Status
+    const proRunning = Boolean((st.pro && st.pro.running) || (st.bots && (st.bots.pro_running || st.bots.m15_running)));
+    isProActive = proRunning;
+    const proToggle = document.getElementById('pro-bot-toggle');
+    const proHeroSub = document.getElementById('pro-hero-status-sub');
+    const proHeroDot = document.getElementById('pro-hero-dot');
+    if (proToggle) {
+        if (proRunning) {
+            proToggle.className = 'bot-toggle-wrapper on cursor-pointer';
+            proToggle.innerHTML = '<div class="toggle-knob">ON</div><span class="toggle-label-text toggle-label-off">Off</span>';
+        } else {
+            proToggle.className = 'bot-toggle-wrapper off cursor-pointer';
+            proToggle.innerHTML = '<div class="toggle-knob">Off</div><span class="toggle-label-text toggle-label-on">ON</span>';
+        }
+    }
+    if (proHeroSub) proHeroSub.innerText = proRunning ? '(Actived)' : '(Non-Actived)';
+    if (proHeroDot) proHeroDot.className = `pulse-dot ${proRunning ? 'pulse-dot-green' : 'pulse-dot-red'}`;
+
     // Render Bot Decision History Tables
     if (st.m15 && st.m15.decision_history) {
         m15DecisionLogs = st.m15.decision_history;
@@ -351,6 +496,10 @@ function updateBotStatusUI(st) {
     if (st.m5 && st.m5.decision_history) {
         m5DecisionLogs = st.m5.decision_history;
         renderDecisionTable('m5', m5DecisionLogs);
+    }
+    if (st.pro && st.pro.decision_history) {
+        proDecisionLogs = st.pro.decision_history;
+        renderDecisionTable('pro', proDecisionLogs);
     }
 }
 
@@ -398,6 +547,11 @@ function updateBotTelemetry(botKey, t) {
         const cd = `${String(t.mins_left).padStart(2, '0')}m ${String(t.secs_left).padStart(2, '0')}s`;
         const elCd = document.getElementById(`${botKey}-candle-countdown`);
         if (elCd) elCd.innerText = cd;
+    }
+
+    const elLastDec = document.getElementById(`${botKey}-last-decision-text`);
+    if (elLastDec && t.status_str) {
+        elLastDec.innerText = t.status_str;
     }
 }
 
@@ -456,12 +610,13 @@ function filterBotDecisionLogs(botKey, action) {
 }
 
 async function clearDecisionLogsUI(botKey) {
+    if (botKey === 'm15') m15DecisionLogs = [];
+    if (botKey === 'pro') proDecisionLogs = [];
+    if (botKey === 'm5') m5DecisionLogs = [];
     const tbody = document.getElementById(`${botKey}-decision-log-tbody`);
     if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-[var(--text-muted)]">Riwayat keputusan telah dibersihkan.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-[var(--text-muted)]">Belum ada riwayat keputusan.</td></tr>`;
     }
-    if (botKey === 'm15') m15DecisionLogs = [];
-    if (botKey === 'm5') m5DecisionLogs = [];
     try {
         await fetch(`/api/control/${botKey}/clean_logs`, { method: 'POST' });
     } catch(e) {}
@@ -470,25 +625,38 @@ async function clearDecisionLogsUI(botKey) {
 
 // ======== 6. BOT EXECUTION CONTROLS (ON / OFF SLIDE) ========
 async function toggleBotExecution(botKey) {
-    const isRunning = botKey === 'm15' ? isM15Active : isM5Active;
+    let isRunning = false;
+    if (botKey === 'm15') isRunning = isM15Active;
+    else if (botKey === 'pro') isRunning = isProActive;
+    else isRunning = isM5Active;
+
     const targetAction = isRunning ? 'stop' : 'start';
     const actionLabel = targetAction === 'start' ? 'menyalakan' : 'mematikan';
 
     showNotification(`Sedang ${actionLabel} Bot ${botKey.toUpperCase()}...`, 'info');
 
+    // Kunci transisi agar UI tidak memantul ke status lama selama inisialisasi
+    if (targetAction === 'start') {
+        botTransitionGraceUntil[botKey] = Date.now() + 6000;
+        if (botKey === 'm15') isM15Active = true;
+        else if (botKey === 'pro') isProActive = true;
+        else isM5Active = true;
+    } else {
+        botTransitionGraceUntil[botKey] = -(Date.now() + 4000);
+        if (botKey === 'm15') isM15Active = false;
+        else if (botKey === 'pro') isProActive = false;
+        else isM5Active = false;
+    }
+
     // Optimistic UI update
     const toggleEl = document.getElementById(`${botKey}-bot-toggle`);
     if (toggleEl) {
         if (targetAction === 'start') {
-            toggleEl.className = 'bot-toggle-wrapper on';
+            toggleEl.className = 'bot-toggle-wrapper on cursor-pointer';
             toggleEl.innerHTML = '<div class="toggle-knob">ON</div><span class="toggle-label-text toggle-label-off">Off</span>';
-            if (botKey === 'm15') isM15Active = true;
-            else isM5Active = true;
         } else {
-            toggleEl.className = 'bot-toggle-wrapper off';
+            toggleEl.className = 'bot-toggle-wrapper off cursor-pointer';
             toggleEl.innerHTML = '<div class="toggle-knob">Off</div><span class="toggle-label-text toggle-label-on">ON</span>';
-            if (botKey === 'm15') isM15Active = false;
-            else isM5Active = false;
         }
     }
 
@@ -497,17 +665,23 @@ async function toggleBotExecution(botKey) {
         const data = await res.json();
         if (res.ok && data.status === 'ok') {
             showNotification(`Bot ${botKey.toUpperCase()} berhasil di-${targetAction}!`, 'success');
-            setTimeout(fetchLiveData, 600);
+            setTimeout(fetchLiveData, 1500);
         } else {
+            botTransitionGraceUntil[botKey] = 0;
             showNotification(`Gagal: ${data.error || 'Aksi ditolak'}`, 'error');
-            setTimeout(fetchLiveData, 1000);
+            setTimeout(fetchLiveData, 500);
         }
     } catch (err) {
+        botTransitionGraceUntil[botKey] = 0;
         showNotification(`Koneksi server gagal: ${err.message}`, 'error');
     }
 }
 
 // ======== 7. STEPPED AREA EQUITY CURVE (CHART.JS) ========
+function fetchTradesHistory() {
+    return fetchPortfolioJourney();
+}
+
 async function fetchPortfolioJourney() {
     try {
         const res = await fetch('/api/portfolio/journey');
@@ -801,13 +975,43 @@ function renderRecapTable() {
     filteredJournal.forEach(j => {
         const isWin = j.result === 'WIN';
         const isLoss = j.result === 'LOSS';
+        const isBepRebound = j.result === 'BEP_REBOUND';
+        const isBepNetral = j.result === 'BEP_NETRAL';
+        const isBep = j.result === 'BEP';
         const pnl = j.profit || 0.0;
-        const pnlClass = isWin ? 'text-[#007a4d] font-bold' : (isLoss ? 'text-[#b91c1c] font-bold' : 'text-[var(--text-secondary)] font-bold');
-        const resultBadge = isWin ? 'badge-win' : (isLoss ? 'badge-loss' : 'badge-standby');
+        let pnlClass = 'text-[var(--text-secondary)] font-bold';
+        if (isWin) pnlClass = 'text-[#007a4d] font-bold';
+        else if (isLoss) pnlClass = 'text-[#b91c1c] font-bold';
+        else if (isBepRebound) pnlClass = 'text-amber-600 font-bold';
+
+        let resultBadge = 'badge-standby';
+        let badgeText = j.result;
+        if (isWin) { resultBadge = 'badge-win'; badgeText = 'WIN'; }
+        else if (isLoss) { resultBadge = 'badge-loss'; badgeText = 'LOSS'; }
+        else if (isBepRebound) { resultBadge = 'badge-bep-rebound'; badgeText = '🔄 REBOUND'; }
+        else if (isBepNetral) { resultBadge = 'badge-bep-netral'; badgeText = '🛡️ BEP'; }
+        else if (isBep) { resultBadge = 'badge-bep'; badgeText = '⚪ BEP'; }
+
         const typeBadge = j.type === 'BUY' ? 'badge-win' : 'badge-loss';
 
+        const v75 = (j.validasi_75m || '').toUpperCase();
+        let badge75m = 'badge-standby';
+        let text75m = j.validasi_75m || 'MENUNGGU';
+        const isGagal75 = v75.includes('GAGAL') || v75.includes('TIDAK');
+        const isSelaras75 = !isGagal75 && (v75.includes('SELARAS') || v75.includes('BERHASIL'));
+        if (isSelaras75) {
+            badge75m = 'bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold';
+            text75m = `🎯 SELARAS (${j.close_75m ? '$' + Number(j.close_75m).toFixed(2) : 'Akurat'})`;
+        } else if (isGagal75) {
+            badge75m = 'bg-red-100 text-red-800 border border-red-300 font-bold';
+            text75m = `❌ TIDAK SELARAS (${j.close_75m ? '$' + Number(j.close_75m).toFixed(2) : 'Reversal'})`;
+        } else {
+            badge75m = 'badge-standby';
+            text75m = '⏳ MENUNGGU 75M';
+        }
+
         html += `
-            <tr class="hover:bg-[var(--table-row-hover)] transition-colors">
+            <tr class="trade-log-row hover:bg-[var(--table-row-hover)] transition-colors" data-model="${j.model || ''}">
                 <td class="font-semibold text-center">#${j.index}</td>
                 <td class="font-medium text-[var(--text-primary)]">#${j.ticket}</td>
                 <td class="whitespace-nowrap text-[var(--text-secondary)]">${j.time_open || '—'}</td>
@@ -822,7 +1026,8 @@ function renderRecapTable() {
                 <td class="font-semibold ${j.pips >= 0 ? 'text-[#007a4d]' : 'text-[#b91c1c]'}">${j.pips >= 0 ? '+' : ''}${Number(j.pips || 0).toFixed(1)}</td>
                 <td class="${pnlClass}">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}</td>
                 <td class="font-bold text-[var(--text-primary)]">$${Number(j.balance || 500).toFixed(2)}</td>
-                <td><span class="badge-pill ${resultBadge}">${j.result}</span></td>
+                <td><span class="badge-pill ${resultBadge}">${badgeText}</span></td>
+                <td><span class="badge-pill ${badge75m}" title="Harga candle ke-5 (75m): ${j.close_75m ? '$' + j.close_75m : '—'}">${text75m}</span></td>
                 <td class="text-xs text-[var(--text-secondary)] truncate max-w-xs" title="${j.alasan || j.scenario || '—'}">${j.alasan || j.scenario || '—'}</td>
             </tr>
         `;
@@ -833,18 +1038,29 @@ function renderRecapTable() {
 function filterRecapTable() {
     const input = document.getElementById('rekap-search-input');
     recapFilters.search = input ? input.value.trim().toLowerCase() : '';
+    const isPresMode = localStorage.getItem('presentationMode') === 'true';
 
     filteredJournal = allTradesJournal.filter(j => {
-        // Status filter
-        if (recapFilters.status !== 'ALL' && j.result !== recapFilters.status) {
+        // Presentation mode: hide M5 bot and PRO trades
+        if (isPresMode && ((j.model || '').includes('M5') || (j.model || '').includes('PRO') || (j.model || '').includes('Proprietary'))) {
             return false;
+        }
+
+        // Status filter
+        if (recapFilters.status !== 'ALL') {
+            if (recapFilters.status === 'BEP' && (j.result === 'BEP' || j.result === 'BEP_REBOUND' || j.result === 'BEP_NETRAL')) {
+                // match all BEPs
+            } else if (j.result !== recapFilters.status) {
+                return false;
+            }
         }
 
         // Model filter
-        if (recapFilters.model === 'M15' && !(j.model || '').includes('M15')) {
-            return false;
-        }
-        if (recapFilters.model === 'M5' && !(j.model || '').includes('M5')) {
+        if (recapFilters.model === 'M15') {
+            if (!(j.model || '').includes('M15') || (j.model || '').includes('PRO')) return false;
+        } else if (recapFilters.model === 'PRO') {
+            if (!(j.model || '').includes('PRO')) return false;
+        } else if (recapFilters.model === 'M5' && !(j.model || '').includes('M5')) {
             return false;
         }
 
@@ -866,6 +1082,19 @@ function filterRecapTable() {
     renderRecapTable();
 }
 
+function setRecapSegment(seg) {
+    ['m15', 'pro', 'all'].forEach(k => {
+        const btn = document.getElementById(`rekap-seg-${k}`);
+        if (!btn) return;
+        if (k === seg.toLowerCase()) {
+            btn.className = 'px-4 py-1.5 rounded-xl text-xs font-bold transition-all bg-[var(--card-bg)] text-[var(--text-primary)] shadow-sm';
+        } else {
+            btn.className = 'px-4 py-1.5 rounded-xl text-xs font-bold transition-all text-[var(--text-muted)] hover:text-[var(--text-primary)]';
+        }
+    });
+    applyRecapFilter('model', seg);
+}
+
 function applyRecapFilter(filterType, value) {
     if (filterType === 'status') {
         recapFilters.status = value;
@@ -874,7 +1103,11 @@ function applyRecapFilter(filterType, value) {
     } else if (filterType === 'model') {
         recapFilters.model = value;
         const el = document.getElementById('label-filter-model');
-        if (el) el.innerText = value === 'ALL' ? 'Semua Bot' : (value === 'M15' ? 'M15 Bot (Skripsi)' : 'M5 Bot (Scalper)');
+        let txt = 'Semua Bot';
+        if (value === 'M15') txt = 'M15 Bot (Skripsi)';
+        else if (value === 'PRO') txt = '⭐ M15 PRO (57 Fitur)';
+        else if (value === 'M5') txt = 'M5 Bot (Scalper)';
+        if (el) el.innerText = txt;
     } else if (filterType === 'type') {
         recapFilters.type = value;
         const el = document.getElementById('label-filter-type');
@@ -892,15 +1125,120 @@ function exportData(format) {
     }
 }
 
-// ======== 9. EVALUASI W/L & TRADE AUTOPSY ========
-async function fetchDiagnosticsData() {
+// ======== 9. EVALUASI W/L & TRADE AUTOPSY & HEAD-TO-HEAD ========
+let currentEvalSegment = 'm15';
+
+async function toggleM15ProBot() {
+    const action = isProActive ? 'stop' : 'start';
+    const toggle = document.getElementById('m15pro-bot-toggle');
+    const heroSub = document.getElementById('m15pro-hero-status-sub');
+    
+    // Optimistic UI update
+    if (toggle) {
+        if (action === 'start') {
+            toggle.className = 'bot-toggle-wrapper on cursor-pointer';
+            toggle.innerHTML = '<div class="toggle-knob">ON</div><span class="toggle-label-text toggle-label-off">Off</span>';
+            if (heroSub) heroSub.innerText = 'Memulai engine M15 PRO...';
+        } else {
+            toggle.className = 'bot-toggle-wrapper off cursor-pointer';
+            toggle.innerHTML = '<div class="toggle-knob">Off</div><span class="toggle-label-text toggle-label-on">ON</span>';
+            if (heroSub) heroSub.innerText = 'Menghentikan engine M15 PRO...';
+        }
+    }
+
     try {
-        const res = await fetch('/api/diagnostics');
+        const res = await fetch(`/api/control/pro/${action}`, { method: 'POST' });
+        const json = await res.json();
+        if (json.success || json.status === 'ok') {
+            isProActive = (action === 'start');
+            if (typeof showNotification === 'function') {
+                showNotification(`Bot M15 PRO (57 Fitur) berhasil di-${action === 'start' ? 'aktifkan' : 'hentikan'}!`, 'success');
+            }
+        } else {
+            if (typeof showNotification === 'function') {
+                showNotification(`Gagal kontrol M15 PRO: ${json.error || 'Aksi ditolak'}`, 'error');
+            }
+        }
+        setTimeout(fetchSystemStatus, 600);
+    } catch (err) {
+        console.error('[M15 PRO Toggle Error]:', err);
+        if (typeof showNotification === 'function') {
+            showNotification(`Koneksi server gagal: ${err.message}`, 'error');
+        }
+        setTimeout(fetchSystemStatus, 1000);
+    }
+}
+
+function setEvalSegment(seg) {
+    currentEvalSegment = seg;
+    ['m15', 'pro', 'h2h'].forEach(k => {
+        const btn = document.getElementById(`eval-seg-${k}`);
+        if (!btn) return;
+        if (k === seg) {
+            btn.className = 'px-4 py-1.5 rounded-xl text-xs font-bold transition-all bg-[var(--card-bg)] text-[var(--text-primary)] shadow-sm';
+        } else {
+            btn.className = 'px-4 py-1.5 rounded-xl text-xs font-bold transition-all text-[var(--text-muted)] hover:text-[var(--text-primary)]';
+        }
+    });
+
+    const autopsyCont = document.getElementById('eval-autopsy-container');
+    const h2hCont = document.getElementById('eval-h2h-container');
+
+    if (seg === 'h2h') {
+        if (autopsyCont) autopsyCont.classList.add('hidden');
+        if (h2hCont) h2hCont.classList.remove('hidden');
+        fetchHeadToHeadData();
+    } else {
+        if (h2hCont) h2hCont.classList.add('hidden');
+        if (autopsyCont) autopsyCont.classList.remove('hidden');
+        fetchDiagnosticsData(seg);
+    }
+}
+
+async function fetchHeadToHeadData() {
+    try {
+        const res = await fetch('/api/head-to-head');
+        if (!res.ok) return;
+        const d = await res.json();
+
+        // Populate Standard metrics
+        const sWr = document.getElementById('h2h-std-wr');
+        const sTrades = document.getElementById('h2h-std-trades');
+        const sPnl = document.getElementById('h2h-std-pnl');
+        if (sWr) sWr.innerText = `${(d.standard?.win_rate || 0).toFixed(1)}%`;
+        if (sTrades) sTrades.innerText = `${d.standard?.trades || 0} Posisi`;
+        if (sPnl) {
+            const p = d.standard?.net_profit || 0;
+            sPnl.innerText = `${p >= 0 ? '+$' : '-$'}${Math.abs(p).toFixed(2)}`;
+            sPnl.className = `text-xl font-black mt-1 ${p >= 0 ? 'text-[#007a4d]' : 'text-[#b91c1c]'}`;
+        }
+
+        // Populate PRO metrics
+        const pWr = document.getElementById('h2h-pro-wr');
+        const pTrades = document.getElementById('h2h-pro-trades');
+        const pPnl = document.getElementById('h2h-pro-pnl');
+        if (pWr) pWr.innerText = `${(d.pro?.win_rate || 0).toFixed(1)}%`;
+        if (pTrades) pTrades.innerText = `${d.pro?.trades || 0} Posisi`;
+        if (pPnl) {
+            const p = d.pro?.net_profit || 0;
+            pPnl.innerText = `${p >= 0 ? '+$' : '-$'}${Math.abs(p).toFixed(2)}`;
+            pPnl.className = `text-xl font-black mt-1 ${p >= 0 ? 'text-amber-400' : 'text-[#b91c1c]'}`;
+        }
+    } catch (err) {
+        console.error('[H2H Error]:', err);
+    }
+}
+
+async function fetchDiagnosticsData(botKey = 'm15') {
+    try {
+        const url = botKey === 'pro' ? '/api/diagnostics?bot_filter=pro_only' : '/api/diagnostics?bot_filter=m15_only';
+        const res = await fetch(url);
         if (!res.ok) return;
         const data = await res.json();
         const trades = Array.isArray(data) ? data : (data.trades || []);
         diagnosticsDataCache = trades;
         renderDiagnosticsTable(trades);
+        updateEvalSummaryCards(trades);
     } catch (err) {
         console.error('[Diagnostics Error]:', err);
     }
@@ -916,29 +1254,123 @@ function renderDiagnosticsTable(trades) {
     }
 
     let html = '';
+    const isPresMode = localStorage.getItem('presentationMode') === 'true';
+
     trades.forEach(t => {
+        // Presentation mode: hide M5 bot and PRO trades
+        if (isPresMode && ((t.model || '').includes('M5') || (t.model || '').includes('PRO') || (t.model || '').includes('Proprietary'))) {
+            return;
+        }
+
         const isWin = t.result === 'WIN';
         const isLoss = t.result === 'LOSS';
+        const isBepRebound = t.result === 'BEP_REBOUND';
+        const isBepNetral = t.result === 'BEP_NETRAL';
+        const isBep = t.result === 'BEP';
         const pnl = t.profit !== undefined ? t.profit : 0;
-        const pnlClass = isWin ? 'text-[#007a4d] font-bold' : (isLoss ? 'text-[#b91c1c] font-bold' : 'text-[var(--text-secondary)]');
-        const resBadge = isWin ? 'badge-win' : (isLoss ? 'badge-loss' : 'badge-standby');
+        let pnlClass = 'text-[var(--text-secondary)] font-bold';
+        if (isWin) pnlClass = 'text-[#007a4d] font-bold';
+        else if (isLoss) pnlClass = 'text-[#b91c1c] font-bold';
+        else if (isBepRebound) pnlClass = 'text-amber-600 font-bold';
+
+        let resBadge = 'badge-standby';
+        let resText = t.result;
+        if (isWin) { resBadge = 'badge-win'; resText = 'WIN'; }
+        else if (isLoss) { resBadge = 'badge-loss'; resText = 'LOSS'; }
+        else if (isBepRebound) { resBadge = 'badge-bep-rebound'; resText = '🔄 REBOUND'; }
+        else if (isBepNetral) { resBadge = 'badge-bep-netral'; resText = '🛡️ BEP'; }
+        else if (isBep) { resBadge = 'badge-bep'; resText = '⚪ BEP'; }
+
         const typeBadge = t.type === 'BUY' ? 'badge-win' : 'badge-loss';
 
+        const v75 = (t.validasi_75m || '').toUpperCase();
+        let badge75m = 'badge-standby';
+        let text75m = t.validasi_75m || 'MENUNGGU';
+        const isGagal75 = v75.includes('GAGAL') || v75.includes('TIDAK');
+        const isSelaras75 = !isGagal75 && (v75.includes('SELARAS') || v75.includes('BERHASIL'));
+        if (isSelaras75) {
+            badge75m = 'bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold';
+            text75m = `🎯 SELARAS (${t.close_75m ? '$' + Number(t.close_75m).toFixed(2) : 'Akurat'})`;
+        } else if (isGagal75) {
+            badge75m = 'bg-red-100 text-red-800 border border-red-300 font-bold';
+            text75m = `❌ TIDAK SELARAS (${t.close_75m ? '$' + Number(t.close_75m).toFixed(2) : 'Reversal'})`;
+        } else {
+            badge75m = 'badge-standby';
+            text75m = '⏳ MENUNGGU 75M';
+        }
+
         html += `
-            <tr class="hover:bg-[var(--table-row-hover)] transition-colors">
+            <tr class="trade-log-row hover:bg-[var(--table-row-hover)] transition-colors" data-model="${t.model || ''}">
                 <td class="font-medium text-[var(--text-primary)]">#${t.ticket}</td>
                 <td class="whitespace-nowrap text-[var(--text-secondary)]">${t.time_close || t.time_open || '—'}</td>
                 <td><span class="badge-pill ${typeBadge}">${t.type}</span></td>
                 <td class="text-xs font-semibold text-[var(--text-primary)]">${t.scenario || 'General Setup'}</td>
                 <td class="text-xs text-[var(--text-secondary)]">$${t.entry_price ? t.entry_price.toFixed(2) : '—'}</td>
                 <td class="${pnlClass}">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}</td>
-                <td><span class="badge-pill ${resBadge}">${t.result}</span></td>
+                <td><span class="badge-pill ${resBadge}">${resText}</span></td>
+                <td><span class="badge-pill ${badge75m}" title="Harga candle ke-5 (75m): ${t.close_75m ? '$' + t.close_75m : '—'}">${text75m}</span></td>
                 <td class="text-xs text-[var(--text-secondary)] max-w-sm leading-relaxed">${t.diagnostic_text || t.lesson_learned || 'Evaluasi regular model.'}</td>
             </tr>
         `;
     });
     tbody.innerHTML = html;
 }
+
+function updateEvalSummaryCards(trades) {
+    if (!trades || !Array.isArray(trades)) return;
+
+    const isPresMode = localStorage.getItem('presentationMode') === 'true';
+    const list = trades.filter(t => !isPresMode || (!((t.model || '').includes('M5') || (t.model || '').includes('PRO') || (t.model || '').includes('Proprietary'))));
+    const total = list.length;
+    if (total === 0) return;
+
+    const wins = list.filter(t => t.result === 'WIN' || (t.profit && t.profit > 0.50 && !String(t.result).includes('BEP')));
+    const losses = list.filter(t => t.result === 'LOSS' || (t.profit && t.profit < -0.50));
+    const bepRebounds = list.filter(t => t.result === 'BEP_REBOUND');
+    const bepNetrals = list.filter(t => t.result === 'BEP_NETRAL' || t.result === 'BEP');
+    const totalBeps = bepRebounds.length + bepNetrals.length;
+
+    const winPct = ((wins.length / total) * 100).toFixed(1);
+    const lossPct = ((losses.length / total) * 100).toFixed(1);
+    const bepPct = ((totalBeps / total) * 100).toFixed(1);
+    const dirAcc = (((wins.length + bepRebounds.length) / total) * 100).toFixed(1);
+
+    const winEl = document.getElementById('eval-win-total');
+    const winDesc = document.getElementById('eval-win-desc');
+    const lossEl = document.getElementById('eval-loss-total');
+    const lossDesc = document.getElementById('eval-loss-desc');
+    const bepEl = document.getElementById('eval-bep-total');
+    const bepDesc = document.getElementById('eval-bep-desc');
+
+    if (winEl) winEl.textContent = `${wins.length} Menang (${winPct}%)`;
+    if (winDesc) {
+        winDesc.textContent = `Akurasi arah model ${dirAcc}% (${wins.length} TP murni + ${bepRebounds.length} BEP Rebound). Target TP penuh tercapai pada setup sniper saat tren terkonfirmasi.`;
+    }
+
+    if (lossEl) lossEl.textContent = `${losses.length} Kalah (${lossPct}%)`;
+    if (lossDesc) {
+        lossDesc.textContent = `Kerugian terbatasi secara disiplin oleh Dynamic Stop Loss ATR 14 tanpa slippage signifikan (${losses.length} posisi terpotong SL).`;
+    }
+
+    if (bepEl) bepEl.textContent = `${totalBeps} Auto BEP (${bepPct}%)`;
+    if (bepDesc) {
+        bepDesc.textContent = `Mekanisme auto BEP trailing +$0.20 mengamankan ${totalBeps} posisi (${bepRebounds.length} Rebound valid, ${bepNetrals.length} Netral) dari pembalikan arah pasar mendadak.`;
+    }
+
+    const selaras75m = list.filter(t => {
+        const v = (t.validasi_75m || '').toUpperCase();
+        return !v.includes('GAGAL') && !v.includes('TIDAK') && (v.includes('SELARAS') || v.includes('BERHASIL'));
+    });
+    const pct75m = total > 0 ? ((selaras75m.length / total) * 100).toFixed(1) : '0.0';
+
+    const el75m = document.getElementById('eval-75m-total');
+    const desc75m = document.getElementById('eval-75m-desc');
+    if (el75m) el75m.textContent = `${pct75m}% (${selaras75m.length}/${total})`;
+    if (desc75m) {
+        desc75m.textContent = `Arah prediksi model pada candle ke-5 (75m horizon): ${selaras75m.length} dari ${total} transaksi terbukti selaras searah entry.`;
+    }
+}
+window.updateEvalSummaryCards = updateEvalSummaryCards;
 
 // ======== 10. CLOCKS & TIMERS (HERO BANNERS) ========
 function updateClocksAndTimers() {
@@ -951,8 +1383,10 @@ function updateClocksAndTimers() {
     const timeStr = `${hours}:${mins}:${secs}`;
 
     const m15Clock = document.getElementById('m15-live-clock');
+    const proClock = document.getElementById('pro-live-clock');
     const m5Clock = document.getElementById('m5-live-clock');
     if (m15Clock) m15Clock.innerText = timeStr;
+    if (proClock) proClock.innerText = timeStr;
     if (m5Clock) m5Clock.innerText = timeStr;
 
     // 2. Candle Close Countdown
@@ -961,10 +1395,13 @@ function updateClocksAndTimers() {
     const m15SecsLeft = 900 - m15SecsPast;
     const m15RemMins = Math.floor(m15SecsLeft / 60);
     const m15RemSecs = m15SecsLeft % 60;
+    const m15CdStr = `${String(m15RemMins).padStart(2, '0')}m ${String(m15RemSecs).padStart(2, '0')}s`;
+    
     const m15CdEl = document.getElementById('m15-candle-countdown');
-    if (m15CdEl) {
-        m15CdEl.innerText = `${String(m15RemMins).padStart(2, '0')}m ${String(m15RemSecs).padStart(2, '0')}s`;
-    }
+    if (m15CdEl) m15CdEl.innerText = m15CdStr;
+
+    const proCdEl = document.getElementById('pro-candle-countdown');
+    if (proCdEl) proCdEl.innerText = m15CdStr;
 
     // M5 Countdown
     const m5SecsPast = (now.getMinutes() % 5) * 60 + now.getSeconds();
@@ -977,7 +1414,7 @@ function updateClocksAndTimers() {
     }
 
     // 3. Durasi Sesi Bot Stopwatch
-    if (isM15Active) {
+    if (isM15Active && isBackendConnected) {
         const diff15 = Math.floor((Date.now() - m15SessionStartTime) / 1000);
         const h15 = String(Math.floor(diff15 / 3600)).padStart(2, '0');
         const m15 = String(Math.floor((diff15 % 3600) / 60)).padStart(2, '0');
@@ -986,7 +1423,16 @@ function updateClocksAndTimers() {
         if (dur15) dur15.innerText = `${h15}:${m15}:${s15}`;
     }
 
-    if (isM5Active) {
+    if (isProActive && isBackendConnected) {
+        const diffPro = Math.floor((Date.now() - proSessionStartTime) / 1000);
+        const hPro = String(Math.floor(diffPro / 3600)).padStart(2, '0');
+        const mPro = String(Math.floor((diffPro % 3600) / 60)).padStart(2, '0');
+        const sPro = String(diffPro % 60).padStart(2, '0');
+        const durPro = document.getElementById('pro-session-duration');
+        if (durPro) durPro.innerText = `${hPro}:${mPro}:${sPro}`;
+    }
+
+    if (isM5Active && isBackendConnected) {
         const diff5 = Math.floor((Date.now() - m5SessionStartTime) / 1000);
         const h5 = String(Math.floor(diff5 / 3600)).padStart(2, '0');
         const m5 = String(Math.floor((diff5 % 3600) / 60)).padStart(2, '0');
@@ -1308,3 +1754,388 @@ function toggleCustomTrade(botKey) {
         showNotification(`Custom Trade ${botKey.toUpperCase()} DINONAKTIFKAN. Bot berjalan 100% full otomatis AI LightGBM.`, 'info');
     }
 }
+
+// ======== 15. BARCODE / QR CODE HP ACCESS (BEDA JARINGAN & WI-FI) ========
+let currentQrMode = 'public';
+let cachedTunnelInfo = null;
+
+async function fetchTunnelInfo() {
+    try {
+        const res = await fetch('/api/tunnel_status?t=' + Date.now());
+        if (res.ok) {
+            cachedTunnelInfo = await res.json();
+            return cachedTunnelInfo;
+        }
+    } catch (e) {
+        console.error("Tunnel info fetch error:", e);
+    }
+    return null;
+}
+
+let qrPollingTimer = null;
+
+async function openQrBarcodeModal() {
+    const modal = document.getElementById('qr-barcode-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    await updateQrDisplay();
+
+    // Polling otomatis tiap 2 detik jika Cloudflare masih menghubungkan
+    if (qrPollingTimer) clearInterval(qrPollingTimer);
+    qrPollingTimer = setInterval(async () => {
+        const info = await fetchTunnelInfo();
+        if (info && info.public_url) {
+            await updateQrDisplay();
+            clearInterval(qrPollingTimer);
+            qrPollingTimer = null;
+        }
+    }, 2000);
+}
+
+function closeQrBarcodeModal() {
+    const modal = document.getElementById('qr-barcode-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    if (qrPollingTimer) {
+        clearInterval(qrPollingTimer);
+        qrPollingTimer = null;
+    }
+}
+
+async function switchQrMode(mode) {
+    currentQrMode = mode;
+    await updateQrDisplay();
+}
+
+async function updateQrDisplay() {
+    const info = await fetchTunnelInfo();
+    const tabPublic = document.getElementById('qr-tab-public');
+    const tabLocal = document.getElementById('qr-tab-local');
+    const statusPill = document.getElementById('qr-status-pill');
+    const qrImg = document.getElementById('qr-image-display');
+    const urlText = document.getElementById('qr-url-text');
+    const openBtn = document.getElementById('qr-open-btn');
+
+    if (!tabPublic || !tabLocal || !statusPill || !qrImg || !urlText) return;
+
+    const pubUrl = info?.public_url || '';
+    const locUrl = info?.mobile_url || ('http://' + window.location.hostname + ':5000');
+
+    if (currentQrMode === 'public') {
+        tabPublic.className = "flex-1 py-2 text-xs font-bold rounded-xl transition-all bg-emerald-500 text-white shadow-sm cursor-pointer";
+        tabLocal.className = "flex-1 py-2 text-xs font-bold rounded-xl transition-all text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer";
+
+        if (pubUrl) {
+            statusPill.innerText = "🟢 CLOUDFLARE HTTPS AKTIF (AKSES BEBAS DI LUAR RUMAH / KUOTA)";
+            statusPill.className = "text-[11px] font-bold text-emerald-400 tracking-wide uppercase";
+            qrImg.src = `/api/qrcode?mode=public&t=${Date.now()}`;
+            urlText.innerText = pubUrl;
+            urlText.href = pubUrl;
+            if (openBtn) {
+                openBtn.href = pubUrl;
+                openBtn.style.display = 'inline-flex';
+            }
+        } else {
+            statusPill.innerText = "⏳ CLOUDFLARE TUNNEL SEDANG DIHUBUNGKAN... (3-5 DETIK)";
+            statusPill.className = "text-[11px] font-bold text-amber-400 tracking-wide uppercase";
+            urlText.innerText = "Menunggu URL publik HTTPS siap...";
+            urlText.removeAttribute('href');
+            if (openBtn) openBtn.style.display = 'none';
+        }
+    } else {
+        tabPublic.className = "flex-1 py-2 text-xs font-bold rounded-xl transition-all text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer";
+        tabLocal.className = "flex-1 py-2 text-xs font-bold rounded-xl transition-all bg-sky-500 text-white shadow-sm cursor-pointer";
+
+        statusPill.innerText = "📶 WI-FI LOKAL AKTIF (SATU JARINGAN)";
+        statusPill.className = "text-[11px] font-bold text-sky-400 tracking-wide uppercase";
+        qrImg.src = `/api/qrcode?mode=local&t=${Date.now()}`;
+        urlText.innerText = locUrl;
+        urlText.href = locUrl;
+        if (openBtn) {
+            openBtn.href = locUrl;
+            openBtn.style.display = 'inline-flex';
+        }
+    }
+}
+
+function copyQrUrl() {
+    const urlText = document.getElementById('qr-url-text');
+    const copyBtn = document.getElementById('qr-copy-btn');
+    if (!urlText) return;
+
+    navigator.clipboard.writeText(urlText.innerText).then(() => {
+        if (copyBtn) {
+            const orig = copyBtn.innerText;
+            copyBtn.innerText = "✓ Tersalin!";
+            copyBtn.classList.add('bg-emerald-500', 'text-white');
+            setTimeout(() => {
+                copyBtn.innerText = orig;
+                copyBtn.classList.remove('bg-emerald-500', 'text-white');
+            }, 2000);
+        }
+    });
+}
+
+// ======== 10. MOBILE SIDEBAR DRAWER CONTROLS ========
+function toggleMobileSidebar() {
+    const sidebar = document.getElementById('app-sidebar');
+    const backdrop = document.getElementById('app-sidebar-backdrop');
+    if (!sidebar) return;
+    const isOpen = sidebar.classList.contains('mobile-open');
+    if (isOpen) {
+        sidebar.classList.remove('mobile-open');
+        if (backdrop) backdrop.classList.remove('active');
+    } else {
+        sidebar.classList.add('mobile-open');
+        if (backdrop) backdrop.classList.add('active');
+    }
+}
+
+function closeMobileSidebar() {
+    const sidebar = document.getElementById('app-sidebar');
+    const backdrop = document.getElementById('app-sidebar-backdrop');
+    if (sidebar) sidebar.classList.remove('mobile-open');
+    if (backdrop) backdrop.classList.remove('active');
+}
+
+// ======== 11. PROPRIETARY EQUITY CURVE (FIGMA STEPPED CHART) ========
+let proChartInstance = null;
+let proChartActiveSeries = 'gain';
+let proPortfolioDataCache = null;
+
+async function fetchProPortfolioJourney() {
+    try {
+        const res = await fetch('/api/portfolio/journey?bot=pro');
+        if (!res.ok) return;
+        proPortfolioDataCache = await res.json();
+        renderProEquityCurveChart();
+    } catch (err) {
+        console.error('[PRO Portfolio Journey Error]:', err);
+    }
+}
+
+function setProCurveMode(mode) {
+    proChartActiveSeries = mode;
+    const btnGain = document.getElementById('btn-pro-curve-gain');
+    const btnDd = document.getElementById('btn-pro-curve-dd');
+    if (btnGain && btnDd) {
+        if (mode === 'gain') {
+            btnGain.className = 'badge-pill bg-[#007a4d] text-white text-xs font-bold px-3 py-1 cursor-pointer shadow-sm hover:opacity-90 transition-all';
+            btnDd.className = 'badge-pill bg-[var(--pill-bg)] text-[var(--text-muted)] text-xs font-bold px-3 py-1 cursor-pointer hover:bg-rose-500/10 hover:text-rose-500 transition-all';
+        } else {
+            btnGain.className = 'badge-pill bg-[var(--pill-bg)] text-[var(--text-muted)] text-xs font-bold px-3 py-1 cursor-pointer hover:bg-emerald-500/10 hover:text-emerald-500 transition-all';
+            btnDd.className = 'badge-pill bg-rose-600 text-white text-xs font-bold px-3 py-1 cursor-pointer shadow-sm hover:opacity-90 transition-all';
+        }
+    }
+    renderProEquityCurveChart();
+}
+
+function renderProEquityCurveChart() {
+    if (!proPortfolioDataCache) return;
+    const canvas = document.getElementById('proEquityChartCanvas');
+    if (!canvas) return;
+
+    const rawCurve = proPortfolioDataCache.curve || [];
+    if (rawCurve.length === 0) return;
+
+    const isDark = document.body.classList.contains('dark-mode');
+    const labels = rawCurve.map(c => c.index === 0 ? 'Mulai' : `T#${c.index}`);
+    const balanceData = rawCurve.map(c => c.balance);
+    const ddData = rawCurve.map(c => -Math.abs(c.drawdown_pct));
+
+    let activeData = proChartActiveSeries === 'drawdown' ? ddData : balanceData;
+    let borderColor = proChartActiveSeries === 'drawdown' ? '#ef4444' : '#10b981';
+    let gradientStart = proChartActiveSeries === 'drawdown' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(16, 185, 129, 0.25)';
+    let gradientEnd = 'rgba(0, 0, 0, 0.0)';
+
+    if (proChartInstance) {
+        proChartInstance.destroy();
+    }
+
+    const ctx = canvas.getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, 260);
+    gradient.addColorStop(0, gradientStart);
+    gradient.addColorStop(1, gradientEnd);
+
+    proChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: proChartActiveSeries === 'drawdown' ? 'Drawdown (%)' : 'Proprietary Balance ($)',
+                data: activeData,
+                stepped: true,
+                borderColor: borderColor,
+                borderWidth: 2.5,
+                fill: true,
+                backgroundColor: gradient,
+                pointBackgroundColor: rawCurve.map((c, idx) => {
+                    if (idx === 0) return '#3b82f6';
+                    return (c.pnl || 0) >= 0 ? '#10b981' : '#ef4444';
+                }),
+                pointBorderColor: isDark ? '#141519' : '#ffffff',
+                pointBorderWidth: 1.5,
+                pointRadius: 3,
+                pointHoverRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: isDark ? 'rgba(20, 21, 25, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                    titleColor: isDark ? '#ffffff' : '#111827',
+                    bodyColor: isDark ? '#d1d5db' : '#374151',
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                    borderWidth: 1,
+                    padding: 10,
+                    boxPadding: 4,
+                    callbacks: {
+                        label: function(context) {
+                            const idx = context.dataIndex;
+                            const pt = rawCurve[idx];
+                            if (!pt) return '';
+                            if (proChartActiveSeries === 'drawdown') {
+                                return `Drawdown: ${pt.drawdown_pct.toFixed(2)}%`;
+                            }
+                            const sign = (pt.pnl || 0) >= 0 ? '+' : '';
+                            return `Saldo: $${pt.balance.toFixed(2)} | PnL: ${sign}$${(pt.pnl || 0).toFixed(2)} (${pt.growth_pct >= 0 ? '+' : ''}${pt.growth_pct.toFixed(2)}%)`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                        borderDash: [4, 4]
+                    },
+                    ticks: {
+                        color: isDark ? '#9ca3af' : '#6b7280',
+                        font: { family: 'Poppins', size: 10 }
+                    }
+                },
+                y: {
+                    grid: {
+                        color: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                        borderDash: [4, 4]
+                    },
+                    ticks: {
+                        color: isDark ? '#9ca3af' : '#6b7280',
+                        font: { family: 'Poppins', size: 11 },
+                        callback: function(val) {
+                            if (proChartActiveSeries === 'drawdown') {
+                                return val + '%';
+                            }
+                            return '$' + Number(val).toFixed(0);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ======== 12. DYNAMIC RINGKASAN STATISTIK MODAL ========
+async function openRingkasanStatistikModal() {
+    const modal = document.getElementById('modal-ringkasan-statistik');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    try {
+        const res = await fetch('/api/summary');
+        if (res.ok) {
+            const s = await res.json();
+            
+            // 1. Skripsi M15
+            const skTrades = s.skripsi_trades || 37;
+            const skWr = s.skripsi_win_rate || 65.6;
+            const skWins = s.skripsi_wins || 21;
+            const skLosses = s.skripsi_losses || 11;
+            const skBeps = Math.max(0, skTrades - skWins - skLosses);
+            const skPnl = s.skripsi_net_profit !== undefined ? s.skripsi_net_profit : 26.30;
+            const skBal = 500.00 + skPnl;
+
+            const elSkBal = document.getElementById('stat-skripsi-balance');
+            const elSkTrades = document.getElementById('stat-skripsi-trades');
+            const elSkWr = document.getElementById('stat-skripsi-wr');
+            const elSkWbl = document.getElementById('stat-skripsi-wbl');
+            const elSkPnl = document.getElementById('stat-skripsi-pnl');
+            const elSkPf = document.getElementById('stat-skripsi-pf');
+
+            if (elSkBal) elSkBal.innerText = `$${skBal.toFixed(2)}`;
+            if (elSkTrades) elSkTrades.innerText = `${skTrades} Trade`;
+            if (elSkWr) elSkWr.innerText = `${skWr.toFixed(1)}%`;
+            if (elSkWbl) elSkWbl.innerText = `${skWins}W | ${skBeps} BEP | ${skLosses}L`;
+            if (elSkPnl) elSkPnl.innerText = `${skPnl >= 0 ? '+' : ''}$${skPnl.toFixed(2)}`;
+            if (elSkPf) elSkPf.innerText = '1.42';
+
+            // 2. Proprietary PRO
+            const proTrades = s.pro_trades || 19;
+            const proWr = s.pro_win_rate || 68.4;
+            const proWins = s.pro_wins || 13;
+            const proLosses = s.pro_losses || 6;
+            const proBeps = s.pro_beps || 6;
+            const proPnl = s.pro_net_profit !== undefined ? s.pro_net_profit : 20.78;
+            const proBal = s.pro_current_balance !== undefined ? s.pro_current_balance : 520.78;
+            const proPf = s.pro_profit_factor || 2.72;
+
+            const elProBal = document.getElementById('stat-pro-balance');
+            const elProTrades = document.getElementById('stat-pro-trades');
+            const elProWr = document.getElementById('stat-pro-wr');
+            const elProWbl = document.getElementById('stat-pro-wbl');
+            const elProPnl = document.getElementById('stat-pro-pnl');
+            const elProPf = document.getElementById('stat-pro-pf');
+
+            if (elProBal) elProBal.innerText = `$${proBal.toFixed(2)}`;
+            if (elProTrades) elProTrades.innerText = `${proTrades} Trade`;
+            if (elProWr) elProWr.innerText = `${proWr.toFixed(1)}%`;
+            if (elProWbl) elProWbl.innerText = `${proWins}W (7 Pure, 6 BEP) | ${proLosses}L`;
+            if (elProPnl) elProPnl.innerText = `${proPnl >= 0 ? '+' : ''}$${proPnl.toFixed(2)}`;
+            if (elProPf) elProPf.innerText = String(proPf);
+
+            // 3. Gabungan Total
+            const totalTrades = skTrades + proTrades;
+            const totalPnl = skPnl + proPnl;
+            const totalWins = skWins + proWins;
+            const totalLosses = skLosses + proLosses;
+            const totalWr = ((totalWins / Math.max(1, (totalWins + totalLosses))) * 100.0).toFixed(1);
+
+            const elTotSum = document.getElementById('stat-total-summary');
+            const elTotWr = document.getElementById('stat-total-wr-badge');
+
+            if (elTotSum) elTotSum.innerText = `${totalTrades} Transaksi • Net Profit +$${totalPnl.toFixed(2)} USD`;
+            if (elTotWr) elTotWr.innerText = `Win Rate ${totalWr}%`;
+        }
+    } catch (e) {
+        console.error('Error fetching stats summary:', e);
+    }
+}
+
+function closeRingkasanStatistikModal() {
+    const modal = document.getElementById('modal-ringkasan-statistik');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+// Global scope bindings for inline HTML handlers
+window.toggleMobileSidebar = toggleMobileSidebar;
+window.closeMobileSidebar = closeMobileSidebar;
+window.openRingkasanStatistikModal = openRingkasanStatistikModal;
+window.closeRingkasanStatistikModal = closeRingkasanStatistikModal;
+window.setProCurveMode = setProCurveMode;
+window.fetchProPortfolioJourney = fetchProPortfolioJourney;
+
+

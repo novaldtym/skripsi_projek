@@ -1,0 +1,7 @@
+Versi,Nama Model,Fitur,Status,ML Acc,ROC AUC,Trades,Win Rate,Net PnL (USD),Profit Factor,Max Drawdown,Sniper WR,Sniper PnL,Deskripsi
+V4.2,V4.2 Lama (44 Fitur + Rule Luar),44,Arsip Resmi Bab 4,50.18%,50.75%,520,57.12%,146.00000000000006,1.16,$113.00,56.76%,+$47.70,44 Fitur Kausal + Filter Rule Bot Luar (Distance Support/Resist)
+V4.2 Pure,V4.2 Pure (44 Fitur Tanpa Rule Luar),44,Arsip Eksperimen,50.18%,50.75%,602,58.31%,231.70000000000007,1.22,$112.10,57.89%,+$62.45,44 Fitur Mandiri Tanpa Bantuan Rule Luar
+V5.0 Baseline,V5.0 Baseline (50 Fitur Terintegrasi Zona),50,AKTIF DI BOT LIVE SEKARANG 🟢,49.74%,50.89%,607,57.83%,286.95000000000005,1.29,$71.15,60.11%,+$100.75,44 Fitur + 6 Fitur Zona Spasial (Gantikan 13 Geometri Flop)
+V5.1 MA10,V5.1 (53 Fitur: V5.0 + Pantulan MA10 M15),53,Eksperimen,49.68%,50.55%,597,59.46%,264.05000000000007,1.27,$78.60,62.71%,+$154.85,V5.0 + 3 Fitur Pantulan & Jarak MA 10 M15 (Foto 1)
+V5.2 EMA 9/26,V5.2 (56 Fitur: V5.0 + EMA 9/26 M15),56,Kandidat Upgrade 🏆,50.10%,50.46%,644,59.63%,215.6000000000001,1.19,$43.95,62.94%,+$193.45,V5.0 + 6 Fitur Cross & Pullback EMA 9 & 26 (Foto 2)
+V5.3 Kombo,V5.3 (59 Fitur: V5.0 + MA10 + EMA 9/26),59,Kandidat Upgrade,50.36%,50.88%,677,57.61%,192.85000000000008,1.16,$97.80,63.94%,+$194.80,V5.0 + MA 10 M15 + EMA 9/26 M15 Lengkap

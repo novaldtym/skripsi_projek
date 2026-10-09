@@ -1,0 +1,8 @@
+name,pnl,roc,trades,wr,pf,mdd
+1. Skripsi Standalone (Horizon Asli 5 Bar / 75m),849.08,169.82,1818,49.12,1.2,151.14
+"2. PRO Standalone Dicekik (5 Bar, No Micro-Trigger)",528.0,105.6,1220,51.74,1.23,79.81
+3. PRO Standalone Ideal (25 Bar + Micro-Trigger),1845.5,369.1,1202,63.83,2.05,42.4
+4. PRO V6 Dual-Engine (Simetris Dicekik 5 Bar),951.13,190.23,1512,51.28,1.31,207.21
+"5. PRO V6 Jalan Tengah A (Trend 8B, Reversal 20B + Micro-Trigger)",1376.24,275.25,1502,53.91,1.47,186.5
+"6. PRO V6 Jalan Tengah B (Trend 12B, Reversal 25B + Micro-Trigger)",1373.9,274.78,1500,53.99,1.46,186.5
+"7. PRO V6 Golden Master (Trend 10B, Reversal 25B, Micro-Trigger, Tight Gating)",1309.9,261.98,1496,53.32,1.44,193.5

@@ -26,6 +26,12 @@ if exist "C:\Program Files\Python313\pythonw.exe" (
     )
 )
 
+if exist "%~dp0Trading_Bot_Dashboard.exe" (
+    echo Membuka QuantLGB Desktop App (.exe)...
+    start "" "%~dp0Trading_Bot_Dashboard.exe"
+    exit
+)
+
 echo Membuka QuantLGB Desktop App...
 start "" "%PYTHON_EXE%" Desktop_App_Modern.py
 exit

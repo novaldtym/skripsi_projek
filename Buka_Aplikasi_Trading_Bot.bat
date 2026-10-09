@@ -28,5 +28,10 @@ if exist "C:\Program Files\Python313\pythonw.exe" (
     )
 )
 
+if exist "%~dp0Trading_Bot_Dashboard.exe" (
+    start "" "%~dp0Trading_Bot_Dashboard.exe"
+    exit
+)
+
 start "" "%PYTHONW_EXE%" Desktop_App_Modern.py
 exit

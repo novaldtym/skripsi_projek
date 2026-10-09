@@ -1,0 +1,131 @@
+[0] BAB I
+PENDAHULUAN
+
+[1] 1.1 Latar Belakang Masalah
+
+[2] Kontrak derivatif Contract for Difference (CFD) komoditas emas terhadap dolar Amerika Serikat (XAUUSD) merupakan salah satu instrumen keuangan yang paling likuid dan aktif diperdagangkan di dunia, dengan volume transaksi harian global melampaui ratusan miliar dolar AS. Karakteristik safe-haven menjadikan emas sebagai instrumen utama lindung nilai terhadap lonjakan inflasi, ketidakstabilan geopolitik, dan devaluasi mata uang fiat. Namun, tingginya likuiditas dan keterlibatan pelaku pasar global berskala institusional (seperti bank sentral, hedge funds, dan liquidity providers) mengakibatkan pergerakan harga emas di pasar spot memiliki volatilitas yang sangat ekstrem, bersifat nonlinear, nonstasioner, serta dipenuhi oleh derau acak (high noise density) pada horizon waktu intraday (Al-Thaqeb et al., 2026; Kazemdehbashi, 2026).
+
+[3] Dalam menghadapi dinamika pasar tersebut, sebagian besar pelaku pasar ritel secara tradisional mengandalkan analisis teknikal konvensional yang berbasis pada indikator-indikator lagging seperti Relative Strength Index (RSI), Moving Average Convergence Divergence (MACD), Bollinger Bands, maupun Simple Moving Average (SMA). Kelemahan mendasar indikator teknikal tersebut adalah sifatnya yang reaktif dan bersumber murni dari rata-rata pergerakan harga masa lalu, sehingga kerap terlambat merespons perubahan momentum pasar secara mendadak. Akibatnya, trader ritel sangat rentan mengalami kerugian akibat sinyal palsu (false breakout) dan perangkap likuiditas (liquidity sweep) yang sengaja dipicu oleh algoritma perdagangan institusional skala besar (Smart Money). Selain itu, penggunaan indikator konvensional juga memperburuk bias psikologis dalam pengambilan keputusan (seperti kecemasan akan tertinggal tren dan revenge trading), sehingga menghambat tercapainya konsistensi performa jangka panjang.
+
+[4] Untuk membaca perilaku aliran dana institusional tersebut, berkembang metodologi Smart Money Concepts (SMC) dan Inner Circle Trader (ICT) dalam analisis pergerakan harga (price action). Konsep ini mengidentifikasi jejak akumulasi dan distribusi modal institusi melalui struktur geometri pasar yang spesifik, antara lain: Order Block (OB) sebagai jejak konsolidasi order institusional terakhir sebelum terjadinya ekspansi harga yang agresif; Fair Value Gap (FVG) sebagai area ketidakseimbangan harga (price imbalance) akibat agresivitas satu sisi pasar yang cenderung akan ditutup kembali (rebalance); serta struktur Break of Structure (BOS) dan Change of Character (CHoCH) sebagai sinyal pergeseran struktur tren pasar (market structure shift). Meskipun metodologi SMC memiliki landasan logika pasar yang rasional, penerapannya oleh trader ritel selama ini masih dilakukan secara manual, subjektif, dan sarat dengan bias psikologis emosional (seperti fear of missing out dan balas dendam pasar pasca-loss), sehingga menyulitkan tercapainya konsistensi performa jangka panjang.
+
+[5] Di sisi lain, perkembangan pesat teknologi kecerdasan buatan (artificial intelligence) dan machine learning membuka peluang besar untuk mentransformasi analisis teknikal dan SMC menjadi sistem kuantitatif yang objektif, terukur, dan beroperasi otomatis tanpa bias manusia. Berbagai algoritma pembelajaran mesin populer seperti Support Vector Machine (SVM), Random Forest (RF), Artificial Neural Network (ANN), dan Extreme Gradient Boosting (XGBoost) telah banyak diteliti untuk peramalan harga komoditas (Ben Jabeur et al., 2024; Gono et al., 2023; Nasrul et al., 2026). Namun, telaah kritis terhadap literatur penelitian terkini mengungkap adanya tiga celah permasalahan mendasar (research gap) yang belum terjawab secara tuntas:
+
+[6] Pertama, orientasi formulasi masalah yang keliru antara regresi harga nominal versus klasifikasi probabilitas arah pergerakan diskrit. Sebagian besar penelitian terdahulu (misalnya Gono et al., 2023; Nasrul et al., 2026; Li, 2023) memformulasikan peramalan harga ke dalam tugas regresi nominal. Dalam domain perdagangan riil berfrekuensi tinggi, prediksi harga nominal mengalami galat kumulatif (error accumulation) dan lagging bias, di mana nilai prediksi hari ini cenderung hanya membuntuti harga penutupan candle sebelumnya (yₜ ≈ yₜ₋₁). Pendekatan ini tidak memberikan arahan keputusan yang dapat dieksekusi secara presisi. Sebagaimana ditegaskan oleh Al-Thaqeb et al., (2026) serta Kazemdehbashi (2026), peramalan finansial yang aplikatif memerlukan pemisahan ke arah prediksi probabilitas tren diskrit (directional probability) yang terkalibrasi dengan ambang keyakinan (confidence threshold) ≥ 65,0% agar sistem mampu menyaring dan menahan diri saat kondisi pasar tidak menentu (choppy/sideways).
+
+[7] Kedua, isolasi data internal dan pengabaian intermarket analysis multi-timeframe serta guncangan berita makroekonomi. Sebagian besar model yang dikembangkan dalam literatur hanya memanfaatkan data internal single-asset pada single-timeframe harian (D1) atau intraday tunggal. Model tersebut mengabaikan korelasi intermarket global yang krusial, khususnya hubungan negatif yang sangat kuat antara harga emas spot dan Indeks Dolar AS (DXY) (Sayegh & Accary, 2026). Ketika DXY menguat secara tajam, emas hampir selalu mengalami tekanan jual masif, dan sebaliknya. Selain itu, pasar emas sangat rentan terhadap guncangan volatilitas mendadak akibat rilis data makroekonomi Amerika Serikat yang berdampak tinggi (high impact economic news), seperti laporan ketenagakerjaan Non-Farm Payrolls (NFP), Consumer Price Index (CPI), dan keputusan tingkat suku bunga Federal Open Market Committee (FOMC) (Nguyen et al., 2025; KC et al., 2024). Model peramalan yang buta terhadap jadwal berita makro dan struktur tren pada timeframe yang lebih tinggi (H4/H1) pasti akan mengalami serangkaian kekalahan beruntun (whipsaw/black swan loss) ketika rilis fundamental ekonomi membalikkan struktur harga intraday.
+
+[8] Ketiga, ketiadaan validasi forward testing secara riil dengan arsitektur manajemen risiko adaptif dan mesin evaluasi pasca-transaksi. Hampir seluruh penelitian terdahulu yang sebagian besar hanya berhenti pada evaluasi backtesting statis berbasis train-test split historis. Metrik performa teoritis seperti RMSE, MAE, atau akurasi in-sample sering kali mengalami optimisme semu (overfitting) dan runtuh ketika dihadapkan pada friksi eksekusi pasar riil, seperti spread broker dinamis, slippage, latensi jaringan, serta penolakan order kuotasi (reject option). Lebih lanjut, belum ada penelitian yang mengintegrasikan model machine learning dengan mesin diagnosa pasca-transaksi (Post-Trade Scenario Evaluator Engine) yang secara sistematis menguji ketahanan setiap kondisi skenario pasar sebanyak 5 hingga 10 kali guna membedakan skenario unggulan dari skenario yang harus dihindari (auto-blacklist) demi perbaikan berkelanjutan (continuous learning) model di masa depan.
+
+[9] Guna mengatasi ketiga celah penelitian tersebut, penelitian ini mengusulkan penerapan algoritma Light Gradient Boosting Machine (LightGBM) yang diintegrasikan ke dalam arsitektur Multi-Source Feature Fusion 36 fitur prediktif terstandarisasi. Algoritma LightGBM dipilih karena memiliki keunggulan arsitektural mutakhir dibandingkan model tree-based konvensional lainnya seperti Random Forest dan XGBoost. LightGBM menerapkan teknik Gradient-based One-Side Sampling (GOSS) untuk menyaring instans data berdasarkan gradien kesalahan serta Exclusive Feature Bundling (EFB) untuk mereduksi dimensi fitur tanpa kehilangan informasi esensial (Ke et al., 2017). Selain itu, strategi pertumbuhan pohon berbasis daun (leaf-wise tree growth dengan pembatasan kedalaman) memungkinkan LightGBM mencapai konvergensi loss yang jauh lebih dalam, dengan kecepatan komputasi 10 hingga 20 kali lebih cepat dan efisiensi memori yang jauh lebih unggul dibandingkan XGBoost maupun arsitektur deep learning (Ke et al., 2017; Zhou et al., 2025). Karakteristik komputasi ultra-cepat ini sangat krusial untuk sistem perdagangan otomatis yang menuntut inferensi probabilitas real-time dengan latensi nol pada penutupan candle M15 dan M5.
+
+[10] Sistem yang dibangun dalam penelitian ini mengonstruksi 36 fitur prediktif yang menggabungkan empat pilar domain: (1) geometri candlestick dan momentum intraday (M15 dan M5); (2) struktur geometri institusional Smart Money Concepts (Order Block Bullish/Bearish, Fair Value Gap Bullish/Bearish, Break of Structure, Change of Character, Liquidity Sweep, dan Fibonacci retracement); (3) jangkar tren multi-timeframe makro H4 dan H1 (EMA 50 dan EMA 200); serta (4) kanal makroekonomi dan intermarket DXY (rasio return XAU/DXY, tren DXY, dan siklus rilis berita berdampak tinggi NFP, CPI, serta FOMC). Model LightGBM dilatih dengan pembobotan kelas seimbang (balanced class weights) untuk menghasilkan estimasi probabilitas arah pergerakan yang terkalibrasi halus (0,0%–100,0%). Keputusan eksekusi transaksi hanya dipicu apabila probabilitas model melampaui confidence threshold ≥ 65,0%, dan sistem diarahkan untuk menahan diri (abstain) pada kondisi pasar yang meragukan. Eksekusi dilakukan melalui API MetaTrader 5 yang dipersenjatai manajemen risiko ketat berbasis Average True Range (ATR), rasio Risk-to-Reward (RRR) terukur 1 : 2,5, pembatasan kerugian harian maksimal (Max Daily Losses), cooldown period, serta pencatatan log evaluasi skenario perdagangan secara otomatis.
+
+[11] Melalui pendekatan komprehensif ini, penelitian ini diharapkan dapat memberikan kontribusi nyata dalam bidang Informatika dan Computational Finance, menunjukkan kemampuan algoritma LightGBM dalam memprediksi probabilitas arah pergerakan harga emas XAUUSD, serta menghasilkan artefak sistem trading algoritmik yang andal, disiplin, dan diuji pada kondisi pasar keuangan global yang sebenarnya.
+
+[12] 1.2 Rumusan Masalah
+
+[13] Berdasarkan uraian latar belakang masalah di atas, rumusan masalah dalam penelitian skripsi ini dirumuskan sebagai berikut:
+
+[14] 1. Bagaimana merancang dan mengimplementasikan arsitektur Multi-Source Feature Fusion yang mengintegrasikan 36 fitur heterogen mencakup geometri candlestick, Smart Money Concepts (Order Block, FVG, BOS, CHoCH), korelasi intermarket Indeks Dolar AS (DXY), siklus berita makroekonomi (NFP, CPI, FOMC), serta jangkar tren multi-timeframe H4/H1 tanpa memicu lookahead bias (kebocoran data masa depan)?
+
+[15] 2. Bagaimana menerapkan dan mengoptimalkan algoritma LightGBM Classifier dengan skema leaf-wise tree growth, pembobotan kelas seimbang (balanced class weights), dan pencarian hyperparameter sistematis guna menghasilkan estimasi probabilitas arah pergerakan harga XAUUSD yang terkalibrasi dengan baik dibandingkan dengan XGBoost dan Random Forest pada timeframe M15 dan M5?
+
+[16] 3. Bagaimana merancang arsitektur sistem eksekusi perdagangan otomatis zero-delay terintegrasi dengan MetaTrader 5 API yang menerapkan filter ambang keyakinan (confidence threshold) ≥ 65,0%, filter tren multi-timeframe H4, serta manajemen risiko kuantitatif dinamis (Dynamic ATR Stop-Loss, Risk-to-Reward Ratio 1 : 2,5, Max Daily Losses, dan Cooldown Period)?
+
+[17] 4. Bagaimana membangun Post-Trade Scenario Evaluator Engine untuk mendiagnosis akar penyebab keberhasilan (Take Profit) maupun kegagalan (Stop Loss) pada setiap transaksi tertutup, serta menguji ketahanan setiap skenario pasar sebanyak 5 hingga 10 kali transaksi sebagai mekanisme evaluasi berkelanjutan (continuous learning) dan backtesting model?
+
+[18] 5. Bagaimana efektivitas dan kinerja model LightGBM yang dibangun jika dibandingkan dengan algoritma machine learning pembanding (XGBoost dan Random Forest) berdasarkan metrik evaluasi statistik klasifikasi (ROC-AUC, Log Loss, Precision, Recall, F1-Score) serta metrik profitabilitas forward testing pasar nyata (Win Rate, Profit Factor, Drawdown, dan Return on Investment)?
+
+[19] 1.3 Batasan Masalah
+
+[20] Agar pembahasan dalam penelitian ini tetap terfokus, mendalam, dan terarah sesuai dengan ruang lingkup keilmuan Teknik Informatika, ditetapkan sejumlah batasan masalah sebagai berikut:
+
+[21] 1. Objek instrumen keuangan yang diteliti dibatasi pada pasangan komoditas emas spot terhadap dolar Amerika Serikat (XAUUSD) yang diperdagangkan secara cash-settled, tanpa serah terima fisik.
+
+[22] 2. Data historis yang digunakan untuk pelatihan dan validasi model bersumber dari pengambilan data candle MetaTrader 5 broker teregulasi sebanyak 50.000 candle pada timeframe operasional M15 (Intraday Swing) dan M5 (High-Precision Scalping), dengan data konfirmasi tren makro pada timeframe H1 dan H4. Data tambahan bersumber dari Indeks Dolar AS (DXY) dan kalender berita ekonomi global.
+
+[23] 3. Variabel masukan (fitur independen) dibatasi pada 36 fitur prediktif yang mencakup: geometri candlestick, Smart Money Concepts (Order Block Bullish & Bearish, Fair Value Gap, Break of Structure, Change of Character, Liquidity Sweep), Fibonacci retracement (rasio 0,382; 0,500; 0,618), indikator volatilitas ATR 14, indikator momentum RSI 14, Bollinger Bands Bandwidth, korelasi intermarket Indeks Dolar AS (DXY), serta fitur biner kalender makroekonomi (minggu rilis NFP, hari rilis CPI, dan minggu rilis FOMC).
+
+[24] 4. Algoritma machine learning utama yang diimplementasikan adalah LightGBM Classifier, dengan model pembanding terbatas pada Extreme Gradient Boosting (XGBoost) dan Random Forest.
+
+[25] 5. Target model berupa label biner arah pergerakan harga lima candle ke depan (label 1 untuk kenaikan harga di atas ambang ATR, dan label 0 untuk penurunan/stagnan); luaran model berupa probabilitas kelas dengan penerapan confidence threshold ≥ 65,0%.
+
+[26] 6. Pengujian operasional sistem (live forward testing) dilakukan secara otomatis melalui koneksi MetaTrader 5 Python API pada akun forward testing dengan saldo evaluasi awal terstandarisasi sebesar USD 500,00, menerapkan ukuran lot terkontrol (0,01 lot), rasio Risk-to-Reward antara 1 : 1,8 dan 1 : 2,5, batas posisi terbuka bertumpuk maksimal dua posisi, serta batas toleransi kerugian harian maksimal lima transaksi rugi per hari.
+
+[27] 7. Pengembangan perangkat lunak menggunakan bahasa pemrograman Python 3.13 dengan pustaka utama: LightGBM, scikit-learn, MetaTrader5, pandas, NumPy, dan openpyxl.
+
+[28] 1.4 Tujuan Penelitian
+
+[29] Tujuan yang hendak dicapai dalam penelitian skripsi ini adalah:
+
+[30] 1. Membangun dan menguji pipeline Multi-Source Feature Fusion yang mampu mengintegrasikan 36 fitur prediktif heterogen (geometri candle, Smart Money Concepts, momentum, tren H4, intermarket DXY, dan rilis berita makroekonomi) secara sinkron tanpa kebocoran data masa depan (lookahead bias).
+
+[31] 2. Mengembangkan dan mengoptimalkan model klasifikasi probabilitas terkalibrasi berbasis algoritma LightGBM yang mampu memprediksi arah pergerakan harga XAUUSD dengan akurasi yang terukur, serta membandingkan kinerjanya dengan XGBoost dan Random Forest berdasarkan metrik statistik klasifikasi.
+
+[32] 3. Mengimplementasikan sistem eksekusi perdagangan otomatis zero-delay terintegrasi dengan MetaTrader 5 API yang dilengkapi modul manajemen risiko adaptif (Dynamic ATR Stop-Loss, RRR 1 : 2,5, batas kerugian harian, dan jeda cooldown pasca-loss).
+
+[33] 4. Mengembangkan Post-Trade Scenario Evaluator Engine untuk mendokumentasikan, mendiagnosis, dan mengevaluasi akar penyebab keberhasilan dan kegagalan setiap transaksi pasar secara transparan ke dalam laporan terstruktur, serta menguji ketahanan skenario pasar 5–10 kali sebagai landasan continuous learning model.
+
+[34] 5. Mengevaluasi dan membandingkan performa model LightGBM terhadap algoritma pembanding (XGBoost dan Random Forest) berdasarkan metrik evaluasi statistik klasifikasi (ROC-AUC, Precision, Recall, Log Loss) serta metrik finansial riil (Win Rate, Profit Factor, Maksimum Drawdown, dan Return on Investment) pada pengujian forward testing pasar nyata.
+
+[35] 1.5 Manfaat Penelitian
+
+[36] Hasil dari penelitian skripsi ini diharapkan dapat memberikan manfaat yang signifikan, baik secara teoritis maupun praktis, sebagai berikut:
+
+[37] 1. Manfaat Teoritis (Akademik dan Keilmuan Informatika):
+
+[38] a. Memberikan kontribusi ilmiah dalam bidang applied machine learning dan data mining pada deret waktu finansial (Financial Time Series), khususnya mengenai efektivitas algoritma gradient boosting berbasis histogram (LightGBM) dalam memproses data tabular berdimensi tinggi dan berkarakteristik nonstasioner.
+
+[39] b. Menganalisis pengaruh integrasi data lintas-domain (Multi-Source Feature Fusion) yang menggabungkan struktur geometri pasar institusional (Smart Money Concepts), tren multi-timeframe, dan variabel makroekonomi eksternal (Indeks DXY dan high impact news) terhadap akurasi dan ketahanan model peramalan prediktif terhadap guncangan pasar.
+
+[40] c. Menjadi referensi akademik bagi peneliti dan mahasiswa program studi Informatika dalam mengimplementasikan kalibrasi probabilitas klasifikasi (reject option classification) untuk pengambilan keputusan kuantitatif di bawah ketidakpastian.
+
+[41] 2. Manfaat Praktis (Praktisi dan Pengembang Sistem):
+
+[42] a. Menyediakan sistem pendukung keputusan (Decision Support System) dan alat bantu perdagangan otomatis yang objektif, rasional, dan disiplin bagi para trader ritel guna mengeliminasi faktor bias psikologis dalam pengambilan keputusan (seperti keserakahan, kepanikan, kecemasan akan tertinggal momentum, dan revenge trading) yang selama ini menjadi penyebab utama kegagalan akun ritel.
+
+[43] b. Menghadirkan kerangka kerja mitigasi risiko modal yang diuji melalui penerapan filter ambang keyakinan (confidence threshold) ≥ 65,0%, manajemen ukuran risiko dinamis berbasis Average True Range (ATR), serta proteksi pembatasan kerugian harian maksimal (Max Daily Losses).
+
+[44] c. Menyediakan modul otomatisasi evaluasi pasca-transaksi (Post-Trade Scenario Evaluator Engine) yang memudahkan praktisi dalam menganalisis penyebab keberhasilan dan kegagalan transaksi secara transparan dan terdata untuk keperluan audit kinerja portofolio investasi.
+
+[45] 1.6 Keaslian Penelitian dan Research Gap
+
+[46] Keaslian penelitian ini didasarkan pada perbandingan komprehensif terhadap sejumlah penelitian terdahulu yang relevan di bidang peramalan harga emas, algoritma pembelajaran mesin pada instrumen finansial, dan pemodelan data deret waktu kuantitatif. Penelitian terdahulu yang dijadikan rujukan mencakup artikel jurnal internasional bereputasi (Scopus Q1/Q2), artikel jurnal nasional terakreditasi SINTA, serta naskah ilmiah mutakhir (arXiv 2024–2026). Berdasarkan kajian terhadap literatur tersebut, belum ditemukan penelitian yang mengintegrasikan algoritma LightGBM dengan 36 fitur Multi-Source Feature Fusion (SMC + Multi-Timeframe + Makroekonomi DXY/Berita), klasifikasi probabilitas terkalibrasi (≥ 65,0%), serta eksekusi forward testing berbasis MetaTrader 5 yang dilengkapi Post-Trade Scenario Evaluator Engine. Ringkasan komparasi antara penelitian terdahulu dan posisi orisinalitas penelitian ini disajikan pada Tabel 1.1.
+
+[47] Tabel 1.1 Matriks Komparasi Penelitian Terdahulu dan Kontribusi Penelitian Ini
+
+[48] Berdasarkan pemetaan matriks penelitian terkait pada Tabel 1.1 di atas, tampak jelas bahwa penelitian ini menghadirkan terobosan metodologis yang komprehensif. Kebaruan (novelty) dan kontribusi utama penelitian ini terletak pada sintesis holistik empat domain prediktif dalam satu kesatuan arsitektur LightGBM yang teroptimasi, penggunaan filter probabilitas keyakinan (confidence threshold) ≥ 65,0% untuk mengeliminasi false signals pada kondisi pasar bergejolak, serta pengujian forward testing pasar nyata yang dilengkapi mesin evaluasi skenario pasca-transaksi (Post-Trade Scenario Evaluator Engine) demi transparansi dan keandalan sistem trading algoritmik.
+
+[49] 1.6 Tahapan Penelitian
+
+[50] Penelitian skripsi ini dilaksanakan melalui serangkaian tahapan sistematis yang mengadopsi Cross-Industry Standard Process for Data Mining (CRISP-DM) dengan penyesuaian pada rekayasa komputasi finansial. Tahapan penelitian diuraikan sebagai berikut:
+
+[51] 1. Fase Studi Literatur dan Identifikasi Masalah: Melakukan kajian teoretis mendalam terhadap literatur terkini mengenai algoritma gradient boosting (LightGBM, XGBoost, Random Forest), mikrostruktur Smart Money Concepts (Order Block, FVG, BOS), dinamika korelasi intermarket Indeks Dolar AS (DXY), transmisi guncangan kalender makroekonomi (NFP, CPI, FOMC), serta manajemen risiko kuantitatif pada pasar derivatif.
+
+[52] 2. Fase Pengumpulan Data (Data Collection): Mengumpulkan data primer berupa pengambilan data candle MetaTrader 5 broker teregulasi pada instrumen XAUUSD untuk timeframe M15, M5, H1, dan H4. Selain itu, dihimpun pula data historis Indeks Dolar AS (DXY) serta rekaman jadwal rilis berita ekonomi berdampak tinggi dari kalender ekonomi global.
+
+[53] 3. Fase Pra-pengolahan Data dan Rekayasa Fitur (Data Preparation & Feature Engineering): Membersihkan data dari anomali dan missing values, menyelaraskan stempel waktu lintas-pasar (timestamp alignment), mengonstruksi 36 fitur prediktif terstandarisasi, melakukan pelabelan biner arah pergerakan harga lima candle ke depan, serta membagi dataset secara kronologis (time-series split) menjadi data latih, validasi, dan data uji.
+
+[54] 4. Fase Pemodelan dan Pelatihan (Modeling): Melatih model klasifikasi LightGBM dengan skema leaf-wise tree growth, menerapkan pembobotan kelas seimbang (balanced class weights), serta melakukan pencarian kombinasi hyperparameter optimal. Model pembanding (XGBoost dan Random Forest) juga dilatih pada dataset yang identik untuk evaluasi komparatif.
+
+[55] 5. Fase Pembangunan Sistem Eksekusi dan Antarmuka (System Development): Mengembangkan mesin eksekusi otomatis zero-delay terintegrasi dengan MetaTrader 5 Python API dengan modul mitigasi risiko terukur (Dynamic ATR Stop-Loss, Risk-to-Reward Ratio 1 : 2,5, Max Daily Losses, dan jeda cooldown). Dibangun pula antarmuka pemantauan desktop (PyWebView/Flask) untuk memantau status sistem, telemetri pasar, dan kurva ekuitas akun secara real-time.
+
+[56] 6. Fase Forward Testing dan Evaluasi Pasca-Transaksi (Evaluation & Testing): Menjalankan pengujian operasional pada pasar nyata (live forward testing) minimal 100 transaksi, mendokumentasikan log transaksi secara otomatis, serta mendiagnosis akar penyebab keberhasilan (TP) maupun kegagalan (SL) setiap transaksi menggunakan metrik statistik klasifikasi melalui Post-Trade Scenario Evaluator Engine.
+
+[57] 7. Fase Dokumentasi dan Penyusunan Laporan: Menyusun laporan skripsi secara menyeluruh dan sistematis sesuai dengan format baku yang berlaku di Program Studi Informatika, Fakultas Teknik Industri, Universitas Pembangunan Nasional “Veteran” Yogyakarta.
+
+[58] 1.7 Sistematika Penulisan
+
+[59] Sistematika penulisan laporan skripsi ini disusun ke dalam lima bab utama sebagai berikut:
+
+[60] 1. BAB I PENDAHULUAN: Bab ini memuat latar belakang masalah volatilitas harga emas dunia, kelemahan indikator teknikal lagging, urgensi penerapan algoritma LightGBM dan pendekatan Smart Money Concepts, rumusan masalah, batasan masalah, tujuan penelitian, manfaat penelitian, tahapan penelitian, serta sistematika penulisan laporan skripsi.
+
+[61] 2. BAB II TINJAUAN PUSTAKA: Bab ini menyajikan landasan teoretis yang komprehensif mengenai instrumen XAUUSD (komoditas emas), intermarket Indeks Dolar AS (DXY), konsep mikrostruktur pasar Smart Money Concepts (OB, FVG, BOS, CHoCH, liquidity sweep), teori matematis algoritma machine learning (LightGBM, XGBoost, Random Forest), state of the art penelitian terdahulu, serta metrik evaluasi statistik klasifikasi dan finansial.
+
+[62] 3. BAB III METODE PENELITIAN: Bab ini menguraikan secara terperinci rancangan alur penelitian, prosedur pengumpulan data multisumber, formulasi rekayasa 36 fitur prediktif, arsitektur pelatihan model LightGBM, rancangan integrasi MetaTrader 5 API, mekanisme manajemen risiko kuantitatif dinamis, serta rancangan arsitektur Post-Trade Scenario Evaluator Engine.
+
+[63] 4. BAB IV HASIL PENGUJIAN DAN PEMBAHASAN: Bab ini menyajikan hasil eksperimen pelatihan model, perbandingan performa statistik antara LightGBM, XGBoost, dan Random Forest, analisis kontribusi fitur prediktif terpenting, hasil pengujian live forward testing 100 transaksi pada pasar riil, visualisasi kurva ekuitas portofolio, serta pembahasan mendalam mengenai diagnostik skenario transaksi yang menguntungkan dan yang merugi.
+
+[64] 5. BAB V KESIMPULAN DAN SARAN: Bab ini memuat kesimpulan yang menjawab secara tuntas seluruh rumusan masalah penelitian berdasarkan temuan empiris yang diperoleh, serta menyajikan saran-saran strategis bagi pengembangan sistem dan penelitian lanjutan di masa mendatang.
+

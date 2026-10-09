@@ -2,6 +2,8 @@ import os
 import sys
 import time
 import socket
+import json
+import re
 import joblib
 import pandas as pd
 import numpy as np
@@ -16,14 +18,35 @@ from Auto_Logger_Forward_Testing import sync_mt5_trades_to_excel
 # Variabel lock socket global untuk proteksi single instance saat main() dijalankan
 _lock_socket = None
 
-os.system('') # Aktifkan ANSI escape Virtual Terminal di Windows CMD
-try:
-    if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+class _SafeStream:
+    def __init__(self, log_name="bot_m5_daemon.log"):
+        self.log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), log_name)
+    def write(self, s):
+        if not s:
+            return
+        try:
+            with open(self.log_path, "a", encoding="utf-8") as f:
+                f.write(s)
+        except Exception:
+            pass
+    def flush(self):
+        pass
+
+if sys.stdout is None:
+    sys.stdout = _SafeStream()
+elif hasattr(sys.stdout, 'reconfigure'):
+    try:
         sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-    if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
+    except Exception:
+        pass
+
+if sys.stderr is None:
+    sys.stderr = _SafeStream()
+elif hasattr(sys.stderr, 'reconfigure'):
+    try:
         sys.stderr.reconfigure(encoding='utf-8', errors='replace')
-except Exception:
-    pass
+    except Exception:
+        pass
 
 # =========================================================================
 # 🎨 KODE WARNA TERMINAL ANSI (Kuning=Netral, Hijau=Buy, Merah=Sell)
@@ -698,7 +721,12 @@ def analyze_market_and_predict():
         rates_h1  = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_H1, 0, 500)
         rates_h4  = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_H4, 0, 100)
         if rates_m5 is None or len(rates_m5) == 0:
-            return 50.0, 50.0, False, False, 5.0, 0.0, 0.0, 0.01, 0.01, 0.0, 0.0, False, False, 0.0, 0.0, fallback_struct, fallback_channel, fallback_pattern, fallback_tech
+            fallback_h4_context = {
+                'h4_slope': 0.0, 'h4_upper': 9999.0, 'h4_lower': 0.0,
+                'h4_mid': 4000.0, 'h4_position_pct': 50.0, 'h4_channel': 'HORIZONTAL_H4',
+                'h4_range_2d': 50.0, 'range_pos_pct': 50.0
+            }
+            return 50.0, 50.0, False, False, 5.0, 0.0, 0.0, 0.01, 0.01, 0.0, 0.0, False, False, 0.0, 0.0, fallback_struct, fallback_channel, fallback_pattern, fallback_tech, fallback_h4_context
 
     df_m5 = pd.DataFrame(rates_m5)
     df_m5['time'] = pd.to_datetime(df_m5['time'], unit='s')
@@ -1578,7 +1606,18 @@ def main():
 
     # Audit awal kondisi pasar & prediksi model M5 saat pertama kali dibuka
     print(f"\n{COLOR_CYAN}🔍 MELAKUKAN AUDIT AWAL STRUKTUR SMC & PREDIKSI MODEL M5 SCALPER...{COLOR_RESET}")
-    res_audit = analyze_market_and_predict()
+    res_audit = None
+    for _try_audit in range(5):
+        try:
+            res_audit = analyze_market_and_predict()
+            if res_audit is not None and len(res_audit) == 20:
+                break
+        except Exception as audit_err:
+            print(f"⚠️ Menunggu inisialisasi koneksi data MT5 M5 ({_try_audit+1}/5): {audit_err}")
+            time.sleep(2)
+    if res_audit is None or len(res_audit) < 20:
+        res_audit = analyze_market_and_predict()
+
     latest_prob_up, latest_prob_down, m30_bull, h1_bull, atr_val, ask_p, bid_p, dist_sup, dist_res, lower_w, upper_w, is_bull_c, is_bear_c, m15_sup, m15_res, struct_data, channel_data, pattern_data, tech_data, h4_context = res_audit
     
     init_sig, init_zone, init_tp, init_cl, init_reason = evaluate_multi_zone_m5_decision(
@@ -1795,9 +1834,12 @@ def main():
             stoch_k_val = tech_data.get('stoch_k', 50.0) if tech_data else 50.0
             stoch_disp = f"Stoch:{stoch_k_val:.0f}"
             rng_disp = f"Rng:{h4_context.get('range_pos_pct', 50.0):.0f}%" if h4_context else "Rng:?%"
-            loss_disp = f"L:{daily_loss_count}/{MAX_DAILY_LOSSES}"
-            sys.stdout.write(f"\r⏳ [{CHOSEN_TF}]: {mins:02d}m {secs:02d}s | {prob_display} | {stoch_disp} | {rng_disp} | {loss_disp} | Status: {status_str}   \n")
-            sys.stdout.flush()
+            try:
+                if sys.stdout:
+                    sys.stdout.write(f"\r⏳ [{CHOSEN_TF}]: {mins:02d}m {secs:02d}s | {prob_display} | {stoch_disp} | {rng_disp} | {loss_disp} | Status: {status_str}   \n")
+                    sys.stdout.flush()
+            except Exception:
+                pass
 
             # --- SINKRONISASI TELEMETRI REAL-TIME KE GUI DESKTOP & WEB MONITOR (1 DETIK) ---
             try:
@@ -1917,6 +1959,11 @@ def main():
             break
         except Exception as loop_err:
             print(f"\n⚠️ [SHIELD M5] Gangguan loop sementara: {loop_err}. Memulihkan dalam 2 detik...")
+            try:
+                if not mt5.terminal_info():
+                    mt5.initialize(path=MT5_PATH)
+            except Exception:
+                pass
             time.sleep(2)
 
 if __name__ == "__main__":

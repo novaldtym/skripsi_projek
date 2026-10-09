@@ -1,0 +1,16 @@
+﻿Metric,Baseline,Optimized,Delta
+H1 Trend Indicators,EMA 50 / 200 (Laggy),EMA 10 / 50 (MA10 Respected),⚡ Jauh Lebih Cepat
+H4 Macro Filter,EMA 50 / 200 (Laggy),EMA 20 / 100 (Balanced),🎯 Lebih Relevan
+Bollinger Bands Period,Period 20 (5 Jam),Period 10 (2.5 Jam),📉 Responsif Lokal
+ATR & ADX Period,Period 14 (3.5 Jam),Period 10 (2.5 Jam),🔥 Momentum Akurat
+RSI Period,Period 14,Period 14 (Juara Bertahan),🛡️ Stabil
+Total Trades (Out-of-Sample),834 trades,663 trades,-171 trades
+Win Rate Total,42.69%,47.06%,+4.37% 🚀
+Win / Loss / BEP,356 / 464 / 14,312 / 340 / 11,W: -44
+Net Profit / Loss (USD),-$222.37,+$209.65,+$432.02 💰
+Profit Factor,0.93,1.10,+0.17
+Max Drawdown (USD),$324.82,$168.67,-$156.15 (Risiko ↓)
+Rata-rata Profit Win,+$7.54,+$7.41,+$-0.13
+Rata-rata Loss,-$6.33,-$6.30,-$0.00
+Sniper Trades (Prob >= 65%),203 trades,179 trades,-24
+Sniper Win Rate,41.38%,48.60%,+7.22% 🎯

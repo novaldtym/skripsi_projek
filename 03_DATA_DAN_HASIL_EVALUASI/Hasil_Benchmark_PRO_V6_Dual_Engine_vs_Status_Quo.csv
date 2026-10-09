@@ -1,0 +1,5 @@
+Konfigurasi Model,Net Profit ($),Return on Capital (%),Total Trades,Menang (Win),Impas (BEP),Kalah (Loss),Win Rate Murni (%),Profit Factor,Max Drawdown ($),Max Drawdown (%),Average Win ($),Average Loss ($),Expectancy ($/trade)
+1. Bot Skripsi Standalone (65 Fitur),241.1,48.22,1975,926,1,1048,46.91,1.05,340.56,32.62,5.54,-4.67,0.12
+2. Bot PRO Standalone V5.4 (77 Fitur),143.07,28.61,1017,367,279,371,49.73,1.07,166.51,28.77,5.71,-5.26,0.14
+3. Dua Bot Terpisah Berjalan Paralel (Status Quo),384.17,38.42,2992,1293,280,1419,47.68,1.06,448.79,44.88,5.59,-4.82,0.13
+4. Roadmap PRO V6.0 Dual-Engine (Single Agent),626.86,125.37,1538,707,120,711,49.86,1.18,246.39,18.52,5.74,-4.83,0.41

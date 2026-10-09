@@ -1,6 +1,6 @@
 """
 =============================================================================
-QUANTLGB MODERN DESKTOP APP — FIGMA EDITION (v4.2)
+QUANTLGB MODERN DESKTOP APP — FIGMA EDITION (v5.0 Clean Final)
 Teknologi: PyWebView (Edge WebView2 Chromium Engine) + Flask + Poppins UI
 Arsitektur Standalone: Single Process / Multi-Threaded, No Console Window
 =============================================================================
@@ -38,10 +38,15 @@ def ensure_server_running():
     try:
         def run_flask_thread():
             import logging
-            log = logging.getLogger('werkzeug')
-            log.setLevel(logging.ERROR)
             from Web_Dashboard_Server import app
-            app.run(host='127.0.0.1', port=PORT, debug=False, use_reloader=False)
+            # Auto-start Cloudflare tunnel in background daemon thread
+            try:
+                from Cloudflare_Tunnel import start_cloudflare_tunnel
+                threading.Thread(target=start_cloudflare_tunnel, kwargs={'port': PORT, 'wait_seconds': 8}, daemon=True).start()
+            except Exception as _e_cf:
+                print(f"[Desktop App] Cloudflare auto-start error: {_e_cf}")
+
+            app.run(host='0.0.0.0', port=PORT, debug=False, use_reloader=False)
 
         server_thread = threading.Thread(target=run_flask_thread, daemon=True)
         server_thread.start()
@@ -72,7 +77,7 @@ def main():
     server_process = ensure_server_running()
 
     window_title = "QuantLGB — AI Trading Bot Dashboard (Figma Edition)"
-    target_url = f"http://127.0.0.1:{PORT}"
+    target_url = f"http://127.0.0.1:{PORT}/?t={int(time.time())}"
 
     print(f"[Desktop App] Membuka jendela desktop WebView2: {target_url}")
 

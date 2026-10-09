@@ -1,0 +1,297 @@
+=== PARA 9 ===
+Full Text: Guna mengatasi ketiga celah penelitian tersebut, penelitian ini mengusulkan penerapan algoritma Light Gradient Boosting Machine (LightGBM) yang diintegrasikan ke dalam arsitektur Multi-Source Feature Fusion 36 fitur prediktif terstandarisasi. Algoritma LightGBM dipilih karena memiliki keunggulan arsitektural mutakhir dibandingkan model tree-based konvensional lainnya seperti Random Forest dan XGBoost. LightGBM menerapkan teknik Gradient-based One-Side Sampling (GOSS) untuk menyaring instans data berdasarkan gradien kesalahan serta Exclusive Feature Bundling (EFB) untuk mereduksi dimensi fitur tanpa kehilangan informasi esensial (Ke et al., 2017). Selain itu, strategi pertumbuhan pohon berbasis daun (leaf-wise tree growth dengan pembatasan kedalaman) memungkinkan LightGBM mencapai konvergensi loss yang jauh lebih dalam, dengan kecepatan komputasi 10 hingga 20 kali lebih cepat dan efisiensi memori yang jauh lebih unggul dibandingkan XGBoost maupun arsitektur deep learning (Ke et al., 2017; Zhou et al., 2025). Karakteristik komputasi ultra-cepat ini sangat krusial untuk sistem perdagangan otomatis yang menuntut inferensi probabilitas real-time dengan latensi nol pada penutupan candle M15 dan M5.
+Runs:
+  [0] (italic=False, bold=None): 'Guna mengatasi ketiga celah penelitian tersebut, penelitian ini mengusulkan penerapan algoritma '
+  [1] (italic=True, bold=None): 'Light Gradient Boosting Machine'
+  [2] (italic=False, bold=None): ' (LightGBM) yang diintegrasikan ke dalam arsitektur '
+  [3] (italic=True, bold=None): 'Multi-Source Feature Fusion'
+  [4] (italic=False, bold=None): ' 36 fitur prediktif terstandarisasi. Algoritma LightGBM dipilih karena memiliki keunggulan arsitektural mutakhir dibandingkan model '
+  [5] (italic=True, bold=None): 'tree-based'
+  [6] (italic=False, bold=None): ' konvensional lainnya seperti '
+  [7] (italic=True, bold=None): 'Random Forest'
+  [8] (italic=False, bold=None): ' dan XGBoost. LightGBM menerapkan teknik '
+  [9] (italic=True, bold=None): 'Gradient-based One-Side Sampling'
+  [10] (italic=False, bold=None): ' (GOSS) untuk menyaring instans data berdasarkan gradien kesalahan serta '
+  [11] (italic=True, bold=None): 'Exclusive Feature Bundling'
+  [12] (italic=False, bold=None): ' (EFB) untuk mereduksi dimensi fitur tanpa kehilangan informasi esensial (Ke '
+  [13] (italic=True, bold=None): 'et al.'
+  [14] (italic=False, bold=None): ', 2017). Selain itu, strategi pertumbuhan pohon berbasis daun ('
+  [15] (italic=True, bold=None): 'leaf-wise tree growth'
+  [16] (italic=False, bold=None): ' dengan pembatasan kedalaman) memungkinkan LightGBM mencapai konvergensi '
+  [17] (italic=True, bold=None): 'loss'
+  [18] (italic=False, bold=None): ' yang jauh lebih dalam, dengan kecepatan komputasi 10 hingga 20 kali lebih cepat dan efisiensi memori yang jauh lebih unggul dibandingkan XGBoost maupun arsitektur '
+  [19] (italic=True, bold=None): 'deep learning'
+  [20] (italic=False, bold=None): ' (Ke '
+  [21] (italic=True, bold=None): 'et al.'
+  [22] (italic=False, bold=None): ', 2017; Zhou '
+  [23] (italic=True, bold=None): 'et al.'
+  [24] (italic=False, bold=None): ', 2025). Karakteristik komputasi ultra-cepat ini sangat krusial untuk sistem perdagangan otomatis yang menuntut inferensi probabilitas '
+  [25] (italic=True, bold=None): 'real-time'
+  [26] (italic=False, bold=None): ' dengan latensi nol pada penutupan '
+  [27] (italic=True, bold=None): 'candle'
+  [28] (italic=False, bold=None): ' M15 dan M5.'
+
+=== PARA 10 ===
+Full Text: Sistem yang dibangun dalam penelitian ini mengonstruksi 36 fitur prediktif yang menggabungkan empat pilar domain: (1) geometri candlestick dan momentum intraday (M15 dan M5); (2) struktur geometri institusional Smart Money Concepts (Order Block Bullish/Bearish, Fair Value Gap Bullish/Bearish, Break of Structure, Change of Character, Liquidity Sweep, dan Fibonacci retracement); (3) jangkar tren multi-timeframe makro H4 dan H1 (EMA 50 dan EMA 200); serta (4) kanal makroekonomi dan intermarket DXY (rasio return XAU/DXY, tren DXY, dan siklus rilis berita berdampak tinggi NFP, CPI, serta FOMC). Model LightGBM dilatih dengan pembobotan kelas seimbang (balanced class weights) untuk menghasilkan estimasi probabilitas arah pergerakan yang terkalibrasi halus (0,0%–100,0%). Keputusan eksekusi transaksi hanya dipicu apabila probabilitas model melampaui confidence threshold ≥ 65,0%, dan sistem diarahkan untuk menahan diri (abstain) pada kondisi pasar yang meragukan. Eksekusi dilakukan melalui API MetaTrader 5 yang dipersenjatai manajemen risiko ketat berbasis Average True Range (ATR), rasio Risk-to-Reward (RRR) terukur 1 : 2,5, pembatasan kerugian harian maksimal (Max Daily Losses), cooldown period, serta pencatatan log evaluasi skenario perdagangan secara otomatis.
+Runs:
+  [0] (italic=False, bold=None): 'Sistem yang dibangun dalam penelitian ini mengonstruksi 36 fitur prediktif yang menggabungkan empat pilar domain: (1) geometri '
+  [1] (italic=True, bold=None): 'candlestick'
+  [2] (italic=False, bold=None): ' dan momentum '
+  [3] (italic=True, bold=None): 'intraday'
+  [4] (italic=False, bold=None): ' (M15 dan M5); (2) struktur geometri institusional '
+  [5] (italic=True, bold=None): 'Smart Money Concepts'
+  [6] (italic=False, bold=None): ' ('
+  [7] (italic=True, bold=None): 'Order Block'
+  [8] (italic=False, bold=None): ' Bullish/Bearish, '
+  [9] (italic=True, bold=None): 'Fair Value Gap'
+  [10] (italic=False, bold=None): ' Bullish/Bearish, '
+  [11] (italic=True, bold=None): 'Break of Structure'
+  [12] (italic=False, bold=None): ', '
+  [13] (italic=True, bold=None): 'Change of Character'
+  [14] (italic=False, bold=None): ', '
+  [15] (italic=True, bold=None): 'Liquidity Sweep'
+  [16] (italic=False, bold=None): ', dan '
+  [17] (italic=True, bold=None): 'Fibonacci retracement'
+  [18] (italic=False, bold=None): '); (3) jangkar tren '
+  [19] (italic=True, bold=None): 'multi-timeframe'
+  [20] (italic=False, bold=None): ' makro H4 dan H1 (EMA 50 dan EMA 200); serta (4) kanal makroekonomi dan '
+  [21] (italic=True, bold=None): 'intermarket'
+  [22] (italic=False, bold=None): ' DXY (rasio '
+  [23] (italic=True, bold=None): 'return'
+  [24] (italic=False, bold=None): ' XAU/DXY, tren DXY, dan siklus rilis berita berdampak tinggi NFP, CPI, serta FOMC). Model LightGBM dilatih dengan pembobotan kelas seimbang ('
+  [25] (italic=True, bold=None): 'balanced class weights'
+  [26] (italic=False, bold=None): ') untuk menghasilkan estimasi probabilitas arah pergerakan yang terkalibrasi halus (0,0%–100,0%). Keputusan eksekusi transaksi hanya dipicu apabila probabilitas model melampaui '
+  [27] (italic=True, bold=None): 'confidence threshold'
+  [28] (italic=False, bold=None): ' ≥\u202f65,0%, dan sistem diarahkan untuk menahan diri ('
+  [29] (italic=True, bold=None): 'abstain'
+  [30] (italic=False, bold=None): ') pada kondisi pasar yang meragukan. Eksekusi dilakukan melalui API MetaTrader 5 yang dipersenjatai manajemen risiko ketat berbasis '
+  [31] (italic=True, bold=None): 'Average True Range'
+  [32] (italic=False, bold=None): ' (ATR), rasio '
+  [33] (italic=True, bold=None): 'Risk-to-Reward'
+  [34] (italic=False, bold=None): ' (RRR) terukur 1\u202f:\u202f2,5, pembatasan kerugian harian maksimal ('
+  [35] (italic=True, bold=None): 'Max Daily Losses'
+  [36] (italic=False, bold=None): '), '
+  [37] (italic=True, bold=None): 'cooldown period'
+  [38] (italic=False, bold=None): ', serta pencatatan log evaluasi skenario perdagangan secara otomatis.'
+
+=== PARA 14 ===
+Full Text: 1. Bagaimana merancang dan mengimplementasikan arsitektur Multi-Source Feature Fusion yang mengintegrasikan 36 fitur heterogen mencakup geometri candlestick, Smart Money Concepts (Order Block, FVG, BOS, CHoCH), korelasi intermarket Indeks Dolar AS (DXY), siklus berita makroekonomi (NFP, CPI, FOMC), serta jangkar tren multi-timeframe H4/H1 tanpa memicu lookahead bias (kebocoran data masa depan)?
+Runs:
+  [0] (italic=None, bold=True): '1. '
+  [1] (italic=False, bold=None): 'Bagaimana merancang dan mengimplementasikan arsitektur '
+  [2] (italic=True, bold=None): 'Multi-Source Feature Fusion'
+  [3] (italic=False, bold=None): ' yang mengintegrasikan 36 fitur heterogen mencakup geometri '
+  [4] (italic=True, bold=None): 'candlestick'
+  [5] (italic=False, bold=None): ', '
+  [6] (italic=True, bold=None): 'Smart Money Concepts'
+  [7] (italic=False, bold=None): ' ('
+  [8] (italic=True, bold=None): 'Order Block'
+  [9] (italic=False, bold=None): ', FVG, BOS, CHoCH), korelasi '
+  [10] (italic=True, bold=None): 'intermarket'
+  [11] (italic=False, bold=None): ' Indeks Dolar AS (DXY), siklus berita makroekonomi (NFP, CPI, FOMC), serta jangkar tren '
+  [12] (italic=True, bold=None): 'multi-timeframe'
+  [13] (italic=False, bold=None): ' H4/H1 tanpa memicu '
+  [14] (italic=True, bold=None): 'lookahead bias'
+  [15] (italic=False, bold=None): ' (kebocoran data masa depan)?'
+
+=== PARA 15 ===
+Full Text: 2. Bagaimana menerapkan dan mengoptimalkan algoritma LightGBM Classifier dengan skema leaf-wise tree growth, pembobotan kelas seimbang (balanced class weights), dan pencarian hyperparameter sistematis guna menghasilkan estimasi probabilitas arah pergerakan harga XAUUSD yang terkalibrasi dengan baik dibandingkan dengan XGBoost dan Random Forest pada timeframe M15 dan M5?
+Runs:
+  [0] (italic=None, bold=True): '2. '
+  [1] (italic=False, bold=None): 'Bagaimana menerapkan dan mengoptimalkan algoritma '
+  [2] (italic=True, bold=None): 'LightGBM Classifier'
+  [3] (italic=False, bold=None): ' dengan skema '
+  [4] (italic=True, bold=None): 'leaf-wise tree growth'
+  [5] (italic=False, bold=None): ', pembobotan kelas seimbang ('
+  [6] (italic=True, bold=None): 'balanced class weights'
+  [7] (italic=False, bold=None): '), dan pencarian '
+  [8] (italic=True, bold=None): 'hyperparameter'
+  [9] (italic=False, bold=None): ' sistematis guna menghasilkan estimasi probabilitas arah pergerakan harga XAUUSD yang terkalibrasi dengan baik dibandingkan dengan XGBoost dan '
+  [10] (italic=True, bold=None): 'Random Forest'
+  [11] (italic=False, bold=None): ' pada '
+  [12] (italic=True, bold=None): 'timeframe'
+  [13] (italic=False, bold=None): ' M15 dan M5?'
+
+=== PARA 16 ===
+Full Text: 3. Bagaimana merancang arsitektur sistem eksekusi perdagangan otomatis zero-delay terintegrasi dengan MetaTrader 5 API yang menerapkan filter ambang keyakinan (confidence threshold) ≥ 65,0%, filter tren multi-timeframe H4, serta manajemen risiko kuantitatif dinamis (Dynamic ATR Stop-Loss, Risk-to-Reward Ratio 1 : 2,5, Max Daily Losses, dan Cooldown Period)?
+Runs:
+  [0] (italic=None, bold=True): '3. '
+  [1] (italic=False, bold=None): 'Bagaimana merancang arsitektur sistem eksekusi perdagangan otomatis '
+  [2] (italic=True, bold=None): 'zero-delay'
+  [3] (italic=False, bold=None): ' terintegrasi dengan MetaTrader 5 API yang menerapkan filter ambang keyakinan ('
+  [4] (italic=True, bold=None): 'confidence threshold'
+  [5] (italic=False, bold=None): ') ≥\u202f65,0%, filter tren '
+  [6] (italic=True, bold=None): 'multi-timeframe'
+  [7] (italic=False, bold=None): ' H4, serta manajemen risiko kuantitatif dinamis ('
+  [8] (italic=True, bold=None): 'Dynamic ATR Stop-Loss'
+  [9] (italic=False, bold=None): ', '
+  [10] (italic=True, bold=None): 'Risk-to-Reward Ratio'
+  [11] (italic=False, bold=None): ' 1\u202f:\u202f2,5, '
+  [12] (italic=True, bold=None): 'Max Daily Losses'
+  [13] (italic=False, bold=None): ', dan '
+  [14] (italic=True, bold=None): 'Cooldown Period'
+  [15] (italic=False, bold=None): ')?'
+
+=== PARA 22 ===
+Full Text: 2. Data historis yang digunakan untuk pelatihan dan validasi model bersumber dari pengambilan data candle MetaTrader 5 broker teregulasi sebanyak 50.000 candle pada timeframe operasional M15 (Intraday Swing) dan M5 (High-Precision Scalping), dengan data konfirmasi tren makro pada timeframe H1 dan H4. Data tambahan bersumber dari Indeks Dolar AS (DXY) dan kalender berita ekonomi global.
+Runs:
+  [0] (italic=None, bold=True): '2. '
+  [1] (italic=False, bold=None): 'Data historis yang digunakan untuk pelatihan dan validasi model bersumber dari pengambilan data '
+  [2] (italic=True, bold=None): 'candle'
+  [3] (italic=False, bold=None): ' MetaTrader 5 '
+  [4] (italic=True, bold=None): 'broker'
+  [5] (italic=False, bold=None): ' teregulasi sebanyak 50.000 '
+  [6] (italic=True, bold=None): 'candle'
+  [7] (italic=False, bold=None): ' pada '
+  [8] (italic=True, bold=None): 'timeframe'
+  [9] (italic=False, bold=None): ' operasional M15 ('
+  [10] (italic=True, bold=None): 'Intraday Swing'
+  [11] (italic=False, bold=None): ') dan M5 ('
+  [12] (italic=True, bold=None): 'High-Precision Scalping'
+  [13] (italic=False, bold=None): '), dengan data konfirmasi tren makro pada '
+  [14] (italic=True, bold=None): 'timeframe'
+  [15] (italic=False, bold=None): ' H1 dan H4. Data tambahan bersumber dari Indeks Dolar AS (DXY) dan kalender berita ekonomi global.'
+
+=== PARA 23 ===
+Full Text: 3. Variabel masukan (fitur independen) dibatasi pada 36 fitur prediktif yang mencakup: geometri candlestick, Smart Money Concepts (Order Block Bullish & Bearish, Fair Value Gap, Break of Structure, Change of Character, Liquidity Sweep), Fibonacci retracement (rasio 0,382; 0,500; 0,618), indikator volatilitas ATR 14, indikator momentum RSI 14, Bollinger Bands Bandwidth, korelasi intermarket Indeks Dolar AS (DXY), serta fitur biner kalender makroekonomi (minggu rilis NFP, hari rilis CPI, dan minggu rilis FOMC).
+Runs:
+  [0] (italic=None, bold=True): '3. '
+  [1] (italic=False, bold=None): 'Variabel masukan (fitur independen) dibatasi pada 36 fitur prediktif yang mencakup: geometri '
+  [2] (italic=True, bold=None): 'candlestick'
+  [3] (italic=False, bold=None): ', '
+  [4] (italic=True, bold=None): 'Smart Money Concepts'
+  [5] (italic=False, bold=None): ' ('
+  [6] (italic=True, bold=None): 'Order Block'
+  [7] (italic=False, bold=None): ' Bullish & Bearish, '
+  [8] (italic=True, bold=None): 'Fair Value Gap'
+  [9] (italic=False, bold=None): ', '
+  [10] (italic=True, bold=None): 'Break of Structure'
+  [11] (italic=False, bold=None): ', '
+  [12] (italic=True, bold=None): 'Change of Character'
+  [13] (italic=False, bold=None): ', '
+  [14] (italic=True, bold=None): 'Liquidity Sweep'
+  [15] (italic=False, bold=None): '), '
+  [16] (italic=True, bold=None): 'Fibonacci retracement'
+  [17] (italic=False, bold=None): ' (rasio 0,382; 0,500; 0,618), indikator volatilitas ATR 14, indikator momentum RSI 14, '
+  [18] (italic=True, bold=None): 'Bollinger Bands Bandwidth'
+  [19] (italic=False, bold=None): ', korelasi '
+  [20] (italic=True, bold=None): 'intermarket'
+  [21] (italic=False, bold=None): ' Indeks Dolar AS (DXY), serta fitur biner kalender makroekonomi (minggu rilis NFP, hari rilis CPI, dan minggu rilis FOMC).'
+
+=== PARA 25 ===
+Full Text: 5. Target model berupa label biner arah pergerakan harga lima candle ke depan (label 1 untuk kenaikan harga di atas ambang ATR, dan label 0 untuk penurunan/stagnan); luaran model berupa probabilitas kelas dengan penerapan confidence threshold ≥ 65,0%.
+Runs:
+  [0] (italic=None, bold=True): '5. '
+  [1] (italic=False, bold=None): 'Target model berupa label biner arah pergerakan harga lima '
+  [2] (italic=True, bold=None): 'candle'
+  [3] (italic=False, bold=None): ' ke depan (label 1 untuk kenaikan harga di atas ambang ATR, dan label 0 untuk penurunan/stagnan); luaran model berupa probabilitas kelas dengan penerapan '
+  [4] (italic=True, bold=None): 'confidence threshold'
+  [5] (italic=False, bold=None): ' ≥\u202f65,0%.'
+
+=== PARA 30 ===
+Full Text: 1. Membangun dan menguji pipeline Multi-Source Feature Fusion yang mampu mengintegrasikan 36 fitur prediktif heterogen (geometri candle, Smart Money Concepts, momentum, tren H4, intermarket DXY, dan rilis berita makroekonomi) secara sinkron tanpa kebocoran data masa depan (lookahead bias).
+Runs:
+  [0] (italic=None, bold=True): '1. '
+  [1] (italic=False, bold=None): 'Membangun dan menguji '
+  [2] (italic=True, bold=None): 'pipeline'
+  [3] (italic=False, bold=None): ' '
+  [4] (italic=True, bold=None): 'Multi-Source Feature Fusion'
+  [5] (italic=False, bold=None): ' yang mampu mengintegrasikan 36 fitur prediktif heterogen (geometri '
+  [6] (italic=True, bold=None): 'candle'
+  [7] (italic=False, bold=None): ', '
+  [8] (italic=True, bold=None): 'Smart Money Concepts'
+  [9] (italic=False, bold=None): ', momentum, tren H4, '
+  [10] (italic=True, bold=None): 'intermarket'
+  [11] (italic=False, bold=None): ' DXY, dan rilis berita makroekonomi) secara sinkron tanpa kebocoran data masa depan ('
+  [12] (italic=True, bold=None): 'lookahead bias'
+  [13] (italic=False, bold=None): ').'
+
+=== PARA 31 ===
+Full Text: 2. Mengembangkan dan mengoptimalkan model klasifikasi probabilitas terkalibrasi berbasis algoritma LightGBM yang mampu memprediksi arah pergerakan harga XAUUSD dengan akurasi yang terukur, serta membandingkan kinerjanya dengan XGBoost dan Random Forest berdasarkan metrik statistik klasifikasi.
+Runs:
+  [0] (italic=None, bold=True): '2. '
+  [1] (italic=False, bold=None): 'Mengembangkan dan mengoptimalkan model klasifikasi probabilitas terkalibrasi berbasis algoritma LightGBM yang mampu memprediksi arah pergerakan harga XAUUSD dengan akurasi yang terukur, serta membandingkan kinerjanya dengan XGBoost dan '
+  [2] (italic=True, bold=None): 'Random Forest'
+  [3] (italic=False, bold=None): ' berdasarkan metrik statistik klasifikasi.'
+
+=== PARA 32 ===
+Full Text: 3. Mengimplementasikan sistem eksekusi perdagangan otomatis zero-delay terintegrasi dengan MetaTrader 5 API yang dilengkapi modul manajemen risiko adaptif (Dynamic ATR Stop-Loss, RRR 1 : 2,5, batas kerugian harian, dan jeda cooldown pasca-loss).
+Runs:
+  [0] (italic=None, bold=True): '3. '
+  [1] (italic=False, bold=None): 'Mengimplementasikan sistem eksekusi perdagangan otomatis '
+  [2] (italic=True, bold=None): 'zero-delay'
+  [3] (italic=False, bold=None): ' terintegrasi dengan MetaTrader 5 API yang dilengkapi modul manajemen risiko adaptif ('
+  [4] (italic=True, bold=None): 'Dynamic ATR Stop-Loss'
+  [5] (italic=False, bold=None): ', RRR 1\u202f:\u202f2,5, batas kerugian harian, dan jeda '
+  [6] (italic=True, bold=None): 'cooldown'
+  [7] (italic=False, bold=None): ' pasca-'
+  [8] (italic=True, bold=None): 'loss'
+  [9] (italic=False, bold=None): ').'
+
+=== PARA 43 ===
+Full Text: b. Menghadirkan kerangka kerja mitigasi risiko modal yang diuji melalui penerapan filter ambang keyakinan (confidence threshold) ≥ 65,0%, manajemen ukuran risiko dinamis berbasis Average True Range (ATR), serta proteksi pembatasan kerugian harian maksimal (Max Daily Losses).
+Runs:
+  [0] (italic=False, bold=None): 'b. Menghadirkan kerangka kerja mitigasi risiko modal yang diuji melalui penerapan filter ambang keyakinan ('
+  [1] (italic=True, bold=None): 'confidence threshold'
+  [2] (italic=False, bold=None): ') ≥\u202f65,0%, manajemen ukuran risiko dinamis berbasis '
+  [3] (italic=True, bold=None): 'Average True Range'
+  [4] (italic=False, bold=None): ' (ATR), serta proteksi pembatasan kerugian harian maksimal ('
+  [5] (italic=True, bold=None): 'Max Daily Losses'
+  [6] (italic=False, bold=None): ').'
+
+=== PARA 46 ===
+Full Text: Keaslian penelitian ini didasarkan pada perbandingan komprehensif terhadap sejumlah penelitian terdahulu yang relevan di bidang peramalan harga emas, algoritma pembelajaran mesin pada instrumen finansial, dan pemodelan data deret waktu kuantitatif. Penelitian terdahulu yang dijadikan rujukan mencakup artikel jurnal internasional bereputasi (Scopus Q1/Q2), artikel jurnal nasional terakreditasi SINTA, serta naskah ilmiah mutakhir (arXiv 2024–2026). Berdasarkan kajian terhadap literatur tersebut, belum ditemukan penelitian yang mengintegrasikan algoritma LightGBM dengan 36 fitur Multi-Source Feature Fusion (SMC + Multi-Timeframe + Makroekonomi DXY/Berita), klasifikasi probabilitas terkalibrasi (≥ 65,0%), serta eksekusi forward testing berbasis MetaTrader 5 yang dilengkapi Post-Trade Scenario Evaluator Engine. Ringkasan komparasi antara penelitian terdahulu dan posisi orisinalitas penelitian ini disajikan pada Tabel 1.1.
+Runs:
+  [0] (italic=False, bold=None): 'Keaslian penelitian ini didasarkan pada perbandingan komprehensif terhadap sejumlah penelitian terdahulu yang relevan di bidang peramalan harga emas, algoritma pembelajaran mesin pada instrumen finansial, dan pemodelan data deret waktu kuantitatif. Penelitian terdahulu yang dijadikan rujukan mencakup artikel jurnal internasional bereputasi (Scopus Q1/Q2), artikel jurnal nasional terakreditasi SINTA, serta naskah ilmiah mutakhir (arXiv 2024–2026). Berdasarkan kajian terhadap literatur tersebut, belum ditemukan penelitian yang mengintegrasikan algoritma LightGBM dengan 36 fitur '
+  [1] (italic=True, bold=None): 'Multi-Source Feature Fusion'
+  [2] (italic=False, bold=None): ' (SMC + '
+  [3] (italic=True, bold=None): 'Multi-Timeframe'
+  [4] (italic=False, bold=None): ' + Makroekonomi DXY/Berita), klasifikasi probabilitas terkalibrasi (≥\u202f65,0%), serta eksekusi '
+  [5] (italic=True, bold=None): 'forward testing'
+  [6] (italic=False, bold=None): ' berbasis MetaTrader 5 yang dilengkapi '
+  [7] (italic=True, bold=None): 'Post-Trade Scenario Evaluator Engine'
+  [8] (italic=False, bold=None): '. Ringkasan komparasi antara penelitian terdahulu dan posisi orisinalitas penelitian ini disajikan pada Tabel 1.1.'
+
+=== PARA 48 ===
+Full Text: Berdasarkan pemetaan matriks penelitian terkait pada Tabel 1.1 di atas, tampak jelas bahwa penelitian ini menghadirkan terobosan metodologis yang komprehensif. Kebaruan (novelty) dan kontribusi utama penelitian ini terletak pada sintesis holistik empat domain prediktif dalam satu kesatuan arsitektur LightGBM yang teroptimasi, penggunaan filter probabilitas keyakinan (confidence threshold) ≥ 65,0% untuk mengeliminasi false signals pada kondisi pasar bergejolak, serta pengujian forward testing pasar nyata yang dilengkapi mesin evaluasi skenario pasca-transaksi (Post-Trade Scenario Evaluator Engine) demi transparansi dan keandalan sistem trading algoritmik.
+Runs:
+  [0] (italic=False, bold=None): 'Berdasarkan pemetaan matriks penelitian terkait pada Tabel 1.1 di atas, tampak jelas bahwa penelitian ini menghadirkan terobosan metodologis yang komprehensif. Kebaruan ('
+  [1] (italic=True, bold=None): 'novelty'
+  [2] (italic=False, bold=None): ') dan kontribusi utama penelitian ini terletak pada sintesis holistik empat domain prediktif dalam satu kesatuan arsitektur LightGBM yang teroptimasi, penggunaan filter probabilitas keyakinan ('
+  [3] (italic=True, bold=None): 'confidence threshold'
+  [4] (italic=False, bold=None): ') ≥\u202f65,0% untuk mengeliminasi '
+  [5] (italic=True, bold=None): 'false signals'
+  [6] (italic=False, bold=None): ' pada kondisi pasar bergejolak, serta pengujian '
+  [7] (italic=True, bold=None): 'forward testing'
+  [8] (italic=False, bold=None): ' pasar nyata yang dilengkapi mesin evaluasi skenario pasca-transaksi ('
+  [9] (italic=True, bold=None): 'Post-Trade Scenario Evaluator Engine'
+  [10] (italic=False, bold=None): ') demi transparansi dan keandalan sistem '
+  [11] (italic=True, bold=None): 'trading'
+  [12] (italic=False, bold=None): ' algoritmik.'
+
+=== PARA 53 ===
+Full Text: 3. Fase Pra-pengolahan Data dan Rekayasa Fitur (Data Preparation & Feature Engineering): Membersihkan data dari anomali dan missing values, menyelaraskan stempel waktu lintas-pasar (timestamp alignment), mengonstruksi 36 fitur prediktif terstandarisasi, melakukan pelabelan biner arah pergerakan harga lima candle ke depan, serta membagi dataset secara kronologis (time-series split) menjadi data latih, validasi, dan data uji.
+Runs:
+  [0] (italic=None, bold=True): '3. '
+  [1] (italic=False, bold=None): 'Fase Pra-pengolahan Data dan Rekayasa Fitur ('
+  [2] (italic=True, bold=None): 'Data Preparation & Feature Engineering'
+  [3] (italic=False, bold=None): '): Membersihkan data dari anomali dan '
+  [4] (italic=True, bold=None): 'missing values'
+  [5] (italic=False, bold=None): ', menyelaraskan stempel waktu lintas-pasar ('
+  [6] (italic=True, bold=None): 'timestamp alignment'
+  [7] (italic=False, bold=None): '), mengonstruksi 36 fitur prediktif terstandarisasi, melakukan pelabelan biner arah pergerakan harga lima '
+  [8] (italic=True, bold=None): 'candle'
+  [9] (italic=False, bold=None): ' ke depan, serta membagi '
+  [10] (italic=True, bold=None): 'dataset'
+  [11] (italic=False, bold=None): ' secara kronologis ('
+  [12] (italic=True, bold=None): 'time-series split'
+  [13] (italic=False, bold=None): ') menjadi data latih, validasi, dan data uji.'
+
+=== PARA 62 ===
+Full Text: 3. BAB III METODE PENELITIAN: Bab ini menguraikan secara terperinci rancangan alur penelitian, prosedur pengumpulan data multisumber, formulasi rekayasa 36 fitur prediktif, arsitektur pelatihan model LightGBM, rancangan integrasi MetaTrader 5 API, mekanisme manajemen risiko kuantitatif dinamis, serta rancangan arsitektur Post-Trade Scenario Evaluator Engine.
+Runs:
+  [0] (italic=None, bold=True): '3. '
+  [1] (italic=False, bold=None): 'BAB III METODE PENELITIAN: Bab ini menguraikan secara terperinci rancangan alur penelitian, prosedur pengumpulan data multisumber, formulasi rekayasa 36 fitur prediktif, arsitektur pelatihan model LightGBM, rancangan integrasi MetaTrader 5 API, mekanisme manajemen risiko kuantitatif dinamis, serta rancangan arsitektur '
+  [2] (italic=True, bold=None): 'Post-Trade Scenario Evaluator Engine'
+  [3] (italic=False, bold=None): '.'
+

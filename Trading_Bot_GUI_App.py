@@ -404,7 +404,14 @@ class TradingBotGUI:
         webbrowser.open("http://localhost:5000")
 
     def open_web_mobile_dialog(self):
-        """Membuka dialog popup QR Code untuk koneksi smartphone di jaringan Wi-Fi lokal."""
+        """Membuka dialog popup Barcode / QR Code untuk akses smartphone (Mendukung Beda Jaringan / Internet Publik via Cloudflare & Wi-Fi Lokal)."""
+        import socket
+        try:
+            from Cloudflare_Tunnel import get_public_url, start_cloudflare_tunnel
+        except Exception:
+            get_public_url = lambda: None
+            start_cloudflare_tunnel = lambda *a, **kw: None
+
         # Dapatkan IP Wi-Fi
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
@@ -415,55 +422,148 @@ class TradingBotGUI:
         finally:
             s.close()
 
-        mobile_url = f"http://{lan_ip}:5000"
+        mobile_local_url = f"http://{lan_ip}:5000"
+        public_url = get_public_url()
 
-        # Buat popup dialog QR Code di Tkinter
+        # Pastikan server web aktif
+        server_running = False
+        import psutil
+        for p in psutil.process_iter(['name', 'cmdline']):
+            try:
+                cmd = " ".join(p.info['cmdline'] or []).lower()
+                if "web_dashboard_server.py" in cmd:
+                    server_running = True
+                    break
+            except Exception:
+                pass
+
+        if not server_running:
+            try:
+                subprocess.Popen([PYTHON_EXE, SCRIPT_WEB], cwd=BASE_DIR, creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+                time.sleep(1.0)
+            except Exception:
+                pass
+
+        if not public_url:
+            public_url = start_cloudflare_tunnel(port=5000, wait_seconds=3)
+
+        # Buat popup dialog Barcode QR Code
         top = tk.Toplevel(self.root)
-        top.title("📱 Web Monitoring Trading Bot (Akses HP)")
-        top.geometry("420x530")
+        top.title("📱 Barcode Akses HP (Beda Jaringan & Wi-Fi)")
+        top.geometry("460x650")
         top.configure(bg="#0d0e13")
         top.resizable(False, False)
         top.grab_set()
 
-        lbl_t = tk.Label(top, text="📱 Buka Dashboard di HP", font=("Segoe UI", 14, "bold"), fg="#38bdf8", bg="#0d0e13")
-        lbl_t.pack(pady=(20, 5))
+        # State aktif: 'public' (default) atau 'local'
+        active_mode = tk.StringVar(value="public" if public_url else "local")
 
-        lbl_info = tk.Label(top, text="Pastikan HP terhubung ke Wi-Fi yang sama dengan PC.\nArahkan kamera HP ke QR Code berikut:", font=("Segoe UI", 9), fg="#8e9192", bg="#0d0e13", justify="center")
-        lbl_info.pack(pady=(0, 15))
+        lbl_t = tk.Label(top, text="📱 Barcode Monitoring HP", font=("Segoe UI", 14, "bold"), fg="#38bdf8", bg="#0d0e13")
+        lbl_t.pack(pady=(16, 2))
 
-        try:
-            qr = qrcode.QRCode(box_size=6, border=2)
-            qr.add_data(mobile_url)
-            qr.make(fit=True)
-            pil_img = qr.make_image(fill_color="black", back_color="white")
-            qr_photo = ImageTk.PhotoImage(pil_img)
-            lbl_qr = tk.Label(top, image=qr_photo, bg="#ffffff", relief="solid", bd=1)
-            lbl_qr.image = qr_photo
-            lbl_qr.pack(pady=5)
-        except Exception as e:
-            lbl_qr = tk.Label(top, text=f"[QR Code Error: {e}]", fg="#f43f5e", bg="#0d0e13")
-            lbl_qr.pack(pady=10)
+        lbl_sub = tk.Label(top, text="Scan kamera HP untuk memantau trading bot di mana saja", font=("Segoe UI", 9), fg="#8e9192", bg="#0d0e13")
+        lbl_sub.pack(pady=(0, 10))
 
-        url_frame = tk.Frame(top, bg="#13141a", padx=10, pady=8, relief="solid", bd=1)
-        url_frame.pack(fill="x", padx=30, pady=15)
+        # Toggle Tab Mode: Beda Jaringan (Internet) vs Wi-Fi Lokal
+        tab_frame = tk.Frame(top, bg="#13141a", padx=4, pady=4, relief="solid", bd=1)
+        tab_frame.pack(fill="x", padx=25, pady=(0, 10))
 
-        lbl_url_title = tk.Label(url_frame, text="URL Akses Wi-Fi:", font=("Segoe UI", 8, "bold"), fg="#5a5c63", bg="#13141a")
+        btn_tab_public = tk.Button(tab_frame, text="🌍 BEDA JARINGAN (INTERNET / KUOTA)", font=("Segoe UI", 8, "bold"), bd=0, padx=8, pady=6, cursor="hand2")
+        btn_tab_public.pack(side="left", fill="x", expand=True)
+
+        btn_tab_local = tk.Button(tab_frame, text="📶 SATU WI-FI (LOKAL)", font=("Segoe UI", 8, "bold"), bd=0, padx=8, pady=6, cursor="hand2")
+        btn_tab_local.pack(side="left", fill="x", expand=True)
+
+        status_badge = tk.Label(top, font=("Segoe UI", 8, "bold"), padx=10, pady=3, relief="solid", bd=1)
+        status_badge.pack(pady=(0, 6))
+
+        lbl_desc = tk.Label(top, font=("Segoe UI", 8), fg="#c4c7c8", bg="#0d0e13", justify="center", wraplength=400)
+        lbl_desc.pack(pady=(0, 8))
+
+        # QR Image Holder
+        qr_container = tk.Frame(top, bg="#ffffff", padx=8, pady=8, relief="solid", bd=1)
+        qr_container.pack(pady=2)
+        lbl_qr = tk.Label(qr_container, bg="#ffffff")
+        lbl_qr.pack()
+
+        # URL Text Box
+        url_frame = tk.Frame(top, bg="#13141a", padx=10, pady=6, relief="solid", bd=1)
+        url_frame.pack(fill="x", padx=25, pady=(10, 6))
+
+        lbl_url_title = tk.Label(url_frame, font=("Segoe UI", 8, "bold"), fg="#5a5c63", bg="#13141a")
         lbl_url_title.pack(anchor="w")
 
-        lbl_url = tk.Label(url_frame, text=mobile_url, font=("Consolas", 11, "bold"), fg="#06b6d4", bg="#13141a")
+        lbl_url = tk.Label(url_frame, font=("Consolas", 10, "bold"), fg="#38bdf8", bg="#13141a", wraplength=390, justify="left")
         lbl_url.pack(anchor="w", pady=(2, 0))
 
-        def copy_url():
+        def update_view():
+            mode = active_mode.get()
+            cur_pub = get_public_url() or public_url
+            if mode == "public":
+                btn_tab_public.config(bg="#0284c7", fg="#ffffff")
+                btn_tab_local.config(bg="#1a1b21", fg="#8e9192")
+                
+                if cur_pub:
+                    target = cur_pub
+                    status_badge.config(text="🟢 CLOUDFLARE HTTPS AKTIF (AKSES BEBAS DI LUAR RUMAH)", fg="#10b981", bg="#064e3b")
+                    lbl_desc.config(text="Akses via kuota seluler / paket data HP / Wi-Fi berbeda.\nDapat dipantau di mana saja tanpa batas.")
+                else:
+                    target = mobile_local_url
+                    status_badge.config(text="⏳ CLOUDFLARE TUNNEL MENGHUBUNGKAN...", fg="#f59e0b", bg="#451a03")
+                    lbl_desc.config(text="Sedang membuat secure tunnel publik...")
+
+                lbl_url_title.config(text="URL Publik HTTPS (Beda Jaringan):")
+                lbl_url.config(text=target, fg="#10b981")
+            else:
+                btn_tab_public.config(bg="#1a1b21", fg="#8e9192")
+                btn_tab_local.config(bg="#0284c7", fg="#ffffff")
+                target = mobile_local_url
+                status_badge.config(text="📶 WI-FI LOKAL AKTIF", fg="#38bdf8", bg="#0c4a6e")
+                lbl_desc.config(text="Hanya berfungsi jika HP terhubung ke Wi-Fi yang sama dengan PC.")
+                lbl_url_title.config(text="URL Wi-Fi Lokal:")
+                lbl_url.config(text=target, fg="#38bdf8")
+
+            try:
+                qr = qrcode.QRCode(box_size=5, border=2)
+                qr.add_data(target)
+                qr.make(fit=True)
+                pil_img = qr.make_image(fill_color="#0f172a", back_color="#ffffff")
+                qr_photo = ImageTk.PhotoImage(pil_img)
+                lbl_qr.config(image=qr_photo)
+                lbl_qr.image = qr_photo
+            except Exception as e:
+                lbl_qr.config(text=f"[Error QR: {e}]", image="")
+
+        btn_tab_public.config(command=lambda: [active_mode.set("public"), update_view()])
+        btn_tab_local.config(command=lambda: [active_mode.set("local"), update_view()])
+
+        update_view()
+
+        # Action Buttons Row (Salin URL + Buka Browser)
+        btn_row = tk.Frame(top, bg="#0d0e13")
+        btn_row.pack(pady=4)
+
+        def copy_active_url():
+            cur_pub = get_public_url() or public_url
+            target = (cur_pub if active_mode.get() == "public" and cur_pub else mobile_local_url)
             self.root.clipboard_clear()
-            self.root.clipboard_append(mobile_url)
-            btn_copy.config(text="✓ URL Berhasil Disalin!")
-            top.after(2000, lambda: btn_copy.config(text="Salin URL"))
+            self.root.clipboard_append(target)
+            btn_copy.config(text="✓ URL Tersalin!", bg="#059669")
+            top.after(2000, lambda: btn_copy.config(text="📋 Salin URL", bg="#24252c"))
 
-        btn_copy = tk.Button(top, text="Salin URL", font=("Segoe UI", 9, "bold"), bg="#24252c", fg="#ffffff", bd=0, padx=15, pady=6, cursor="hand2", command=copy_url)
-        btn_copy.pack(pady=(0, 10))
+        def open_browser():
+            cur_pub = get_public_url() or public_url
+            target = (cur_pub if active_mode.get() == "public" and cur_pub else mobile_local_url)
+            webbrowser.open(target)
 
-        btn_close = tk.Button(top, text="Tutup", font=("Segoe UI", 9), bg="#2e3038", fg="#c4c7c8", bd=0, padx=20, pady=5, cursor="hand2", command=top.destroy)
-        btn_close.pack()
+        btn_copy = tk.Button(btn_row, text="📋 Salin URL", font=("Segoe UI", 9, "bold"), bg="#24252c", fg="#ffffff", bd=0, padx=12, pady=5, cursor="hand2", command=copy_active_url)
+        btn_copy.pack(side="left", padx=4)
+
+        btn_test = tk.Button(btn_row, text="🌐 Buka di PC", font=("Segoe UI", 9), bg="#1e293b", fg="#38bdf8", bd=0, padx=12, pady=5, cursor="hand2", command=open_browser)
+        btn_test.pack(side="left", padx=4)
+
+        btn_close = tk.Button(btn_row, text="Tutup", font=("Segoe UI", 9), bg="#2e3038", fg="#c4c7c8", bd=0, padx=16, pady=5, cursor="hand2", command=top.destroy)
+        btn_close.pack(side="left", padx=4)
 
     def setup_params_tab(self):
         """Membuat panel Parameter & Skripsi yang menampilkan arsitektur model dan aturan penelitian."""
@@ -2768,7 +2868,7 @@ class TradingBotGUI:
 
         self.diag_tree = ttk.Treeview(
             tbl_frame,
-            columns=("no", "ticket", "w_close", "tipe", "hasil", "profit", "pips", "model", "skenario", "h4", "dxy", "alasan"),
+            columns=("no", "ticket", "w_close", "tipe", "hasil", "v75", "profit", "pips", "model", "skenario", "h4", "dxy", "alasan"),
             show="headings",
             yscrollcommand=scry.set,
             xscrollcommand=scrx.set
@@ -2783,6 +2883,7 @@ class TradingBotGUI:
             ("w_close", "Waktu Close", 125, "center"),
             ("tipe", "Tipe", 55, "center"),
             ("hasil", "Hasil", 60, "center"),
+            ("v75", "Validasi 75M", 130, "center"),
             ("profit", "Profit ($)", 85, "center"),
             ("pips", "Pips", 60, "center"),
             ("model", "Model AI", 120, "w"),
@@ -2881,6 +2982,9 @@ class TradingBotGUI:
                     "pips": f"{float(r.get('Pips (P/L)', 0)):+.1f}",
                     "profit": f"${pnl:+.2f}",
                     "hasil": h,
+                    "v75": str(r.get("Validasi Model 75M", "-")),
+                    "c75": f"${float(r.get('Close Candle 75m ($)', 0)):.2f}" if pd.notna(r.get('Close Candle 75m ($)')) else "-",
+                    "pips_75": f"{float(r.get('Pips Model 75M', 0)):+.1f}" if pd.notna(r.get('Pips Model 75M')) else "-",
                     "model": str(r.get("Model AI", "")),
                     "skenario": str(r.get("Skenario Entry", "GENERAL_ENTRY")),
                     "h4": str(r.get("Tren H4 Entry", "UNKNOWN")),
@@ -2918,14 +3022,14 @@ class TradingBotGUI:
                 if key not in item["skenario"] and sk_filter not in item["skenario"]:
                     continue
             if sq:
-                combined = f"{item['ticket']} {item['tipe']} {item['skenario']} {item['h4']} {item['dxy']} {item['alasan']} {item['analisis']} {item['evaluasi']}".lower()
+                combined = f"{item['ticket']} {item['tipe']} {item['v75']} {item['skenario']} {item['h4']} {item['dxy']} {item['alasan']} {item['analisis']} {item['evaluasi']}".lower()
                 if sq not in combined:
                     continue
 
             tag = "win" if item["hasil"] == "WIN" else ("loss" if item["hasil"] == "LOSS" else "normal")
             vals = (
                 item["no"], item["ticket"], item["w_close"], item["tipe"], item["hasil"],
-                item["profit"], item["pips"], item["model"], item["skenario"],
+                item["v75"], item["profit"], item["pips"], item["model"], item["skenario"],
                 item["h4"], item["dxy"], item["alasan"]
             )
             self.diag_tree.insert("", "end", iid=str(item["ticket"]), values=vals, tags=(tag,))
@@ -2952,7 +3056,7 @@ class TradingBotGUI:
         badge_fg = "#10b981" if h == "WIN" else "#ef4444"
 
         self.insp_lbl_badge.config(text=badge_text, bg=badge_bg, fg=badge_fg)
-        meta_str = f"Open: {target['w_open']}  |  Close: {target['w_close']}  |  Durasi: {target['durasi']}  |  H4: {target['h4']}  |  DXY: {target['dxy']}  |  Prob: {target['prob']}"
+        meta_str = f"Open: {target['w_open']}  |  Close: {target['w_close']}  |  Durasi: {target['durasi']}  |  Validasi 75M: {target['v75']} ({target['c75']})  |  H4: {target['h4']}  |  DXY: {target['dxy']}  |  Prob: {target['prob']}"
         self.insp_lbl_meta.config(text=meta_str)
 
         # Analisis text
@@ -2968,6 +3072,130 @@ class TradingBotGUI:
         evaluasi_full = f"Model AI: {target['model']}\nKondisi Makro: {target['news']}\n\nPembelajaran & Tindakan Korektif Skripsi:\n{target['evaluasi']}"
         self.insp_txt_evaluasi.insert("1.0", evaluasi_full)
         self.insp_txt_evaluasi.config(state="disabled")
+
+    def open_web_mobile_dialog(self):
+        """Membuka popup barcode QR Code untuk akses monitoring smartphone (Beda Jaringan & Wi-Fi)."""
+        pub_url = None
+        url_file = os.path.join(BASE_DIR, "public_url.txt")
+        if os.path.exists(url_file):
+            try:
+                with open(url_file, "r", encoding="utf-8") as f:
+                    u = f.read().strip()
+                    if u.startswith("https://"):
+                        pub_url = u
+            except Exception:
+                pass
+        
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            lan_ip = s.getsockname()[0]
+            s.close()
+        except Exception:
+            lan_ip = "127.0.0.1"
+            
+        loc_url = f"http://{lan_ip}:5000"
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title("📱 Barcode Akses Smartphone (Beda Jaringan & Wi-Fi)")
+        dialog.geometry("460x620")
+        dialog.minsize(440, 580)
+        dialog.configure(bg="#0d0e13")
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        # Header
+        head_frame = tk.Frame(dialog, bg="#0d0e13", pady=12)
+        head_frame.pack(fill="x")
+        tk.Label(head_frame, text="📱 BARCODE AKSES HP", font=("Segoe UI", 12, "bold"), fg="#10b981", bg="#0d0e13").pack()
+        tk.Label(head_frame, text="Pantau bot trading langsung dari layar smartphone Anda", font=("Segoe UI", 8), fg="#8e9192", bg="#0d0e13").pack(pady=(2, 0))
+
+        # Mode Tab Switcher
+        mode_var = tk.StringVar(value="public" if pub_url else "local")
+        tab_frame = tk.Frame(dialog, bg="#1a1b21", relief="solid", bd=1, padx=4, pady=4)
+        tab_frame.pack(fill="x", padx=20, pady=(0, 10))
+
+        # Status badge
+        lbl_status = tk.Label(dialog, text="", font=("Segoe UI", 8, "bold"), bg="#0d0e13")
+        lbl_status.pack(pady=(0, 6))
+
+        # QR Code Display Box
+        qr_container = tk.Frame(dialog, bg="#ffffff", padx=10, pady=10, relief="solid", bd=2)
+        qr_container.pack(pady=4)
+        lbl_qr_img = tk.Label(qr_container, bg="#ffffff")
+        lbl_qr_img.pack()
+
+        # URL Box
+        url_frame = tk.Frame(dialog, bg="#1a1b21", relief="solid", bd=1, padx=10, pady=8)
+        url_frame.pack(fill="x", padx=20, pady=10)
+        tk.Label(url_frame, text="URL AKSES (KLIK / SCAN):", font=("Segoe UI", 7, "bold"), fg="#8e9192", bg="#1a1b21").pack(anchor="w")
+        
+        lbl_url = tk.Label(url_frame, text="", font=("Consolas", 9, "bold"), fg="#38bdf8", bg="#1a1b21", wraplength=400, justify="left")
+        lbl_url.pack(anchor="w", pady=(2, 4))
+
+        # Action Buttons
+        btn_action_frame = tk.Frame(url_frame, bg="#1a1b21")
+        btn_action_frame.pack(fill="x", pady=(2, 0))
+
+        def copy_url():
+            cur = lbl_url.cget("text")
+            self.root.clipboard_clear()
+            self.root.clipboard_append(cur)
+            btn_copy.config(text="✓ Tersalin ke Clipboard!", bg="#10b981", fg="#ffffff")
+            dialog.after(2000, lambda: btn_copy.config(text="📋 Salin URL", bg="#24252c", fg="#ffffff"))
+
+        def open_browser():
+            cur = lbl_url.cget("text")
+            webbrowser.open(cur)
+
+        btn_copy = tk.Button(btn_action_frame, text="📋 Salin URL", font=("Segoe UI", 8, "bold"), fg="#ffffff", bg="#24252c", activebackground="#2e3038", activeforeground="#ffffff", relief="flat", cursor="hand2", command=copy_url, padx=10, pady=4)
+        btn_copy.pack(side="left", padx=(0, 6))
+
+        btn_open = tk.Button(btn_action_frame, text="🌐 Buka di PC", font=("Segoe UI", 8, "bold"), fg="#ffffff", bg="#24252c", activebackground="#2e3038", activeforeground="#ffffff", relief="flat", cursor="hand2", command=open_browser, padx=10, pady=4)
+        btn_open.pack(side="left")
+
+        # Instruction note
+        note_box = tk.Frame(dialog, bg="#13141a", padx=10, pady=8)
+        note_box.pack(fill="x", padx=20, pady=(4, 10))
+        tk.Label(note_box, text="💡 Cara Penggunaan:\n1. Buka Kamera bawaan iPhone / Android atau aplikasi Google Lens.\n2. Arahkan lensa kamera ke barcode di atas.\n3. Ketuk link notifikasi pop-up yang muncul di layar HP Anda.", font=("Segoe UI", 8), fg="#94a3b8", bg="#13141a", justify="left").pack(anchor="w")
+
+        def refresh_qr():
+            mode = mode_var.get()
+            if mode == "public":
+                target_url = pub_url if pub_url else loc_url
+                btn_tab_pub.config(bg="#10b981", fg="#ffffff")
+                btn_tab_loc.config(bg="#1a1b21", fg="#8e9192")
+                if pub_url:
+                    lbl_status.config(text="🟢 CLOUDFLARE HTTPS AKTIF (AKSES BEBAS DI LUAR RUMAH / KUOTA)", fg="#10b981")
+                else:
+                    lbl_status.config(text="⚠️ CLOUDFLARE BELUM TERSEDIA, MENAMPILKAN WI-FI LOKAL", fg="#f59e0b")
+            else:
+                target_url = loc_url
+                btn_tab_pub.config(bg="#1a1b21", fg="#8e9192")
+                btn_tab_loc.config(bg="#0284c7", fg="#ffffff")
+                lbl_status.config(text="📶 WI-FI LOKAL AKTIF (HP & PC WAJIB SATU WI-FI)", fg="#38bdf8")
+
+            lbl_url.config(text=target_url)
+
+            # Generate QR Code image
+            qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=6, border=2)
+            qr.add_data(target_url)
+            qr.make(fit=True)
+            pil_img = qr.make_image(fill_color="#0f172a", back_color="#ffffff")
+            
+            photo = ImageTk.PhotoImage(pil_img)
+            lbl_qr_img.config(image=photo)
+            lbl_qr_img.image = photo  # keep reference
+
+        btn_tab_pub = tk.Button(tab_frame, text="🌍 Beda Jaringan (Internet / Kuota HP)", font=("Segoe UI", 8, "bold"), relief="flat", cursor="hand2", command=lambda: [mode_var.set("public"), refresh_qr()], pady=5)
+        btn_tab_pub.pack(side="left", fill="x", expand=True, padx=2)
+
+        btn_tab_loc = tk.Button(tab_frame, text="📶 Satu Wi-Fi (Lokal)", font=("Segoe UI", 8, "bold"), relief="flat", cursor="hand2", command=lambda: [mode_var.set("local"), refresh_qr()], pady=5)
+        btn_tab_loc.pack(side="right", fill="x", expand=True, padx=2)
+
+        refresh_qr()
+
+        tk.Button(dialog, text="Tutup", font=("Segoe UI", 9, "bold"), fg="#ffffff", bg="#24252c", activebackground="#2e3038", relief="flat", cursor="hand2", command=dialog.destroy, pady=6).pack(fill="x", padx=20, pady=(0, 14))
 
     def on_close(self):
         if (self.proc_m15 and self.proc_m15.poll() is None) or (self.proc_m5 and self.proc_m5.poll() is None):

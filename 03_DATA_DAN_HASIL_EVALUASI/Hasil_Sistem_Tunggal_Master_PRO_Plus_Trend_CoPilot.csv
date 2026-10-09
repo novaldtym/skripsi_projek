@@ -1,0 +1,4 @@
+Threshold,Net_Profit,RoC,Total_Trades,PRO_Trades,PRO_PnL,Trend_Trades,Trend_PnL,Win_Rate,Profit_Factor,Max_Drawdown_USD,Max_Drawdown_Pct
+Trend Conf >= 60.0%,2947.25,589.5,1803,833,1169.75,970,1777.5,56.12,2.04,59.3,3.97
+Trend Conf >= 65.0%,2761.5,552.3,1668,855,1198.05,813,1563.45,55.61,2.08,54.4,4.18
+Trend Conf >= 68.0%,2381.9,476.4,1562,876,1132.0,686,1249.9,53.58,1.96,54.4,4.34
