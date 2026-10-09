@@ -88,6 +88,8 @@ def is_script_running(script_name):
     script_name = script_name.lower()
     if script_name == "eksekusi_otomatis_trading_bot.py" and is_port_in_use(48901):
         return True
+    if script_name == "eksekusi_otomatis_trading_bot_m15_pro.py" and is_port_in_use(48903):
+        return True
     if script_name == "web_dashboard_server.py" and is_port_in_use(5000):
         return True
 
@@ -120,7 +122,7 @@ def start_script_process(script_rel_path, log_name):
 
 def main():
     log_event("="*75)
-    log_event("🛡️ SUPERVISOR TRADING BOT 24 JAM DIAKTIFKAN (SINGLE M15 ENGINE)")
+    log_event("🛡️ SUPERVISOR TRADING BOT 24 JAM DIAKTIFKAN (SKRIPSI + PRO V6 DUAL-ENGINE)")
     log_event(f"📁 Direktori: {BASE_DIR}")
     log_event(f"🐍 Python Exe: {PYTHON_EXE}")
     log_event("="*75)
@@ -130,10 +132,12 @@ def main():
 
     restart_counters = {
         "m15": 0,
+        "pro": 0,
         "server": 0
     }
     last_restart_time = {
         "m15": 0.0,
+        "pro": 0.0,
         "server": 0.0
     }
     COOLDOWN = 20.0
@@ -153,13 +157,21 @@ def main():
                     log_event(f"⚠️ [WATCHDOG] Web Dashboard Server mati! Me-restart server (Ke-{restart_counters['server']})...")
                     start_script_process("Web_Dashboard_Server.py", "server_run.log")
 
-            # C. Pantau Bot M15 Utama
+            # C. Pantau Bot M15 Utama (Skripsi)
             if not is_script_running("Eksekusi_Otomatis_Trading_Bot.py"):
                 if now - last_restart_time["m15"] >= COOLDOWN:
                     last_restart_time["m15"] = now
                     restart_counters["m15"] += 1
                     log_event(f"🚨 [WATCHDOG] Bot M15 Utama mati! Me-restart Bot M15 (Ke-{restart_counters['m15']})...")
                     start_script_process("Eksekusi_Otomatis_Trading_Bot.py", "bot_m15_daemon.log")
+
+            # D. Pantau Bot PRO V6 Dual-Engine
+            if not is_script_running("Eksekusi_Otomatis_Trading_Bot_M15_PRO.py"):
+                if now - last_restart_time["pro"] >= COOLDOWN:
+                    last_restart_time["pro"] = now
+                    restart_counters["pro"] += 1
+                    log_event(f"🏆 [WATCHDOG] Bot PRO V6 Dual-Engine belum aktif! Menyalakan Bot PRO V6 (Ke-{restart_counters['pro']})...")
+                    start_script_process("Eksekusi_Otomatis_Trading_Bot_M15_PRO.py", "bot_m15_pro_daemon.log")
 
             time.sleep(5)
 

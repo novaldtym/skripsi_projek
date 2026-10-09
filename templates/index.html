@@ -843,9 +843,9 @@
                         <div>
                             <div class="flex items-center gap-3">
                                 <h1 class="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Proprietary Bot View</h1>
-                                <span class="badge-pill bg-[var(--accent-green)]/15 text-[var(--accent-green)] text-xs font-bold">PRO</span>
+                                <span class="badge-pill bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-black">🏆 PRO V6 DUAL-ENGINE</span>
                             </div>
-                            <p class="text-xs text-[var(--text-secondary)] mt-1">Akun Exness Pro #463897979 • Alokasi Modal: $500.00 USD (Terpisah dari Skripsi) • Magic: 155701</p>
+                            <p class="text-xs text-[var(--text-secondary)] mt-1">Dual-Engine Hybrid: Head 1 (Trend 65F) + Head 2 (Reversal 77F) • Meta-Arbiter Gating • Akun Exness #463897979 • Magic: 155701</p>
                         </div>
                         <!-- Clean Segmented Sub-Tab Switcher -->
                         <div class="flex items-center gap-1.5 p-1 bg-[var(--pill-bg)] rounded-2xl border border-[var(--card-border)] w-fit flex-shrink-0">
@@ -989,40 +989,107 @@
                         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                             <!-- LEFT COLUMN: GAUGES & STRUCTURE -->
                             <div class="lg:col-span-5 flex flex-col gap-6">
-                                <!-- Gauge Triple-Barrier Probability -->
+                                <!-- Gauge PRO V6 Dual-Engine Probability Radar -->
                                 <div class="ui-card flex flex-col items-center p-6">
-                                    <div class="relative w-48 h-48 flex items-center justify-center my-2">
+                                    <!-- Regime & Arbiter Status Pill -->
+                                    <div class="w-full flex flex-col gap-2 mb-3">
+                                        <div class="flex items-center justify-between p-2.5 rounded-xl bg-[var(--pill-bg)] border border-[var(--card-border)]">
+                                            <span class="text-xs font-semibold text-[var(--text-secondary)]">Active Regime:</span>
+                                            <span id="pro-active-regime-text" class="text-xs font-bold text-amber-400">MEAN REVERSION</span>
+                                        </div>
+                                        <div class="flex items-center justify-between p-2.5 rounded-xl bg-[var(--pill-bg)] border border-[var(--card-border)]">
+                                            <span class="text-xs font-semibold text-[var(--text-secondary)]">Engine Head:</span>
+                                            <span id="pro-active-head-badge" class="badge-pill bg-purple-500/20 text-purple-400 border border-purple-500/30 text-xs font-bold">HEAD 2 (REVERSAL 77F)</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="relative w-44 h-44 flex items-center justify-center my-2">
                                         <svg class="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
                                             <circle class="donut-circle-track" cx="60" cy="60" r="48" stroke-width="12" fill="none" />
                                             <circle id="pro-donut-buy" class="donut-circle-buy" cx="60" cy="60" r="48" stroke-width="12" fill="none"
                                                 stroke-dasharray="301.59" stroke-dashoffset="150" stroke-linecap="round" />
                                         </svg>
                                         <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
-                                            <span class="text-4xl font-bold tracking-tight text-[var(--text-primary)]" id="pro-gauge-pct">50%</span>
-                                            <span class="text-xs font-semibold text-amber-400" id="pro-gauge-bias">TRIPLE-BARRIER</span>
+                                            <span class="text-3xl font-black tracking-tight text-[var(--text-primary)]" id="pro-gauge-pct">50%</span>
+                                            <span class="text-[11px] font-bold text-amber-400" id="pro-gauge-bias">DUAL-ENGINE</span>
                                         </div>
                                     </div>
-                                    <h3 class="text-base font-bold text-[var(--text-primary)] mt-3 mb-4">Probabilitas Horizon Dinamis (77F)</h3>
-                                    <div class="w-full flex flex-col gap-3">
+
+                                    <!-- Indicator Sensor Chips (ADX, Stoch RSI, H1 Trend) -->
+                                    <div class="w-full grid grid-cols-3 gap-2 my-2">
+                                        <div class="p-2 rounded-xl bg-[var(--pill-bg)] text-center border border-[var(--card-border)]">
+                                            <div class="text-[10px] text-[var(--text-muted)] font-semibold">ADX 14</div>
+                                            <div class="text-xs font-bold text-amber-400" id="pro-adx-val">27.7</div>
+                                        </div>
+                                        <div class="p-2 rounded-xl bg-[var(--pill-bg)] text-center border border-[var(--card-border)]">
+                                            <div class="text-[10px] text-[var(--text-muted)] font-semibold">Stoch RSI</div>
+                                            <div class="text-xs font-bold text-purple-400" id="pro-stoch-val">99.0</div>
+                                        </div>
+                                        <div class="p-2 rounded-xl bg-[var(--pill-bg)] text-center border border-[var(--card-border)]">
+                                            <div class="text-[10px] text-[var(--text-muted)] font-semibold">H1 Trend</div>
+                                            <div class="text-xs font-bold text-emerald-400" id="pro-h1-trend-val">BULLISH</div>
+                                        </div>
+                                    </div>
+
+                                    <h3 class="text-sm font-bold text-[var(--text-primary)] mt-3 mb-3 uppercase tracking-wider">Simultaneous Dual-Engine Inference</h3>
+                                    
+                                    <!-- HEAD 1: Trend Expansion Engine (65F) -->
+                                    <div class="w-full p-3 rounded-2xl bg-[var(--pill-bg)] border border-[var(--card-border)] flex flex-col gap-2.5 mb-2.5">
+                                        <div class="flex items-center justify-between text-xs">
+                                            <span class="font-bold text-blue-400">Head 1: Trend Expansion (65F)</span>
+                                            <span class="text-[10px] px-2 py-0.5 rounded font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">TP +$11.00 / SL -$6.50</span>
+                                        </div>
                                         <div class="flex flex-col gap-1">
-                                            <div class="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)]">
-                                                <span>Upper Barrier (+$9.50)</span>
-                                                <span id="pro-buy-pct">50%</span>
+                                            <div class="flex items-center justify-between text-[11px] font-semibold text-[var(--text-secondary)]">
+                                                <span>Buy Bias</span>
+                                                <span id="pro-head1-buy-pct" class="text-blue-400">65%</span>
                                             </div>
                                             <div class="prob-bar-container">
-                                                <div id="pro-buy-bar" class="prob-bar-fill-buy" style="width: 50%;"></div>
+                                                <div id="pro-head1-buy-bar" class="prob-bar-fill-buy" style="width: 65%;"></div>
                                             </div>
                                         </div>
                                         <div class="flex flex-col gap-1">
-                                            <div class="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)]">
-                                                <span>Lower Barrier (-$5.00)</span>
-                                                <span id="pro-sell-pct">50%</span>
+                                            <div class="flex items-center justify-between text-[11px] font-semibold text-[var(--text-secondary)]">
+                                                <span>Sell Bias</span>
+                                                <span id="pro-head1-sell-pct" class="text-rose-400">35%</span>
                                             </div>
                                             <div class="prob-bar-container">
-                                                <div id="pro-sell-bar" class="prob-bar-fill-sell" style="width: 50%;"></div>
+                                                <div id="pro-head1-sell-bar" class="prob-bar-fill-sell" style="width: 35%;"></div>
                                             </div>
                                         </div>
                                     </div>
+
+                                    <!-- HEAD 2: Mean Reversion & Sniper Engine (77F) -->
+                                    <div class="w-full p-3 rounded-2xl bg-[var(--pill-bg)] border border-[var(--card-border)] flex flex-col gap-2.5">
+                                        <div class="flex items-center justify-between text-xs">
+                                            <span class="font-bold text-amber-400">Head 2: Mean Reversion (77F)</span>
+                                            <span class="text-[10px] px-2 py-0.5 rounded font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">TP +$12.50 / SL -$5.00</span>
+                                        </div>
+                                        <div class="flex flex-col gap-1">
+                                            <div class="flex items-center justify-between text-[11px] font-semibold text-[var(--text-secondary)]">
+                                                <span>Buy Reversal</span>
+                                                <span id="pro-head2-buy-pct" class="text-blue-400">50%</span>
+                                            </div>
+                                            <div class="prob-bar-container">
+                                                <div id="pro-head2-buy-bar" class="prob-bar-fill-buy" style="width: 50%;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="flex flex-col gap-1">
+                                            <div class="flex items-center justify-between text-[11px] font-semibold text-[var(--text-secondary)]">
+                                                <span>Sell Reversal</span>
+                                                <span id="pro-head2-sell-pct" class="text-rose-400">50%</span>
+                                            </div>
+                                            <div class="prob-bar-container">
+                                                <div id="pro-head2-sell-bar" class="prob-bar-fill-sell" style="width: 50%;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Hidden backward compatibility elements for standard gauge bindings -->
+                                    <span id="pro-buy-pct" class="hidden">50%</span>
+                                    <span id="pro-sell-pct" class="hidden">50%</span>
+                                    <div id="pro-buy-bar" class="hidden"></div>
+                                    <div id="pro-sell-bar" class="hidden"></div>
                                 </div>
 
                                 <!-- Shockwave & Rejection Analytics -->
@@ -1039,8 +1106,8 @@
                                 <!-- Custom Trade Controls PRO -->
                                 <div class="ui-card flex flex-col gap-3 p-5">
                                     <div class="flex items-center justify-between">
-                                        <h3 class="text-base font-bold text-[var(--text-primary)]">Konfigurasi Eksekusi PRO</h3>
-                                        <span class="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">AUTO SNIPER</span>
+                                        <h3 class="text-base font-bold text-[var(--text-primary)]">Konfigurasi PRO V6 Dual-Engine</h3>
+                                        <span class="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">HYBRID DUAL-AGENT</span>
                                     </div>
                                     <div class="flex flex-col gap-2.5 text-xs">
                                         <div class="flex items-center justify-between">
@@ -1048,16 +1115,20 @@
                                             <span class="font-bold text-[var(--text-primary)]">0.01 Lot (Proporsional $500)</span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span class="font-semibold text-[var(--text-secondary)]">Stop Loss Ketat:</span>
-                                            <span class="font-bold text-rose-400">Fixed $5.00 (Max Loss $5.35)</span>
+                                            <span class="font-semibold text-[var(--text-secondary)]">Head 1 Trend (65F):</span>
+                                            <span class="font-bold text-blue-400">TP +$8.50 - $11.00 | SL -$6.50</span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span class="font-semibold text-[var(--text-secondary)]">Take Profit Dinamis:</span>
-                                            <span class="font-bold text-emerald-400">+$9.50 s/d +$12.50 (Sniper)</span>
+                                            <span class="font-semibold text-[var(--text-secondary)]">Head 2 Reversal (77F):</span>
+                                            <span class="font-bold text-emerald-400">TP +$9.50 - $12.50 | SL -$5.00 Ketat</span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span class="font-semibold text-[var(--text-secondary)]">Multi-Tier Auto BEP:</span>
-                                            <span class="font-bold text-amber-400">Lock +$0.30 saat Floating +$2.20</span>
+                                            <span class="font-semibold text-[var(--text-secondary)]">2-Tier Trailing Lock:</span>
+                                            <span class="font-bold text-amber-400">Tier 1 (+0.30 @ +2.20) | Tier 2 (+3.00 @ +5.50)</span>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="font-semibold text-[var(--text-secondary)]">Meta-Arbiter Gating:</span>
+                                            <span class="font-bold text-purple-400">High Conviction (&ge; 65%) di Buffer</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1377,10 +1448,10 @@
                             <button id="eval-seg-m15" onclick="setEvalSegment('m15')" class="px-4 py-1.5 rounded-xl text-xs font-bold transition-all bg-[var(--card-bg)] text-[var(--text-primary)] shadow-sm">
                                 M15 Skripsi
                             </button>
-                            <button id="eval-seg-pro" onclick="setEvalSegment('pro')" class="hidden px-4 py-1.5 rounded-xl text-xs font-bold transition-all text-[var(--text-muted)] hover:text-amber-400">
-                                ⭐ M15 PRO
+                            <button id="eval-seg-pro" onclick="setEvalSegment('pro')" class="px-4 py-1.5 rounded-xl text-xs font-bold transition-all text-[var(--text-muted)] hover:text-amber-400">
+                                🏆 PRO V6 Dual-Engine
                             </button>
-                            <button id="eval-seg-h2h" onclick="setEvalSegment('h2h')" class="hidden px-4 py-1.5 rounded-xl text-xs font-bold transition-all text-[var(--text-muted)] hover:text-purple-400">
+                            <button id="eval-seg-h2h" onclick="setEvalSegment('h2h')" class="px-4 py-1.5 rounded-xl text-xs font-bold transition-all text-[var(--text-muted)] hover:text-purple-400">
                                 ⚔️ Head-to-Head
                             </button>
                         </div>
@@ -2255,15 +2326,15 @@
                             <span class="text-xs font-bold text-blue-500 uppercase tracking-wide">Objek Skripsi (M15)</span>
                             <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">Pure 100</span>
                         </div>
-                        <div class="text-2xl font-black text-[var(--text-primary)] mb-1" id="stat-skripsi-balance">$526.30</div>
+                        <div class="text-2xl font-black text-[var(--text-primary)] mb-1" id="stat-skripsi-balance">$500.00</div>
                         <div class="text-xs text-[var(--text-secondary)] mb-3">Saldo Akumulasi Skripsi (Modal $500.00)</div>
                     </div>
                     <div class="space-y-1.5 text-xs border-t border-[var(--card-border)] pt-2.5">
-                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Total Transaksi:</span><span class="font-bold text-[var(--text-primary)]" id="stat-skripsi-trades">37 Trade</span></div>
-                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Win Rate (Decided):</span><span class="font-bold text-[#007a4d]" id="stat-skripsi-wr">65.6%</span></div>
-                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Hasil Riil:</span><span class="font-bold text-[var(--text-secondary)]" id="stat-skripsi-wbl">21W | 5 BEP | 11L</span></div>
-                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Net Profit USD:</span><span class="font-black text-[#007a4d]" id="stat-skripsi-pnl">+$26.30</span></div>
-                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Profit Factor:</span><span class="font-bold text-blue-500" id="stat-skripsi-pf">1.42</span></div>
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Total Transaksi:</span><span class="font-bold text-[var(--text-primary)]" id="stat-skripsi-trades">—</span></div>
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Win Rate (Decided):</span><span class="font-bold text-[#007a4d]" id="stat-skripsi-wr">—</span></div>
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Hasil Riil:</span><span class="font-bold text-[var(--text-secondary)]" id="stat-skripsi-wbl">—</span></div>
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Net Profit USD:</span><span class="font-black text-[#007a4d]" id="stat-skripsi-pnl">—</span></div>
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Profit Factor:</span><span class="font-bold text-blue-500" id="stat-skripsi-pf">—</span></div>
                     </div>
                 </div>
 
@@ -2271,18 +2342,18 @@
                 <div class="p-4 rounded-2xl bg-[var(--pill-bg)] border border-[var(--card-border)] flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between mb-2">
-                            <span class="text-xs font-bold text-amber-500 uppercase tracking-wide">Proprietary PRO (57F)</span>
-                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">Sniper V5.4</span>
+                            <span class="text-xs font-bold text-amber-500 uppercase tracking-wide">🏆 PRO V6 DUAL-ENGINE</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">Hybrid 65F + 77F</span>
                         </div>
-                        <div class="text-2xl font-black text-[#007a4d]" id="stat-pro-balance">$520.78</div>
-                        <div class="text-xs text-[var(--text-secondary)] mb-3">Saldo Mandiri PRO (Modal $500.00)</div>
+                        <div class="text-2xl font-black text-[#007a4d]" id="stat-pro-balance">$500.00</div>
+                        <div class="text-xs text-[var(--text-secondary)] mb-3">Saldo Mandiri PRO V6 (Modal $500.00)</div>
                     </div>
                     <div class="space-y-1.5 text-xs border-t border-[var(--card-border)] pt-2.5">
-                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Total Transaksi:</span><span class="font-bold text-[var(--text-primary)]" id="stat-pro-trades">19 Trade</span></div>
-                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Win Rate:</span><span class="font-bold text-[#007a4d]" id="stat-pro-wr">68.4%</span></div>
-                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Hasil Riil:</span><span class="font-bold text-[var(--text-secondary)]" id="stat-pro-wbl">13W (7 Pure, 6 BEP) | 6L</span></div>
-                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Net Profit USD:</span><span class="font-black text-[#007a4d]" id="stat-pro-pnl">+$20.78</span></div>
-                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Profit Factor:</span><span class="font-bold text-amber-500" id="stat-pro-pf">2.72</span></div>
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Total Transaksi:</span><span class="font-bold text-[var(--text-primary)]" id="stat-pro-trades">—</span></div>
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Win Rate:</span><span class="font-bold text-[#007a4d]" id="stat-pro-wr">—</span></div>
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Hasil Riil:</span><span class="font-bold text-[var(--text-secondary)]" id="stat-pro-wbl">—</span></div>
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Net Profit USD:</span><span class="font-black text-[#007a4d]" id="stat-pro-pnl">—</span></div>
+                        <div class="flex justify-between"><span class="text-[var(--text-muted)]">Profit Factor:</span><span class="font-bold text-amber-500" id="stat-pro-pf">—</span></div>
                     </div>
                 </div>
             </div>
@@ -2293,11 +2364,11 @@
                     <span class="text-2xl">⚡</span>
                     <div>
                         <div class="text-xs font-bold uppercase text-[var(--text-muted)]">Total Portofolio Gabungan</div>
-                        <div class="text-base font-black text-[var(--text-primary)]" id="stat-total-summary">56 Transaksi • Net Profit +$47.08 USD</div>
+                        <div class="text-base font-black text-[var(--text-primary)]" id="stat-total-summary">Memuat rekapitulasi data gabungan...</div>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="badge-pill bg-emerald-500 text-white font-bold text-xs px-3 py-1" id="stat-total-wr-badge">Win Rate 66.7%</span>
+                    <span class="badge-pill bg-emerald-500 text-white font-bold text-xs px-3 py-1" id="stat-total-wr-badge">Win Rate —</span>
                 </div>
             </div>
 

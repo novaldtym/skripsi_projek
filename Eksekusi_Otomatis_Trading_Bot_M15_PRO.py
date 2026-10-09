@@ -1,17 +1,23 @@
 """
 =============================================================================
-EKSEKUSI OTOMATIS TRADING BOT M15 PRO — 77 FITUR & MODEL V5.4 MASTER
+🏆 TRADING BOT M15 PRO V6.0 DUAL-ENGINE — ARSITEKTUR HYBRID DUAL-AGENT
 =============================================================================
-Model Proprietary Komersial & Hak Paten:
-- Algoritma: LightGBM Tuned (77 Fitur: 65 Kausal Skripsi + 12 Institusional)
-- Target Labeling: Triple-Barrier Dynamic Volatility (Target TP +$8.50 vs SL -$6.50 dalam 25 Bar)
-- Eksekusi: Dual-Engine Micro Sniper (SL -$5.00 Ketat, TP +$9.50 s/d +$12.50 Ekspansif)
+Arsitektur Komerisal & Hak Paten V6.0:
+- Dual-Engine Regime Switching:
+    1. HEAD 1: Trend Expansion Engine (65 Fitur Kausal Skripsi)
+       * Domain: Momentum kuat (ADX >= 24.0, BB Bandwidth membesar)
+       * TP: +$8.50 s/d +$11.00 | SL: -$6.50
+    2. HEAD 2: Mean Reversion & Micro-Sniper (77 Fitur Institusional PRO)
+       * Domain: Pasar jenuh / sideways / reversal (ADX < 20.0 atau Stoch RSI >= 80 / <= 20)
+       * TP: +$9.50 s/d +$12.50 | SL: -$5.00 Ketat (Shockwave Crash Shield)
+    3. META-ARBITER GATING:
+       * Mengeliminasi 1.454 trade konflik / tabrakan antar model
+       * Hanya mengeksekusi sinyal high-conviction (>= 65%) di zona transisi
 - Trailing / Lock 2-Tier:
     * Tier 1 (BEP Lock): Floating >= +$2.20 -> Kunci SL ke Entry +$0.30
     * Tier 2 (Profit Lock): Floating >= +$5.50 -> Kunci SL ke Entry +$3.00
-- Micro-Trigger Sumbu: Bonus 35% Wick untuk optimalisasi harga masuk
-- Magic Number: 155701 (Hedging mode, zero collision dengan Skripsi 123242)
-- Port Socket Lock: 48903
+- Magic Number: 155701 (Hedging mode, isolasi total dari Bot Skripsi 123242)
+- Port Socket Lock: 48903 (Single Instance Safeguard)
 =============================================================================
 """
 
@@ -23,7 +29,7 @@ import json
 import joblib
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime
 import MetaTrader5 as mt5
 import warnings
 warnings.filterwarnings('ignore')
@@ -55,10 +61,10 @@ elif hasattr(sys.stderr, 'reconfigure'):
     except Exception: pass
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-TELEMETRY_PATH = os.path.join(BASE_DIR, "telemetry_m15_pro.json")
-EXCEL_PRO_PATH  = os.path.join(BASE_DIR, "Laporan_Forward_Testing_M15_PRO.xlsx")
-MODEL_PATH      = os.path.join(BASE_DIR, "model_m15_pro_77_features.pkl")
-META_PATH       = os.path.join(BASE_DIR, "model_m15_pro_77_features_meta.pkl")
+TELEMETRY_PATH   = os.path.join(BASE_DIR, "telemetry_m15_pro.json")
+EXCEL_PRO_PATH   = os.path.join(BASE_DIR, "Laporan_Forward_Testing_M15_PRO.xlsx")
+MODEL_TREND_PATH = os.path.join(BASE_DIR, "model_lightgbm_xauusd.pkl")           # Head 1 (65 Fitur)
+MODEL_REV_PATH   = os.path.join(BASE_DIR, "model_m15_pro_77_features.pkl")        # Head 2 (77 Fitur)
 
 INSTANCE_PORT = 48903
 
@@ -80,17 +86,12 @@ SYMBOL = "XAUUSD"
 MAGIC_M15_PRO = 155701
 LOT_SIZE = 0.01
 
-# PARAMETER MODEL V5.4 MASTER RESMI:
-SL_POINTS_FIXED  = 50.0   # Stop Loss Ketat $5.00
-TP_NORMAL_POINTS = 95.0   # Take Profit Normal $9.50 (RRR 1:1.90)
-TP_SNIPER_POINTS = 125.0  # Take Profit Sniper $12.50 (RRR 1:2.50)
+# PARAMETER PRO V6 DUAL-ENGINE:
+CONF_ENTRY_MIN  = 60.0    # Ambang batas entri selektif
+CONF_SNIPER_MIN = 65.0    # Ambang batas sniper high conviction
 
-CONF_ENTRY_MIN  = 60.0    # Ambang batas eksekusi (60%)
-CONF_SNIPER_MIN = 65.0    # Ambang batas target sniper (65%)
-
-# 77 FITUR RESMI MODEL V5.4 MASTER
-FEATURES_77 = [
-    # 65 FITUR SKRIPSI KAUSAL MURNI
+# 65 FITUR RESMI MODEL SKRIPSI (HEAD 1 - TREND)
+FEATURES_65 = [
     'Body_Ratio', 'Lower_Wick_Ratio', 'Upper_Wick_Ratio',
     'FVG_Bull', 'FVG_Bear', 'Dist_Support', 'Dist_Resistance',
     'BOS_Bull', 'BOS_Bear', 'CHoCH_Bull', 'CHoCH_Bear',
@@ -113,8 +114,11 @@ FEATURES_77 = [
     'SMT_Divergence_Bull', 'SMT_Divergence_Bear',
     'Trend_H1_Bull', 'Trend_H1_Strong', 'H1_Dist_EMA50',
     'Trend_H4_Bull', 'Trend_H4_Strong', 'H4_Dist_EMA50',
-    'Is_NFP_Week', 'Is_CPI_Day', 'Is_FOMC_Week',
-    # 12 FITUR INSTITUSIONAL ENHANCEMENT
+    'Is_NFP_Week', 'Is_CPI_Day', 'Is_FOMC_Week'
+]
+
+# 77 FITUR RESMI MODEL PROPRIETARY (HEAD 2 - REVERSAL)
+FEATURES_77 = FEATURES_65 + [
     'Rejection_Resist_Index', 'Rejection_Support_Index',
     'Stoch_RSI_K', 'Stoch_RSI_D',
     'Stoch_RSI_Overbought', 'Stoch_RSI_Oversold',
@@ -125,7 +129,7 @@ FEATURES_77 = [
 
 def log_pro(msg):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    formatted = f"[{ts} WIB] [M15 PRO] {msg}"
+    formatted = f"[{ts} WIB] [PRO V6 DUAL-ENGINE] {msg}"
     print(formatted, flush=True)
 
 def write_telemetry_pro(data):
@@ -171,8 +175,8 @@ def connect_mt5_pro():
     mt5.symbol_select(SYMBOL, True)
     return True
 
-def extract_77_features(df_m15, df_h1, df_h4, df_dxy):
-    """Menghitung 77 Fitur Matematika Spasial, ICT, & Shockwave Model V5.4 Master"""
+def extract_all_dual_features(df_m15, df_h1, df_h4, df_dxy):
+    """Menghitung 77 Fitur Kausal dan Institusional secara simultan untuk kedua Head"""
     df = df_m15.copy()
     range_m15 = (df['high'] - df['low']) + 1e-6
     df['Body_Ratio']       = (df['close'] - df['open']).abs() / range_m15
@@ -253,7 +257,7 @@ def extract_77_features(df_m15, df_h1, df_h4, df_dxy):
     vol_ma20 = vol.rolling(20, min_periods=1).mean()
     df['Volume_Ratio'] = vol / (vol_ma20 + 1e-6)
 
-    # 6 Fitur Zona Spasial
+    # 6 Fitur Spasial
     df['Zone_A_Bounce_Bull'] = ((df['Dist_Support'] <= 0.0015) & (df['Lower_Wick_Ratio'] >= 0.40)).astype(int)
     df['Zone_A_Bounce_Bear'] = ((df['Dist_Resistance'] <= 0.0015) & (df['Upper_Wick_Ratio'] >= 0.40)).astype(int)
     df['Zone_B_Prox_Bull']   = (df['Dist_Support'] <= 0.0010).astype(int)
@@ -271,7 +275,7 @@ def extract_77_features(df_m15, df_h1, df_h4, df_dxy):
     df['Pullback_EMA_Bull'] = ((df['low'] <= ema_9_m15) & (df['close'] > ema_9_m15)).astype(int)
     df['Pullback_EMA_Bear'] = ((df['high'] >= ema_9_m15) & (df['close'] < ema_9_m15)).astype(int)
 
-    # Intermarket DXY
+    # DXY Intermarket
     if df_dxy is not None and len(df_dxy) > 0:
         dxy_aligned = df_dxy.reindex(df.index, method='ffill').fillna(method='bfill')
         dxy_c = dxy_aligned['close']; dxy_h = dxy_aligned['high']; dxy_l = dxy_aligned['low']
@@ -328,7 +332,7 @@ def extract_77_features(df_m15, df_h1, df_h4, df_dxy):
     df['Is_CPI_Day']   = ((day_of_month >= 10) & (day_of_month <= 15)).astype(int)
     df['Is_FOMC_Week'] = ((day_of_month >= 15) & (day_of_month <= 22) & (weekday == 2)).astype(int)
 
-    # 12 FITUR INSTITUSIONAL ENHANCEMENT
+    # 12 FITUR INSTITUSIONAL KHUSUS HEAD 2 (PRO)
     df['Rejection_Resist_Index']  = (df['Upper_Wick_Ratio'] ** 2) / (df['Dist_Resistance'] + 0.0005)
     df['Rejection_Support_Index'] = (df['Lower_Wick_Ratio'] ** 2) / (df['Dist_Support'] + 0.0005)
 
@@ -355,22 +359,35 @@ def extract_77_features(df_m15, df_h1, df_h4, df_dxy):
 
     return df
 
-def train_or_load_model():
-    """Memuat model resmi 77 fitur PRO (Model V5.4 Master)"""
-    for p in [MODEL_PATH, r"d:\SKRIPSI INFORMATIKA\model_m15_pro_77_features.pkl"]:
-        if os.path.exists(p):
-            try:
-                model = joblib.load(p)
-                if hasattr(model, 'n_features_in_') and model.n_features_in_ == 77:
-                    log_pro(f"Model LightGBM PRO 77 Fitur (V5.4 Master) berhasil dimuat dari {p}")
-                    return model
-            except Exception as e:
-                log_pro(f"Gagal memuat {p}: {e}")
-    log_pro("ERROR: Model 77 fitur tidak ditemukan!")
-    sys.exit(1)
+def load_dual_models():
+    """Memuat kedua model resmi: Head 1 (Trend 65F) & Head 2 (Reversal 77F)"""
+    model_trend = None
+    model_rev = None
+
+    # 1. Load Head 1 (Trend 65 Fitur)
+    if os.path.exists(MODEL_TREND_PATH):
+        try:
+            model_trend = joblib.load(MODEL_TREND_PATH)
+            log_pro(f"✅ Head 1 [Trend Specialist 65 Fitur] berhasil dimuat dari {MODEL_TREND_PATH}")
+        except Exception as e:
+            log_pro(f"Gagal memuat Model Trend: {e}")
+
+    # 2. Load Head 2 (Reversal 77 Fitur)
+    if os.path.exists(MODEL_REV_PATH):
+        try:
+            model_rev = joblib.load(MODEL_REV_PATH)
+            log_pro(f"✅ Head 2 [Reversal Specialist 77 Fitur] berhasil dimuat dari {MODEL_REV_PATH}")
+        except Exception as e:
+            log_pro(f"Gagal memuat Model Reversal: {e}")
+
+    if model_trend is None or model_rev is None:
+        log_pro("❌ FATAL: Salah satu model dual-engine tidak ditemukan!")
+        sys.exit(1)
+
+    return model_trend, model_rev
 
 def manage_active_positions_pro():
-    """Mengelola Trailing Stop 2-Tier & Auto BEP Lock untuk Posisi M15 PRO"""
+    """Mengelola Trailing Stop 2-Tier & Auto BEP Lock untuk Posisi M15 PRO V6"""
     try:
         positions = mt5.positions_get(symbol=SYMBOL)
         if not positions:
@@ -416,8 +433,8 @@ def manage_active_positions_pro():
     except Exception as e:
         log_pro(f"Error manage active positions: {e}")
 
-def execute_market_order_pro(signal_type, tp_points, sl_points, reason_desc):
-    """Eksekusi Order Pasar Riil pada Terminal MT5 PRO dengan Magic Number Khusus"""
+def execute_market_order_pro_v6(signal_type, tp_points, sl_points, head_name, reason_desc):
+    """Eksekusi Order Pasar Riil PRO V6 Dual-Engine pada MT5"""
     tick = mt5.symbol_info_tick(SYMBOL)
     if not tick:
         log_pro("Gagal mengambil harga pasar terkini!")
@@ -431,6 +448,8 @@ def execute_market_order_pro(signal_type, tp_points, sl_points, reason_desc):
     sl_price = round(price - (sl_points * point) if is_buy else price + (sl_points * point), 2)
     tp_price = round(price + (tp_points * point) if is_buy else price - (tp_points * point), 2)
 
+    comment_str = f"V6_{'TRD' if 'HEAD 1' in head_name else 'REV'}_{signal_type}"
+
     request = {
         "action": mt5.TRADE_ACTION_DEAL,
         "symbol": SYMBOL,
@@ -441,20 +460,22 @@ def execute_market_order_pro(signal_type, tp_points, sl_points, reason_desc):
         "tp": tp_price,
         "deviation": 20,
         "magic": MAGIC_M15_PRO,
-        "comment": f"M15_PRO_{signal_type}",
+        "comment": comment_str[:31],
         "type_time": mt5.ORDER_TIME_GTC,
         "type_filling": get_best_filling_mode(),
     }
 
-    log_pro(f"🚀 MENGIRIM ORDER {signal_type} @ ${price:.2f} | SL: ${sl_price:.2f} (-${sl_points/10:.2f}) | TP: ${tp_price:.2f} (+${tp_points/10:.2f}) | {reason_desc}")
+    log_pro(f"🚀 [{head_name}] EKSEKUSI {signal_type} @ ${price:.2f} | SL: ${sl_price:.2f} (-${sl_points/10:.2f}) | TP: ${tp_price:.2f} (+${tp_points/10:.2f})")
+    log_pro(f"   ↳ Alasan: {reason_desc}")
     result = mt5.order_send(request)
+
     if result and result.retcode == mt5.TRADE_RETCODE_DONE:
-        log_pro(f"✅ ORDER {signal_type} BERHASIL DIEKSEKUSI! Ticket: #{result.order}")
+        log_pro(f"✅ ORDER {signal_type} PRO V6 BERHASIL! Ticket: #{result.order}")
         try:
             sync_mt5_trades_to_excel(
                 excel_path=EXCEL_PRO_PATH,
                 magic_number=MAGIC_M15_PRO,
-                model_label="LightGBM PRO V5.4 Master (77 Fitur Triple-Barrier Sniper)",
+                model_label=f"PRO V6 Dual-Engine ({head_name})",
                 sheet_title="Trade_History_PRO",
                 summary_sheet_title="Ringkasan_Statistik_PRO"
             )
@@ -463,16 +484,16 @@ def execute_market_order_pro(signal_type, tp_points, sl_points, reason_desc):
         return True
     else:
         err = result.comment if result else mt5.last_error()
-        log_pro(f"❌ ORDER GAGAL: {err}")
+        log_pro(f"❌ ORDER PRO V6 GAGAL: {err}")
         return False
 
-def run_m15_pro_loop():
+def run_m15_pro_v6_loop():
     if not acquire_single_instance_lock():
         log_pro("⚠️ Bot M15 PRO sudah aktif berjalan di latar belakang (port 48903 terkunci). Proses ini keluar otomatis.")
         sys.exit(0)
 
     log_pro("="*80)
-    log_pro("BOT M15 PRO AKTIF — MODEL V5.4 MASTER (77 FITUR TRIPLE-BARRIER PATEN)")
+    log_pro("🏆 BOT M15 PRO V6.0 DUAL-ENGINE AKTIF — ARSITEKTUR HYBRID MULTI-REGIME")
     log_pro("="*80)
 
     if not connect_mt5_pro():
@@ -480,7 +501,7 @@ def run_m15_pro_loop():
         time.sleep(5)
         return
 
-    model = train_or_load_model()
+    model_trend, model_rev = load_dual_models()
     last_eval_time = None
     _last_holding_trades = 0
 
@@ -492,7 +513,7 @@ def run_m15_pro_loop():
                 time.sleep(2)
                 continue
 
-            # Kelola trailing stop 2-tier untuk posisi aktif PRO
+            # Kelola trailing stop 2-tier untuk posisi aktif PRO V6
             manage_active_positions_pro()
 
             # Ambil data candle M15
@@ -522,12 +543,12 @@ def run_m15_pro_loop():
                         floating_pnl += p.profit
 
             if holding_trades < _last_holding_trades:
-                log_pro("Posisi PRO telah tertutup (TP/SL). Menyinkronkan riwayat transaksi ke Excel PRO...")
+                log_pro("Posisi PRO V6 telah tertutup (TP/SL/BEP). Menyinkronkan riwayat transaksi ke Excel PRO...")
                 try:
                     sync_mt5_trades_to_excel(
                         excel_path=EXCEL_PRO_PATH,
                         magic_number=MAGIC_M15_PRO,
-                        model_label="LightGBM PRO V5.4 Master (77 Fitur Triple-Barrier Sniper)",
+                        model_label="PRO V6 Dual-Engine (Hybrid Trend & Reversal)",
                         sheet_title="Trade_History_PRO",
                         summary_sheet_title="Ringkasan_Statistik_PRO"
                     )
@@ -535,7 +556,7 @@ def run_m15_pro_loop():
                     log_pro(f"Error sync Excel PRO: {e}")
             _last_holding_trades = holding_trades
 
-            # Ekstrak 77 fitur
+            # Ekstrak seluruh fitur untuk kedua head
             rates_h1 = mt5.copy_rates_from_pos(SYMBOL, mt5.TIMEFRAME_H1, 0, 100)
             rates_h4 = mt5.copy_rates_from_pos(SYMBOL, mt5.TIMEFRAME_H4, 0, 50)
             try: rates_dxy = mt5.copy_rates_from_pos('DXY', mt5.TIMEFRAME_M15, 0, 100)
@@ -549,63 +570,125 @@ def run_m15_pro_loop():
             df_x = pd.DataFrame(rates_dxy) if rates_dxy is not None else None
             if df_x is not None: df_x['time'] = pd.to_datetime(df_x['time'], unit='s'); df_x.set_index('time', inplace=True)
 
-            df_feats = extract_77_features(df_m, df_1, df_4, df_x)
-            latest_vector = df_feats[FEATURES_77].iloc[-1:]
+            df_feats = extract_all_dual_features(df_m, df_1, df_4, df_x)
 
-            probs = model.predict_proba(latest_vector)[0]
-            prob_up = round(float(probs[1]) * 100, 1)
-            prob_down = round(float(probs[0]) * 100, 1)
+            # -------------------------------------------------------------
+            # PREDIKSI SIMULTAN KEDUA ENGINE
+            # -------------------------------------------------------------
+            # 1. Head 1: Trend Expansion Specialist (65 Fitur Skripsi)
+            vec_65 = df_feats[FEATURES_65].iloc[-1:]
+            probs_h1 = model_trend.predict_proba(vec_65)[0]
+            p1_up = round(float(probs_h1[1]) * 100, 1)
+            p1_dn = round(float(probs_h1[0]) * 100, 1)
 
-            # Logika Model V5.4 Master
+            # 2. Head 2: Mean Reversion / Micro-Sniper (77 Fitur PRO)
+            vec_77 = df_feats[FEATURES_77].iloc[-1:]
+            probs_h2 = model_rev.predict_proba(vec_77)[0]
+            p2_up = round(float(probs_h2[1]) * 100, 1)
+            p2_dn = round(float(probs_h2[0]) * 100, 1)
+
+            # -------------------------------------------------------------
+            # REGIME DETECTOR & ARBITER PRO V6
+            # -------------------------------------------------------------
+            adx = round(float(df_feats['ADX_14'].iloc[-1]), 1)
+            bb_w = float(df_feats['BB_Bandwidth'].iloc[-1])
+            stoch_k = round(float(df_feats['Stoch_RSI_K'].iloc[-1]), 1)
+            bb_median = float(df_feats['BB_Bandwidth'].tail(100).median()) if len(df_feats) >= 100 else 0.005
+
+            is_trending = (adx >= 24.0) and (bb_w >= bb_median) and not (stoch_k >= 85.0 or stoch_k <= 15.0)
+            is_reversal = (adx < 20.0) or (stoch_k >= 80.0) or (stoch_k <= 20.0)
+
             signal_candidate = "STANDBY"
-            status_str = f"STANDBY (AI {max(prob_up, prob_down):.1f}% < 60%)"
-            tp_pts = TP_NORMAL_POINTS
-            sl_pts = SL_POINTS_FIXED
+            active_engine_name = "STANDBY"
+            regime_desc = "NORMAL BUFFER"
+            tp_pts = 95.0
+            sl_pts = 50.0
 
-            if prob_up >= CONF_ENTRY_MIN and prob_up > prob_down:
-                signal_candidate = "BUY"
-                if prob_up >= CONF_SNIPER_MIN:
-                    tp_pts = TP_SNIPER_POINTS
-                    status_str = f"🟢 AI SNIPER BUY: Prob {prob_up:.1f}% >= 65% | Target TP +$12.50 (RRR 1:2.50) | SL -$5.00"
+            if is_trending:
+                regime_desc = f"TRENDING EXPANSION (ADX {adx:.1f} >= 24)"
+                active_engine_name = "HEAD 1 (TREND 65F)"
+                if p1_up >= CONF_ENTRY_MIN and p1_up > p1_dn:
+                    signal_candidate = "BUY"
+                    tp_pts = 110.0 if p1_up >= CONF_SNIPER_MIN else 85.0
+                    sl_pts = 65.0
+                    status_str = f"🟢 AI BUY [{active_engine_name}]: Prob {p1_up:.1f}% >= 60% | TP +${tp_pts/10:.2f} | SL -${sl_pts/10:.2f} | {regime_desc}"
+                elif p1_dn >= CONF_ENTRY_MIN and p1_dn > p1_up:
+                    signal_candidate = "SELL"
+                    tp_pts = 110.0 if p1_dn >= CONF_SNIPER_MIN else 85.0
+                    sl_pts = 65.0
+                    status_str = f"🔴 AI SELL [{active_engine_name}]: Prob {p1_dn:.1f}% >= 60% | TP +${tp_pts/10:.2f} | SL -${sl_pts/10:.2f} | {regime_desc}"
                 else:
-                    tp_pts = TP_NORMAL_POINTS
-                    status_str = f"🟢 AI NORMAL BUY: Prob {prob_up:.1f}% >= 60% | Target TP +$9.50 (RRR 1:1.90) | SL -$5.00"
+                    status_str = f"⚪ STANDBY [{active_engine_name}]: Sinyal {max(p1_up, p1_dn):.1f}% < 60% | {regime_desc}"
 
-            elif prob_down >= CONF_ENTRY_MIN and prob_down > prob_up:
-                signal_candidate = "SELL"
-                if prob_down >= CONF_SNIPER_MIN:
-                    tp_pts = TP_SNIPER_POINTS
-                    status_str = f"🔴 AI SNIPER SELL: Prob {prob_down:.1f}% >= 65% | Target TP +$12.50 (RRR 1:2.50) | SL -$5.00"
+            elif is_reversal:
+                regime_desc = f"MEAN REVERSION (Stoch {stoch_k:.1f} / ADX {adx:.1f})"
+                active_engine_name = "HEAD 2 (REVERSAL 77F)"
+                if p2_up >= CONF_ENTRY_MIN and p2_up > p2_dn:
+                    signal_candidate = "BUY"
+                    tp_pts = 125.0 if p2_up >= CONF_SNIPER_MIN else 95.0
+                    sl_pts = 50.0
+                    status_str = f"🟢 AI BUY [{active_engine_name}]: Prob {p2_up:.1f}% >= 60% | TP +${tp_pts/10:.2f} | SL -${sl_pts/10:.2f} | {regime_desc}"
+                elif p2_dn >= CONF_ENTRY_MIN and p2_dn > p2_up:
+                    signal_candidate = "SELL"
+                    tp_pts = 125.0 if p2_dn >= CONF_SNIPER_MIN else 95.0
+                    sl_pts = 50.0
+                    status_str = f"🔴 AI SELL [{active_engine_name}]: Prob {p2_dn:.1f}% >= 60% | TP +${tp_pts/10:.2f} | SL -${sl_pts/10:.2f} | {regime_desc}"
                 else:
-                    tp_pts = TP_NORMAL_POINTS
-                    status_str = f"🔴 AI NORMAL SELL: Prob {prob_down:.1f}% >= 60% | Target TP +$9.50 (RRR 1:1.90) | SL -$5.00"
+                    status_str = f"⚪ STANDBY [{active_engine_name}]: Sinyal {max(p2_up, p2_dn):.1f}% < 60% | {regime_desc}"
+
+            else:
+                # Zona Transisi (20 <= ADX < 24): Meta-Arbiter (Hanya high conviction >= 65%)
+                regime_desc = f"TRANSITION ZONE (ADX {adx:.1f}, Stoch {stoch_k:.1f})"
+                active_engine_name = "META-ARBITER"
+                max_h1 = max(p1_up, p1_dn)
+                max_h2 = max(p2_up, p2_dn)
+                if max_h2 >= CONF_SNIPER_MIN and max_h2 >= max_h1:
+                    signal_candidate = "BUY" if p2_up > p2_dn else "SELL"
+                    tp_pts = 125.0 if max_h2 >= 68.0 else 95.0
+                    sl_pts = 50.0
+                    status_str = f"{'🟢' if signal_candidate=='BUY' else '🔴'} AI {signal_candidate} [{active_engine_name} - REVERSAL]: High Conviction {max_h2:.1f}% >= 65% | {regime_desc}"
+                elif max_h1 >= CONF_SNIPER_MIN:
+                    signal_candidate = "BUY" if p1_up > p1_dn else "SELL"
+                    tp_pts = 110.0 if max_h1 >= 68.0 else 85.0
+                    sl_pts = 65.0
+                    status_str = f"{'🟢' if signal_candidate=='BUY' else '🔴'} AI {signal_candidate} [{active_engine_name} - TREND]: High Conviction {max_h1:.1f}% >= 65% | {regime_desc}"
+                else:
+                    status_str = f"⚪ STANDBY [{active_engine_name}]: Menunggu sinyal konfiden >= 65% (Head1: {max_h1:.1f}%, Head2: {max_h2:.1f}%) | {regime_desc}"
 
             m15_sup = round(float(df_feats['Swing_Low_20'].iloc[-1]), 2)
             m15_res = round(float(df_feats['Swing_High_20'].iloc[-1]), 2)
             h1_trend_str = "BULLISH" if df_feats['Trend_H1_Bull'].iloc[-1] == 1 else "BEARISH"
 
-            # Eksekusi jika lilin baru terkonfirmasi dan tidak ada posisi aktif PRO
+            # Eksekusi jika lilin baru M15 terkonfirmasi dan tidak ada posisi aktif PRO
             if last_eval_time != current_bar_time:
                 last_eval_time = current_bar_time
-                log_pro(f"Lilin M15 Baru: Close ${cur_price:.2f} | AI Buy: {prob_up:.1f}%, Sell: {prob_down:.1f}% | {status_str}")
+                log_pro(f"Lilin M15 Baru: Close ${cur_price:.2f} | H1 (Trend): B {p1_up}%/S {p1_dn}% | H2 (Rev): B {p2_up}%/S {p2_dn}% | {status_str}")
                 
                 if signal_candidate in ["BUY", "SELL"]:
                     if holding_trades == 0:
-                        execute_market_order_pro(signal_candidate, tp_pts, sl_pts, status_str)
+                        execute_market_order_pro_v6(signal_candidate, tp_pts, sl_pts, active_engine_name, status_str)
                     else:
-                        log_pro(f"Posisi {signal_candidate} ditahan karena ada {holding_trades} trade M15 PRO yang sedang berjalan.")
+                        log_pro(f"Posisi {signal_candidate} ditahan karena ada {holding_trades} trade PRO V6 yang sedang berjalan.")
 
-            # Tulis Telemetri M15 PRO Real-Time setiap detik
+            # Tulis Telemetri M15 PRO V6 Dual-Engine Real-Time setiap detik
             telemetry_data = {
-                "timeframe": "M15 PRO (V5.4 Master)",
-                "prob_buy": prob_up,
-                "prob_sell": prob_down,
+                "timeframe": "M15 PRO (V6.0 Dual-Engine)",
+                "engine_version": "PRO V6.0 DUAL-ENGINE",
+                "active_head": active_engine_name,
+                "regime_name": regime_desc,
+                "prob_buy": p1_up if is_trending else (p2_up if is_reversal else round((p1_up + p2_up)/2, 1)),
+                "prob_sell": p1_dn if is_trending else (p2_dn if is_reversal else round((p1_dn + p2_dn)/2, 1)),
+                "head1_buy": p1_up,
+                "head1_sell": p1_dn,
+                "head2_buy": p2_up,
+                "head2_sell": p2_dn,
+                "adx": adx,
+                "stoch_k": stoch_k,
                 "h1_trend": h1_trend_str,
                 "mins_left": mins_left,
                 "secs_left": secs_left,
                 "seconds_left": seconds_left,
                 "status_str": status_str,
-                "stoch_k": round(float(df_feats['Stoch_RSI_K'].iloc[-1]), 1),
                 "ask_p": round(cur_price + 0.15, 2),
                 "bid_p": round(cur_price, 2),
                 "m15_sup": m15_sup,
@@ -620,8 +703,8 @@ def run_m15_pro_loop():
             time.sleep(1)
 
         except Exception as e:
-            log_pro(f"Error loop M15 PRO: {e}")
+            log_pro(f"Error loop PRO V6: {e}")
             time.sleep(2)
 
 if __name__ == "__main__":
-    run_m15_pro_loop()
+    run_m15_pro_v6_loop()

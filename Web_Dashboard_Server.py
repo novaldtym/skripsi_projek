@@ -73,7 +73,7 @@ CSV_EVAL_PATH       = os.path.join(BASE_DIR, "Evaluasi_Skenario_Trade.csv")
 MAGIC_M15_V42 = 123242  # Pure 100 Trades v4.2
 MAGIC_M15_V41 = 123230  # Batch 1 Archive v4.1
 MAGIC_M15     = 123242
-MAGIC_M15_PRO = 155701  # Bot M15 PRO (57 Fitur)
+MAGIC_M15_PRO = 155701  # Bot M15 PRO V6.0 Dual-Engine (Hybrid 65F + 77F)
 MAGIC_M5      = 123236
 
 def get_lan_ip():
@@ -499,7 +499,7 @@ def ensure_trades_synced(min_interval=10):
                 sync_mt5_trades_to_excel(
                     excel_path=EXCEL_PRO_PATH,
                     magic_number=MAGIC_M15_PRO,
-                    model_label="LightGBM PRO 57 Fitur (AI Adaptive Sniper)",
+                    model_label="PRO V6 Dual-Engine (Hybrid Trend & Reversal)",
                     sheet_title="Trade_History_PRO",
                     summary_sheet_title="Ringkasan_Statistik_PRO",
                     silent=True
@@ -952,7 +952,7 @@ def get_trade_diagnostics(limit=50, bot_filter=''):
                         if raw_res == 'WIN' or profit > 0.30:
                             res_label = 'WIN'
                             if 'Take Profit' in alasan or 'TP' in alasan:
-                                diag_text = f"🎯 [WIN - TP Dinamis]: Target TP ekspansif ${exit_p:.2f} tercapai optimal (+${profit:.2f}). Konfluensi 57 fitur SMC selaras dengan order block."
+                                diag_text = f"🎯 [WIN - TP Dinamis]: Target TP ekspansif ${exit_p:.2f} tercapai optimal (+${profit:.2f}). Konfluensi Dual-Engine V6 selaras dengan momentum pasar."
                                 lesson = "Eksekusi sniper di zona likuiditas tinggi valid. RRR optimal menghasilkan ekspansi profit maksimal."
                             else:
                                 diag_text = f"⚡ [WIN - Trailing Lock]: Profit terkunci rapat (+${profit:.2f}) oleh Dynamic Trailing Lock saat momentum candle mulai melambat."
@@ -978,7 +978,7 @@ def get_trade_diagnostics(limit=50, bot_filter=''):
                             "pips": pips,
                             "profit": profit,
                             "result": res_label,
-                            "model": "Proprietary PRO V5.4 (57 Fitur)",
+                            "model": "PRO V6 Dual-Engine (Hybrid 65F + 77F)",
                             "scenario": "Micro-Trigger Sniper SMC",
                             "zone": "Key Liquidity Pool",
                             "h4_trend": "BULLISH" if t_type == "BUY" else "BEARISH",
@@ -1352,7 +1352,7 @@ import threading
 
 WATCHDOG_STATE = {
     'm15_active': True,   # Default ON untuk bot M15 skripsi
-    'pro_active': False,
+    'pro_active': True,   # Default ON untuk Bot PRO V6 Dual-Engine
     'm5_active': False
 }
 
@@ -1473,7 +1473,7 @@ def api_control(bot_key, action):
 
 @app.route('/api/head-to-head')
 def api_head_to_head():
-    """Endpoint komparasi empiris M15 Standar (44 Fitur) vs M15 PRO (57 Fitur & AI Adaptive Sniper)"""
+    """Endpoint komparasi empiris M15 Skripsi (65 Fitur) vs PRO V6 Dual-Engine (Hybrid 65F + 77F)"""
     summary = get_portfolio_summary()
     
     std_trades = summary.get("skripsi_trades", 0)
@@ -1489,19 +1489,19 @@ def api_head_to_head():
     pro_pnl    = summary.get("m15_pro_net_profit", 0.0)
 
     if pro_pnl > std_pnl:
-        leader_pnl = "M15 PRO"
+        leader_pnl = "PRO V6 Dual-Engine"
     elif std_pnl > pro_pnl:
-        leader_pnl = "M15 Standar"
+        leader_pnl = "M15 Skripsi"
     else:
         leader_pnl = "Imbang"
 
     return jsonify({
         "standard": {
-            "name": "M15 Standar (Skripsi v4.2)",
-            "features_count": 44,
-            "architecture": "Two-Stage Hybrid (SMC Heuristic + LightGBM)",
+            "name": "M15 Skripsi (Kanonikal 65F)",
+            "features_count": 65,
+            "architecture": "Two-Stage Hybrid (SMC Heuristic + LightGBM 65F)",
             "risk_profile": "TP +$6.50 / SL -$6.50 (Fixed 1:1) + Quick BEP",
-            "account": "Akun Utama Exness",
+            "account": "Akun Utama Exness #463897979",
             "trades": std_trades,
             "wins": std_wins,
             "losses": std_losses,
@@ -1509,11 +1509,11 @@ def api_head_to_head():
             "net_profit": std_pnl
         },
         "pro": {
-            "name": "M15 PRO (AI Adaptive Sniper v5.0)",
-            "features_count": 57,
-            "architecture": "Full AI End-to-End Decision (Zero Paralysis)",
-            "risk_profile": "AI Adaptive (TP +$8.50 s/d +$11.00 / SL -$6.50 Ketat)",
-            "account": "Akun Khusus Exness MT5Trial14 (#416453202)",
+            "name": "PRO V6 Dual-Engine (Hybrid 65F + 77F)",
+            "features_count": 77,
+            "architecture": "Dual-Engine (Head 1 Trend 65F + Head 2 Reversal 77F) & Meta-Arbiter Gating",
+            "risk_profile": "2-Tier Trailing (BEP +$0.30 @ +$2.20, Lock +$3.00 @ +$5.50) • Shockwave Shield",
+            "account": "Akun Exness #463897979 (Magic: 155701)",
             "trades": pro_trades,
             "wins": pro_wins,
             "losses": pro_losses,

@@ -274,6 +274,27 @@ html, body {
     .overflow-x-auto {
         -webkit-overflow-scrolling: touch !important;
     }
+
+    /* Prevent mobile horizontal page blowout */
+    body, #app-layout, #app-main {
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+    }
+
+    /* Segmented Sub-Tab Switchers wrap cleanly on small mobile screens */
+    #view-proprietary div[class*="rounded-2xl"][class*="p-1"],
+    #view-eval div[class*="rounded-2xl"][class*="p-1"] {
+        flex-wrap: wrap !important;
+        width: 100% !important;
+    }
+
+    #view-proprietary div[class*="rounded-2xl"][class*="p-1"] button,
+    #view-eval div[class*="rounded-2xl"][class*="p-1"] button {
+        flex: 1 1 auto !important;
+        padding: 6px 8px !important;
+        font-size: 11px !important;
+        text-align: center !important;
+    }
 }
 
 /* ======== CARDS & GLASSMORPHISM ======== */

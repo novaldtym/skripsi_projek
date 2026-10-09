@@ -61,6 +61,8 @@ economic_calendar_cache.json
 entry_context_cache.json
 matriks_performa_skenario.json
 public_url.txt
+*.tmp
+telemetry_*.json
 
 # Log files
 *.log
